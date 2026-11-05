@@ -2,6 +2,9 @@
 const { call, config } = require('./_lib/tuya');
 const { handler, requireId } = require('./_lib/http');
 
+const IR_HUBS = ['wnykq', 'hwktwkq'];  // universal IR remote / IR hub categories
+const IR_AC_CATEGORY = 5;              // Tuya IR category ID for air conditioners
+
 function pickDevice(d, roomOf) {
   // Only forward what the app needs. Never forward local_key or IP details.
   const status = {};
@@ -13,8 +16,60 @@ function pickDevice(d, roomOf) {
     product: d.product_name || '',
     online: !!d.online,
     status,
-    room: roomOf[d.id] || ''
+    room: roomOf[d.id] || '',
+    ir: d.ir || undefined
   };
+}
+
+// IR blasters: hide the hub itself and show each remote set up on it (AC, TV, fan...) instead.
+async function expandIrRemotes(list, warnings) {
+  const hubs = list.filter((d) => IR_HUBS.includes(d.category));
+  if (!hubs.length) return list;
+  const byId = new Map(list.map((d) => [d.id, d]));
+  const hide = new Set();
+  const extra = [];
+
+  await Promise.all(hubs.map(async (hub) => {
+    let remotes;
+    try {
+      remotes = await call('GET', `/v2.0/infrareds/${hub.id}/remotes`);
+    } catch (e) {
+      warnings.push('IR remotes for ' + hub.name + ': ' + e.message + '. Authorize the IR Control Hub service in your cloud project.');
+      return;
+    }
+    if (!Array.isArray(remotes) || !remotes.length) return; // no remotes yet: keep showing the hub
+    hide.add(hub.id);
+    await Promise.all(remotes.map(async (r) => {
+      const id = String(r.remote_id);
+      const known = byId.get(id);
+      const categoryId = Number(r.category_id);
+      const category = (known && known.category) || 'infrared';
+      const isAc = categoryId === IR_AC_CATEGORY || category === 'infrared_ac';
+      const ir = { hub: hub.id, categoryId, remoteIndex: r.remote_index != null ? Number(r.remote_index) : null, ac: isAc };
+      if (isAc) {
+        try {
+          const st = await call('GET', `/v2.0/infrareds/${hub.id}/remotes/${id}/ac/status`);
+          ir.state = {
+            power: String(st.power) === '1',
+            mode: Number(st.mode) || 0,
+            temp: Number(st.temp) || 24,
+            wind: Number(st.wind) || 0
+          };
+        } catch (e) {
+          ir.state = { power: false, mode: 0, temp: 24, wind: 0 };
+        }
+      }
+      const device = Object.assign({}, known || { id, name: r.remote_name || 'Remote', category, status: [] }, {
+        online: hub.online,
+        ir,
+        hubRoomFrom: hub.id
+      });
+      if (known) hide.add(id);
+      extra.push(device);
+    }));
+  }));
+
+  return list.filter((d) => !hide.has(d.id)).concat(extra);
 }
 
 async function settle(promise, fallback) {
@@ -35,9 +90,11 @@ module.exports = handler(['GET'], async (req) => {
   if (homesRes.error) warnings.push('Homes: ' + homesRes.error);
   let rooms = [], scenes = [], automations = [];
   const roomOf = {};
+  let inHome = null; // Set of device IDs that belong to the selected home
 
   if (home) {
-    const [roomsRes, scenesRes, autosRes] = await Promise.all([
+    const [homeDevsRes, roomsRes, scenesRes, autosRes] = await Promise.all([
+      settle(call('GET', `/v1.0/homes/${home.id}/devices`), null),
       settle(call('GET', `/v1.0/homes/${home.id}/rooms`), {}),
       settle(call('GET', `/v1.0/homes/${home.id}/scenes`), []),
       settle(call('GET', `/v1.0/homes/${home.id}/automations`), [])
@@ -51,6 +108,16 @@ module.exports = handler(['GET'], async (req) => {
       settle(call('GET', `/v1.0/homes/${home.id}/rooms/${r.id}/devices`), [])));
     lists.forEach((l, i) => { for (const d of l.value || []) roomOf[d.id || d.dev_id] = rooms[i].name; });
 
+    // The user's device list covers every home, so keep only this home's devices.
+    if (Array.isArray(homeDevsRes.value)) {
+      inHome = new Set(homeDevsRes.value.map((d) => d.id || d.dev_id));
+    } else if (homes.length > 1) {
+      // Fallback when the home-devices API isn't authorized: use room membership.
+      inHome = new Set(Object.keys(roomOf));
+      warnings.push('Home devices: ' + (homeDevsRes.error || 'unavailable') +
+        '. Showing only devices assigned to a room in this home.');
+    }
+
     scenes = (scenesRes.value || []).map((s) => ({
       id: String(s.scene_id), name: s.name, actions: (s.actions || []).length
     }));
@@ -59,11 +126,18 @@ module.exports = handler(['GET'], async (req) => {
     }));
   }
 
+  const homeDevices = (devices || []).filter((d) => !inHome || inHome.has(d.id));
+  const irDevices = await expandIrRemotes(homeDevices, warnings);
+
   return {
     homes,
     homeId: home ? home.id : null,
     rooms: rooms.map((r) => r.name),
-    devices: (devices || []).map((d) => pickDevice(d, roomOf)),
+    devices: irDevices.map((d) => {
+      const out = pickDevice(d, roomOf);
+      if (!out.room && d.hubRoomFrom) out.room = roomOf[d.hubRoomFrom] || '';
+      return out;
+    }),
     scenes,
     automations,
     warnings,

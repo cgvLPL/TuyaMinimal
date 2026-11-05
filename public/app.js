@@ -22,9 +22,55 @@
     specs: {},           // deviceId -> { codes, writable } | 'loading'
     sceneState: {},      // sceneId -> 'running' | 'done'
     dragging: false,
+    renaming: null,
+    iconPicking: null,
+    pinEntry: '',        // digits typed on the keypad
+    pinStage: 'enter',   // PIN setup: 'enter' then 'confirm'
+    pinFirst: '',
+    pinError: '',
+    pinBusy: false,
+    irKeys: {},          // remoteId -> { keys, categoryId } | 'loading' | { error }
+    irSent: {},          // remoteId + key -> true briefly after a button is sent   // deviceId whose icon picker is open
+    icons: readIcons(),  // deviceId -> icon key, saved on this device      // { id, code } while an outlet name is being edited
     installPrompt: null
   };
   if (S.mode === 'demo') store.set('mode', 'demo');
+
+  function readIcons() {
+    try { return JSON.parse(store.get('icons') || '{}') || {}; } catch (e) { return {}; }
+  }
+  function saveIcons() { store.set('icons', JSON.stringify(S.icons)); }
+
+  // ---------- PIN lock ----------
+  // With a PIN set, the app password is stored encrypted (AES-GCM) with a key derived
+  // from the PIN (PBKDF2). Without the PIN the stored password can't be read.
+  const PIN_MIN = 4, PIN_MAX = 8, PIN_TRIES = 5, AUTO_LOCK_MS = 5 * 60 * 1000;
+  const te = new TextEncoder(), td = new TextDecoder();
+  const toB64 = (buf) => btoa(String.fromCharCode.apply(null, new Uint8Array(buf)));
+  const fromB64 = (str) => Uint8Array.from(atob(str), (c) => c.charCodeAt(0));
+  function readVault() {
+    try { const v = JSON.parse(store.get('pinVault') || 'null'); return v && v.ct ? v : null; } catch (e) { return null; }
+  }
+  async function pinKey(pin, salt) {
+    const base = await crypto.subtle.importKey('raw', te.encode(pin), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 310000, hash: 'SHA-256' },
+      base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+  }
+  async function sealVault(pin, secret) {
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await pinKey(pin, salt), te.encode(secret));
+    return { v: 1, len: pin.length, salt: toB64(salt), iv: toB64(iv), ct: toB64(ct) };
+  }
+  async function openVault(pin, vault) {
+    try {
+      const key = await pinKey(pin, fromB64(vault.salt));
+      const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(vault.iv) }, key, fromB64(vault.ct));
+      return td.decode(pt);
+    } catch (e) { return null; } // wrong PIN: the authentication tag doesn't match
+  }
+  function wipeVault() { store.del('pinVault'); store.del('pinFails'); }
+  const pinSupported = !!(window.crypto && crypto.subtle && window.isSecureContext);
 
   const wide = window.matchMedia('(min-width: 900px)');
 
@@ -85,7 +131,7 @@
   async function refresh(opts) {
     opts = opts || {};
     if (S.mode === 'live' && !S.key) { S.gate = 'login'; render(); return; }
-    if (S.loading) return;
+    if (S.loading) { S.refreshAgain = true; return; }
     S.loading = true;
     if (!S.data) render();
     try {
@@ -97,7 +143,12 @@
       prefetchLightSpecs();
     } catch (e) {
       if (e.code === 'unauthorized') {
-        S.gate = 'login'; S.gateError = 'That password does not match APP_PASSWORD on your server.';
+        const hadPin = !!readVault();
+        wipeVault();
+        S.gate = 'login';
+        S.gateError = hadPin
+          ? 'Your app password was changed on the server. Enter the new one, then set up your PIN again.'
+          : 'That password does not match APP_PASSWORD on your server.';
         S.key = ''; store.del('appKey');
       } else if (e.code === 'not_configured') {
         S.gate = 'setup'; S.gateError = e.message;
@@ -106,15 +157,17 @@
       }
     } finally {
       S.loading = false;
-      if (!S.dragging) render();
+      if (!S.dragging && !S.renaming) render();
+      if (S.refreshAgain) { S.refreshAgain = false; refresh({ silent: true }); }
     }
   }
 
-  // Lights need their spec to convert brightness into a percentage.
+  // Lights need their spec to convert brightness into a percentage;
+  // multi-outlet devices need it for their custom outlet names.
   function prefetchLightSpecs() {
     if (!S.data) return;
     for (const d of S.data.devices) {
-      if (kindOf(d) === 'light' && !S.specs[d.id] && d.online) loadSpec(d.id, true);
+      if ((kindOf(d) === 'light' || kindOf(d) === 'multi') && !S.specs[d.id] && d.online) loadSpec(d.id, true);
     }
   }
   async function loadSpec(id, quiet) {
@@ -126,7 +179,7 @@
       S.specs[id] = { codes: {}, writable: null, failed: true };
       if (!quiet) toast('Could not load controls: ' + e.message);
     }
-    if (!S.dragging) render();
+    if (!S.dragging && !S.renaming) render();
     return S.specs[id];
   }
 
@@ -137,10 +190,12 @@
     climate: ['kt', 'wk', 'qn', 'ktkzq', 'wkf', 'rs'],
     cover: ['cl', 'clkg', 'mc'],
     fan: ['fs', 'fskg'],
-    sensor: ['wsdcg', 'mcs', 'pir', 'ywbj', 'rqbj', 'sj', 'cobj', 'hps', 'ldcg', 'zd', 'co2bj', 'pm25', 'wnykq', 'jqbj'],
+    sensor: ['wsdcg', 'mcs', 'pir', 'ywbj', 'rqbj', 'sj', 'cobj', 'hps', 'ldcg', 'zd', 'co2bj', 'pm25', 'jqbj'],
     camera: ['sp']
   };
   function kindOf(d) {
+    if (d.ir) return d.ir.ac ? 'irac' : 'irremote';
+    if (isMulti(d) && !brightCode(d)) return 'multi';
     for (const k in KINDS) if (KINDS[k].includes(d.category)) return k;
     return 'generic';
   }
@@ -149,6 +204,22 @@
     const known = ['switch_led', 'switch', 'switch_1', 'fan_switch', 'switch_on'];
     return known.find((c) => typeof st[c] === 'boolean') ||
       Object.keys(st).find((c) => /^switch/.test(c) && typeof st[c] === 'boolean') || null;
+  }
+  // Multi-outlet devices (power strips, 2-gang switches): switch_1, switch_2, ... and USB ports.
+  function channelCodes(d) {
+    const st = d.status;
+    const rank = (c) => { const m = c.match(/(usb)?(\d+)$/); return (m[1] ? 1000 : 0) + Number(m[2]); };
+    return Object.keys(st)
+      .filter((c) => /^switch_(usb)?\d+$/.test(c) && typeof st[c] === 'boolean')
+      .sort((a, b) => rank(a) - rank(b));
+  }
+  function isMulti(d) { return channelCodes(d).length >= 2; }
+  function channelName(d, code) {
+    const s = S.specs[d.id];
+    const custom = s && s !== 'loading' && s.names && s.names[code];
+    if (custom) return custom;
+    const m = code.match(/^switch_(usb)?(\d+)$/);
+    return m ? (m[1] ? 'USB ' : 'Switch ') + m[2] : code;
   }
   function specReady(d) { const s = S.specs[d.id]; return !!s && s !== 'loading'; }
   function specOf(d, code) {
@@ -189,7 +260,11 @@
   const modeLabel = (m) => MODE_LABELS[m] || (String(m).charAt(0).toUpperCase() + String(m).slice(1));
   const fmtTemp = (t) => (t == null ? '–' : (Math.round(t * 10) / 10) + '°');
 
-  function isOn(d) { const p = powerCode(d); return p ? !!d.status[p] : false; }
+  function isOn(d) {
+    if (d.ir) return !!(d.ir.ac && d.ir.state && d.ir.state.power);
+    if (isMulti(d)) return channelCodes(d).some((c) => d.status[c]);
+    const p = powerCode(d); return p ? !!d.status[p] : false;
+  }
 
   function sensorReading(d) {
     const st = d.status;
@@ -224,12 +299,29 @@
       const p = st.percent_state ?? st.percent_control;
       return typeof p === 'number' ? p + '% open' : 'Ready';
     }
+    if (k === 'irac') {
+      const st2 = d.ir.state || {};
+      return st2.power ? (IR_MODES[st2.mode] || 'On') + ' to ' + st2.temp + '°' : 'Off';
+    }
+    if (k === 'irremote') return 'Remote control';
+    if (k === 'multi') {
+      const codes = channelCodes(d), n = codes.filter((c) => st[c]).length;
+      return n === 0 ? 'Off' : n === codes.length ? 'All on' : n + ' of ' + codes.length + ' on';
+    }
     if (k === 'sensor') return sensorReading(d);
     if (k === 'camera') return 'Online';
     const p = powerCode(d);
     return p ? (on ? 'On' : 'Off') : 'Online';
   }
-  const hasToggle = (d) => !!powerCode(d) && kindOf(d) !== 'sensor' && kindOf(d) !== 'camera';
+  const hasToggle = (d) => {
+    const k = kindOf(d);
+    if (k === 'irac') return true;
+    if (k === 'irremote') return false;
+    return !!powerCode(d) && k !== 'sensor' && k !== 'camera';
+  };
+  // IR air conditioner settings, in the order Tuya numbers them.
+  const IR_MODES = ['Cool', 'Heat', 'Auto', 'Fan', 'Dry'];
+  const IR_WIND = ['Auto', 'Low', 'Medium', 'High'];
 
   // ---------- Commands ----------
   const pendingSend = {};
@@ -267,6 +359,21 @@
   // ---------- Icons (inline stroke SVG) ----------
   const P = {
     light: '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V17h5v-1.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/>',
+    lamp: '<path d="M8 3h8l3 7H5l3-7zM12 10v11M8 21h8"/>',
+    ceiling: '<path d="M12 3v4M5 15a7 7 0 0 1 14 0zM10 18a2 2 0 0 0 4 0"/>',
+    ring: '<circle cx="12" cy="10" r="7"/><circle cx="12" cy="10" r="3"/><path d="M12 17v4M8 21h8"/>',
+    strip: '<path d="M3 14c3-6 6-6 9 0s6 6 9 0"/><path d="M6 10.5v.01M12 14v.01M18 17.5v.01"/>',
+    switch: '<rect x="6" y="3" width="12" height="18" rx="3"/><path d="M12 7v4"/>',
+    heater: '<path d="M8 3c-2 3 2 5 0 8M12 3c-2 3 2 5 0 8M16 3c-2 3 2 5 0 8M4 15h16v5H4z"/>',
+    motion: '<path d="M12 12h.01M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/>',
+    tv: '<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/>',
+    speaker: '<rect x="6" y="3" width="12" height="18" rx="3"/><circle cx="12" cy="14" r="3"/><path d="M12 7v.01"/>',
+    appliance: '<path d="M6 8h11l-1 12H7L6 8zM9 8V5h5v3M17 10h2v5h-2.4"/>',
+    router: '<rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 16.5v.01M11 16.5v.01M8.5 9.5a5 5 0 0 1 7 0M6 7a9 9 0 0 1 12 0"/>',
+    down: '<path d="M6 9l6 6 6-6"/>',
+    remote: '<rect x="7" y="2" width="10" height="20" rx="3"/><path d="M12 6v.01M10 10h4M10 13.5h4M10 17h4"/>',
+    multi: '<rect x="2" y="8" width="20" height="8" rx="3"/><path d="M7 11v2M12 11v2M17 11v2"/>',
+    pencil: '<path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/>',
     plug: '<path d="M9 2v6M15 2v6M6 8h12v3a6 6 0 0 1-12 0V8zM12 17v5"/>',
     climate: '<rect x="2" y="4" width="20" height="9" rx="2"/><path d="M6 9h12M8 17v3M12 17v4M16 17v3"/>',
     cover: '<path d="M3 3h18M5 3v18M19 3v18M5 21c2-5 2-11 0-18M19 21c-2-5-2-11 0-18"/>',
@@ -288,11 +395,29 @@
     check: '<path d="M5 12l5 5 9-10"/>'
   };
   const icon = (name, size) => '<svg width="' + (size || 22) + '" height="' + (size || 22) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + P[name] + '</svg>';
-  function deviceIcon(d) {
+  const ICON_CHOICES = [
+    ['light', 'Bulb'], ['lamp', 'Floor lamp'], ['ceiling', 'Ceiling light'], ['ring', 'Ring lamp'],
+    ['strip', 'Light strip'], ['plug', 'Plug'], ['multi', 'Power strip'], ['switch', 'Wall switch'],
+    ['fan', 'Fan'], ['climate', 'Air conditioner'], ['heater', 'Heater'], ['thermo', 'Thermometer'],
+    ['cover', 'Curtains'], ['sensor', 'Door sensor'], ['motion', 'Motion sensor'], ['camera', 'Camera'],
+    ['tv', 'TV'], ['speaker', 'Speaker'], ['appliance', 'Appliance'], ['router', 'Router'], ['remote', 'Remote'], ['generic', 'Other']
+  ];
+  function iconKeyOf(d) {
+    const custom = S.icons[d.id];
+    if (custom && P[custom]) return custom;
     const k = kindOf(d);
-    if (k === 'sensor' && !('doorcontact_state' in d.status) && ('va_temperature' in d.status || 'temp_current' in d.status)) return icon('thermo');
-    return icon(P[k] ? k : 'generic');
+    if (k === 'irac') return 'climate';
+    if (k === 'irremote') {
+      const map = { infrared_tv: 'tv', infrared_stb: 'tv', infrared_box: 'tv', infrared_fan: 'fan', infrared_light: 'light', infrared_amplifier: 'speaker', infrared_speaker: 'speaker' };
+      return map[d.category] || 'remote';
+    }
+    if (k === 'sensor' && !('doorcontact_state' in d.status)) {
+      if ('pir' in d.status) return 'motion';
+      if ('va_temperature' in d.status || 'temp_current' in d.status) return 'thermo';
+    }
+    return P[k] ? k : 'generic';
   }
+  function deviceIcon(d, size) { return icon(iconKeyOf(d), size); }
 
   // ---------- Views ----------
   function tabs(active) {
@@ -303,10 +428,12 @@
     ).join('');
   }
 
-  function switchBtn(d, extraKey) {
-    const on = isOn(d);
-    return '<button class="switch" role="switch" aria-checked="' + on + '" aria-label="' + esc(d.name) + ' power"' +
-      ' data-act="toggle" data-id="' + esc(d.id) + '" data-key="sw-' + esc(d.id) + (extraKey || '') + '"' +
+  function switchBtn(d, extraKey, code) {
+    const on = code ? !!d.status[code] : isOn(d);
+    const label = code ? channelName(d, code) : d.name + (isMulti(d) ? ', all outlets' : ' power');
+    return '<button class="switch" role="switch" aria-checked="' + on + '" aria-label="' + esc(label) + '"' +
+      ' data-act="toggle" data-id="' + esc(d.id) + '"' + (code ? ' data-code="' + esc(code) + '"' : '') +
+      ' data-key="sw-' + esc(d.id) + (code ? '-' + esc(code) : '') + (extraKey || '') + '"' +
       (d.online ? '' : ' disabled') + '><span class="knob"></span></button>';
   }
 
@@ -333,8 +460,15 @@
     if (!rooms.includes(S.room)) S.room = 'All';
     const shown = data.devices.filter((d) => S.room === 'All' || (S.room === 'Other' ? !d.room : d.room === S.room));
 
+    const homes = data.homes || [];
+    const titleHtml = homes.length > 1
+      ? '<h1 class="title home-pick"><label class="sr-only" for="home-head">Home</label>' +
+        '<select id="home-head" class="title-select" data-act="home" data-key="home-head">' +
+        homes.map((h) => '<option value="' + esc(h.id) + '"' + (h.id === data.homeId ? ' selected' : '') + '>' + esc(h.name) + '</option>').join('') +
+        '</select><span class="title-chevron" aria-hidden="true">' + icon('down', 22) + '</span></h1>'
+      : '<h1 class="title">' + esc(home ? home.name : 'My Home') + '</h1>';
     let html = '<div class="head"><div><p class="sub">' + onCount + (onCount === 1 ? ' device on' : ' devices on') + '</p>' +
-      '<h1 class="title">' + esc(home ? home.name : 'My Home') + '</h1></div></div>';
+      titleHtml + '</div></div>';
     if (S.mode === 'demo') html += '<p class="banner">You are viewing sample devices. Connect your server in Me to control your own.</p>';
     if (rooms.length > 1) {
       html += '<div class="chips" role="group" aria-label="Rooms">' + rooms.map((r) =>
@@ -358,9 +492,122 @@
   }
 
   function powerButton(d) {
-    const on = isOn(d);
-    return '<button class="power-btn" data-act="toggle" data-id="' + esc(d.id) + '" data-key="pwr-' + esc(d.id) + '" aria-pressed="' + on + '" aria-label="' + esc(d.name) + ' power"' + (d.online ? '' : ' disabled') + '>' +
-      icon('power', 40) + '<span>' + (on ? 'On' : 'Off') + '</span></button>';
+    const on = isOn(d), multi = isMulti(d);
+    const text = multi ? statusText(d) : (on ? 'On' : 'Off');
+    const aria = multi ? (on ? 'Turn all outlets off' : 'Turn all outlets on') : d.name + ' power';
+    return '<button class="power-btn" data-act="toggle" data-id="' + esc(d.id) + '" data-key="pwr-' + esc(d.id) + '" aria-pressed="' + on + '" aria-label="' + esc(aria) + '"' + (d.online ? '' : ' disabled') + '>' +
+      icon('power', 40) + '<span>' + esc(text) + '</span></button>';
+  }
+
+  function iconSection(d, sfx) {
+    const open = S.iconPicking === d.id;
+    const current = iconKeyOf(d);
+    const label = (ICON_CHOICES.find(([k]) => k === current) || [current, 'Other'])[1];
+    let html = '<div class="list">' +
+      '<button class="list-row" data-act="icon-open" data-id="' + esc(d.id) + '" data-key="icon-open' + sfx + '" aria-expanded="' + open + '" aria-controls="icons' + sfx + '">' +
+      '<span class="label">Icon</span><span class="value icon-value">' + esc(label) + '<span class="mini-dot">' + icon(current, 18) + '</span></span></button>';
+    if (open) {
+      html += '<div class="icon-pick" id="icons' + sfx + '">' +
+        '<div class="icon-grid" role="radiogroup" aria-label="Icon for ' + esc(d.name) + '">' +
+        ICON_CHOICES.map(([k, name]) =>
+          '<button class="icon-choice" role="radio" aria-checked="' + (k === current) + '" data-act="icon-set" data-id="' + esc(d.id) + '" data-icon="' + k + '" data-key="icon-' + k + sfx + '">' +
+          icon(k, 22) + '<span>' + name + '</span></button>').join('') +
+        '</div>' +
+        '<div class="icon-actions">' +
+        (S.icons[d.id] ? '<button class="chip soft" data-act="icon-reset" data-id="' + esc(d.id) + '" data-key="icon-reset' + sfx + '">Use default</button>' : '') +
+        '<button class="chip soft" data-act="icon-open" data-id="' + esc(d.id) + '" data-key="icon-done' + sfx + '">Done</button></div>' +
+        '<p class="note icon-note">Icons are saved in this browser, so set them once on each phone or tablet you use.</p>' +
+        '</div>';
+    }
+    return html + '</div>';
+  }
+
+  function irRemotePad(d, sfx) {
+    const entry = S.irKeys[d.id];
+    if (!entry) { loadIrKeys(d); return '<p class="note">Loading buttons…</p>'; }
+    if (entry === 'loading') return '<p class="note">Loading buttons…</p>';
+    if (entry.error) {
+      return '<p class="note">Couldn\'t load this remote\'s buttons: ' + esc(entry.error) + '</p>' +
+        '<button class="chip soft" data-act="irreload" data-id="' + esc(d.id) + '" data-key="irreload' + sfx + '">Try again</button>';
+    }
+    if (!entry.keys.length) return '<p class="note">This remote has no buttons that can be sent from here.</p>';
+    const btn = (k, cls) => {
+      const sent = S.irSent[d.id + '|' + k.key];
+      return '<button class="' + cls + (sent ? ' sent' : '') + '" data-act="irkey" data-id="' + esc(d.id) + '" data-k="' + esc(k.key) + '" data-key="irk-' + esc(k.key) + sfx + '">' +
+        (cls === 'power-btn' ? icon('power', 36) : '') + '<span>' + esc(sent ? 'Sent' : k.name) + '</span></button>';
+    };
+    const power = entry.keys.filter((k) => /power/i.test(k.key));
+    const rest = entry.keys.filter((k) => !/power/i.test(k.key));
+    return (power.length ? '<div class="ir-power">' + power.slice(0, 2).map((k) => btn(k, 'power-btn')).join('') + '</div>' : '') +
+      (rest.length ? '<div class="ir-keys" role="group" aria-label="Remote buttons">' + rest.map((k) => btn(k, 'chip soft ir-key')).join('') + '</div>' : '') +
+      '<p class="note">Each button sends its IR code once, like pressing it on the remote.</p>';
+  }
+
+  async function loadIrKeys(d) {
+    S.irKeys[d.id] = 'loading';
+    try {
+      const r = await api('ir?hubId=' + encodeURIComponent(d.ir.hub) + '&remoteId=' + encodeURIComponent(d.id));
+      S.irKeys[d.id] = { keys: r.keys || [], categoryId: r.categoryId };
+    } catch (e) {
+      S.irKeys[d.id] = { error: e.message };
+    }
+    if (!S.dragging && !S.renaming) render();
+  }
+
+  async function sendIrKey(d, keyName) {
+    const entry = S.irKeys[d.id];
+    const k = entry && entry.keys && entry.keys.find((x) => x.key === keyName);
+    if (!k) return;
+    const sentKey = d.id + '|' + k.key;
+    try {
+      await api('ir', { method: 'POST', body: {
+        hubId: d.ir.hub, remoteId: d.id, action: 'key',
+        categoryId: d.ir.categoryId != null && !Number.isNaN(d.ir.categoryId) ? d.ir.categoryId : entry.categoryId,
+        key: k.key, keyId: k.keyId
+      } });
+      S.irSent[sentKey] = true; render();
+      setTimeout(() => { delete S.irSent[sentKey]; render(); }, 900);
+    } catch (e) {
+      toast(k.name + ': ' + e.message);
+    }
+  }
+
+  // AC over IR: every change sends the full set of settings, debounced for quick taps.
+  const irPending = {};
+  function sendIrAc(d, patch) {
+    const st2 = d.ir.state || (d.ir.state = { power: false, mode: 0, temp: 24, wind: 0 });
+    if (!irPending[d.id]) irPending[d.id] = { before: Object.assign({}, st2) };
+    Object.assign(st2, patch);
+    render();
+    clearTimeout(irPending[d.id].t);
+    irPending[d.id].t = setTimeout(async () => {
+      const before = irPending[d.id].before;
+      delete irPending[d.id];
+      try {
+        await api('ir', { method: 'POST', body: {
+          hubId: d.ir.hub, remoteId: d.id, action: 'ac',
+          power: st2.power ? 1 : 0, mode: st2.mode, temp: st2.temp, wind: st2.wind
+        } });
+      } catch (e) {
+        d.ir.state = before; render();
+        toast(d.name + ': ' + e.message);
+      }
+    }, 500);
+  }
+
+  function channelRow(d, code, sfx) {
+    const name = channelName(d, code);
+    const rk = esc(d.id) + '-' + esc(code) + sfx;
+    if (S.renaming && S.renaming.id === d.id && S.renaming.code === code) {
+      return '<form class="list-row rename" data-act="rename-save" data-id="' + esc(d.id) + '" data-code="' + esc(code) + '" novalidate>' +
+        '<label class="sr-only" for="rn-' + rk + '">New name for ' + esc(name) + '</label>' +
+        '<input id="rn-' + rk + '" name="name" maxlength="40" autocomplete="off" value="' + esc(name) + '" data-key="rn-' + rk + '">' +
+        '<button type="submit" class="chip soft" data-key="rn-save-' + rk + '">Save</button>' +
+        '<button type="button" class="chip soft" data-act="rename-cancel" data-key="rn-cancel-' + rk + '">Cancel</button></form>';
+    }
+    return '<div class="list-row"><span class="channel"><span class="label">' + esc(name) + '</span>' +
+      '<button class="edit-btn" data-act="rename" data-id="' + esc(d.id) + '" data-code="' + esc(code) + '" data-key="rn-edit-' + rk + '" aria-label="Rename ' + esc(name) + '"' + (d.online ? '' : ' disabled') + '>' + icon('pencil', 16) + '</button></span>' +
+      switchBtn(d, sfx, code) + '</div>';
   }
 
   function detailView(d, inPanel) {
@@ -417,6 +664,22 @@
     } else if (k === 'camera') {
       hero += '<div class="stack-center"><span class="icon-dot" style="width:72px;height:72px;border-radius:36px">' + icon('camera', 32) + '</span>' +
         '<p class="note">Live video is not available in this app yet. Open the camera in the Tuya app to watch.</p></div>';
+    } else if (k === 'irac') {
+      const st2 = d.ir.state || { power: false, mode: 0, temp: 24, wind: 0 };
+      hero += '<div class="row-between">' +
+        '<button class="round-btn soft" data-act="irtemp" data-delta="-1" data-id="' + esc(d.id) + '" data-key="irdown' + sfx + '" aria-label="Lower temperature">' + icon('minus') + '</button>' +
+        '<div class="stack-center"><span class="big">' + st2.temp + '°</span><span class="big-label">' + (st2.power ? 'Target temperature' : 'Off') + '</span></div>' +
+        '<button class="round-btn soft" data-act="irtemp" data-delta="1" data-id="' + esc(d.id) + '" data-key="irup' + sfx + '" aria-label="Raise temperature">' + icon('plus') + '</button></div>' +
+        '<div class="seg-label">Mode</div><div class="seg" style="--n:5" role="group" aria-label="Mode">' + IR_MODES.map((m, i) =>
+          '<button class="chip soft" data-act="irmode" data-v="' + i + '" data-id="' + esc(d.id) + '" data-key="irmode-' + i + sfx + '" aria-pressed="' + (st2.power && st2.mode === i) + '">' + m + '</button>').join('') + '</div>' +
+        '<div class="seg-label">Fan</div><div class="seg" style="--n:4" role="group" aria-label="Fan speed">' + IR_WIND.map((w, i) =>
+          '<button class="chip soft" data-act="irwind" data-v="' + i + '" data-id="' + esc(d.id) + '" data-key="irwind-' + i + sfx + '" aria-pressed="' + (st2.power && st2.wind === i) + '">' + w + '</button>').join('') + '</div>' +
+        '<p class="note">Sent through your IR blaster. The app shows the last settings it sent, since the AC can\'t report back.</p>';
+    } else if (k === 'irremote') {
+      hero += irRemotePad(d, sfx);
+    } else if (k === 'multi') {
+      hero += powerButton(d); heroHasPower = true;
+      hero += '<p class="note">Turns every outlet on or off together. Control each one below.</p>';
     } else if (powerCode(d)) {
       hero += powerButton(d); heroHasPower = true;
     } else {
@@ -424,6 +687,7 @@
     }
 
     const rows = [];
+    if (k === 'multi' && d.online) channelCodes(d).forEach((c) => rows.push(channelRow(d, c, sfx)));
     if (hasToggle(d) && !heroHasPower) {
       rows.push('<div class="list-row"><span class="label">Power</span>' + switchBtn(d, sfx) + '</div>');
     }
@@ -438,9 +702,11 @@
     return '<div class="detail">' +
       '<div class="detail-head">' +
       (inPanel ? '' : '<button class="round-btn" data-act="back" data-key="back" aria-label="Back to devices">' + icon('back', 20) + '</button>') +
+      '<span class="icon-dot head-icon">' + deviceIcon(d) + '</span>' +
       '<div><p class="sub">' + esc(d.room || 'No room') + '</p><h2 class="detail-title">' + esc(d.name) + '</h2></div></div>' +
       '<div class="hero">' + hero + '</div>' +
       '<div class="list">' + rows.join('') + '</div>' +
+      iconSection(d, sfx) +
       '</div>';
   }
 
@@ -491,10 +757,21 @@
     }
     html += '<button class="list-row" data-act="refresh" data-key="refresh"><span class="label">Refresh now</span><span class="value">' + (updated ? 'Updated ' + updated : '') + '</span></button>';
     if (S.installPrompt) html += '<button class="list-row" data-act="install" data-key="install"><span class="label">Install app</span>' + icon('chevron', 16) + '</button>';
-    html += live
-      ? '<button class="list-row danger" data-act="lock" data-key="lock"><span class="label">Lock app</span><span class="value">Asks for the password again</span></button>'
-      : '<button class="list-row" data-act="live" data-key="live"><span class="label">Connect my server</span>' + icon('chevron', 16) + '</button>';
+    if (!live) html += '<button class="list-row" data-act="live" data-key="live"><span class="label">Connect my server</span>' + icon('chevron', 16) + '</button>';
     html += '</div>';
+    if (live) {
+      const hasPin = !!readVault();
+      html += '<h2 class="section-title">Security</h2><div class="list">';
+      if (pinSupported) {
+        html += hasPin
+          ? '<button class="list-row" data-act="pin-setup" data-key="pin-change"><span class="label">Change PIN</span>' + icon('chevron', 16) + '</button>' +
+            '<button class="list-row" data-act="pin-off" data-key="pin-off"><span class="label">Turn off PIN</span><span class="value">Opens without unlocking</span></button>'
+          : '<button class="list-row" data-act="pin-setup" data-key="pin-setup"><span class="label">Unlock with a PIN</span><span class="value">Off</span></button>';
+      }
+      html += '<button class="list-row danger" data-act="lock" data-key="lock"><span class="label">Lock app</span><span class="value">' +
+        (hasPin ? 'Asks for your PIN' : 'Asks for the password again') + '</span></button></div>';
+      if (hasPin) html += '<p class="note" style="text-align:left;margin-top:10px">Home also locks itself after 5 minutes in the background. After ' + PIN_TRIES + ' wrong PINs it asks for your password instead.</p>';
+    }
     if (data && data.warnings && data.warnings.length) {
       html += '<h2 class="section-title">Needs attention</h2><div class="list">' + data.warnings.map((w) =>
         '<div class="list-row"><span class="meta">' + esc(w) + '</span></div>').join('') + '</div>' +
@@ -502,11 +779,46 @@
     }
     html += '<h2 class="section-title">About</h2><div class="list">' +
       '<div class="list-row"><span class="label">Adding devices</span><span class="value">Pair them in the Tuya app</span></div>' +
-      '<div class="list-row"><span class="label">Version</span><span class="value">1.0.0</span></div></div>';
+      '<div class="list-row"><span class="label">Version</span><span class="value">1.4.0</span></div></div>';
     return html;
   }
 
+  function keypad() {
+    const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'];
+    return '<div class="keypad" role="group" aria-label="PIN keypad">' + keys.map((k) => {
+      if (!k) return '<span></span>';
+      if (k === 'del') return '<button type="button" class="key key-del" data-act="pin-del" data-key="pin-del" aria-label="Delete last digit"' + (S.pinBusy ? ' disabled' : '') + '>' + icon('back', 24) + '</button>';
+      return '<button type="button" class="key" data-act="pin-digit" data-d="' + k + '" data-key="pin-' + k + '"' + (S.pinBusy ? ' disabled' : '') + '>' + k + '</button>';
+    }).join('') + '</div>';
+  }
+
+  function pinView() {
+    const unlocking = S.gate === 'pin';
+    const vault = readVault();
+    const slots = unlocking && vault ? vault.len : Math.max(PIN_MIN, S.pinEntry.length);
+    const dots = Array.from({ length: slots }, (_, i) => '<span class="dot' + (i < S.pinEntry.length ? ' filled' : '') + '"></span>').join('');
+    const title = unlocking ? 'Enter your PIN' : S.pinStage === 'confirm' ? 'Confirm your PIN' : (vault ? 'Choose a new PIN' : 'Choose a PIN');
+    const sub = unlocking ? (S.pinBusy ? 'Checking…' : 'Unlock Home')
+      : S.pinStage === 'confirm' ? 'Enter the same PIN again.' : PIN_MIN + ' to ' + PIN_MAX + ' digits. You\'ll use it instead of your password on this device.';
+    const canContinue = !unlocking && S.pinStage === 'enter' && S.pinEntry.length >= PIN_MIN;
+    return '<div class="gate"><div class="gate-box pin-box">' +
+      '<span class="gate-mark">' + icon('home', 30) + '</span>' +
+      '<h1 class="title">' + title + '</h1><p>' + esc(sub) + '</p>' +
+      '<div class="pin-dots" aria-hidden="true">' + dots + '</div>' +
+      '<p class="sr-only" aria-live="polite">' + S.pinEntry.length + ' digits entered</p>' +
+      (S.pinError ? '<p class="error" role="alert">' + esc(S.pinError) + '</p>' : '') +
+      keypad() +
+      (unlocking
+        ? '<button class="btn ghost" type="button" data-act="pin-forgot" data-key="pin-forgot">Use password instead</button>'
+        : '<div class="pin-actions">' +
+          '<button class="btn ghost" type="button" data-act="pin-cancel" data-key="pin-cancel">Cancel</button>' +
+          (S.pinStage === 'enter' ? '<button class="btn" type="button" data-act="pin-next" data-key="pin-next"' + (canContinue ? '' : ' disabled') + '>Continue</button>' : '') +
+          '</div>') +
+      '</div></div>';
+  }
+
   function gateView() {
+    if (S.gate === 'pin' || S.gate === 'pin-new') return pinView();
     const setup = S.gate === 'setup';
     return '<div class="gate"><form class="gate-box" data-act="unlock" novalidate>' +
       '<span class="gate-mark">' + icon('home', 30) + '</span>' +
@@ -542,6 +854,10 @@
       app.innerHTML = gateView();
       const pw = $('#pw');
       if (pw && (!focusKey || focusKey === 'pw')) pw.focus();
+      else if (focusKey) {
+        const t = document.querySelector('[data-key="' + CSS.escape(focusKey) + '"]:not([disabled])');
+        if (t) t.focus({ preventScroll: true });
+      }
       return;
     }
     if (!shell) buildShell();
@@ -607,6 +923,18 @@
       case 'back': go('devices'); break;
       case 'toggle': {
         if (!d) return;
+        if (kindOf(d) === 'irac') { sendIrAc(d, { power: !isOn(d) }); break; }
+        if (el.dataset.code) {
+          const c = el.dataset.code;
+          send(d, [{ code: c, value: !d.status[c] }], { [c]: !d.status[c] });
+          break;
+        }
+        if (isMulti(d)) {
+          const target = !isOn(d);
+          const cmds = channelCodes(d).map((c) => ({ code: c, value: target }));
+          send(d, cmds, Object.fromEntries(cmds.map((c) => [c.code, c.value])));
+          break;
+        }
         const pc = powerCode(d);
         if (pc) send(d, [{ code: pc, value: !d.status[pc] }], { [pc]: !d.status[pc] });
         break;
@@ -632,14 +960,50 @@
         sendSoon(d, 'temp_set', clamp(d.status.temp_set + Number(el.dataset.delta) * step, min, max));
         break;
       }
+      case 'irtemp':
+        if (d && d.ir) sendIrAc(d, { power: true, temp: clamp((d.ir.state ? d.ir.state.temp : 24) + Number(el.dataset.delta), 16, 30) });
+        break;
+      case 'irmode': if (d && d.ir) sendIrAc(d, { power: true, mode: Number(el.dataset.v) }); break;
+      case 'irwind': if (d && d.ir) sendIrAc(d, { power: true, wind: Number(el.dataset.v) }); break;
+      case 'irkey': if (d && d.ir) sendIrKey(d, el.dataset.k); break;
+      case 'irreload': if (d && d.ir) { delete S.irKeys[d.id]; render(); } break;
       case 'mode': if (d) send(d, [{ code: 'mode', value: el.dataset.val }], { mode: el.dataset.val }); break;
       case 'cover': if (d) send(d, [{ code: 'control', value: el.dataset.val }], { control: el.dataset.val }); break;
+      case 'rename':
+        S.renaming = { id, code: el.dataset.code };
+        render();
+        focusRenameInput();
+        break;
+      case 'rename-cancel': S.renaming = null; render(); break;
+      case 'icon-open':
+        S.iconPicking = S.iconPicking === id ? null : id;
+        render();
+        break;
+      case 'icon-set':
+        S.icons[id] = el.dataset.icon; saveIcons(); render();
+        break;
+      case 'icon-reset':
+        delete S.icons[id]; saveIcons(); render();
+        break;
       case 'scene': runScene(id); break;
       case 'auto': toggleAutomation(id); break;
       case 'refresh': toast('Refreshing'); refresh(); break;
       case 'install': install(); break;
-      case 'lock':
-        S.key = ''; store.del('appKey'); S.data = null; S.specs = {}; S.gate = 'login'; S.gateError = ''; render(); break;
+      case 'lock': lockApp(); break;
+      case 'pin-setup':
+        S.gate = 'pin-new'; S.pinStage = 'enter'; S.pinEntry = ''; S.pinFirst = ''; S.pinError = ''; render(); break;
+      case 'pin-off':
+        if (S.key) store.set('appKey', S.key);
+        wipeVault(); toast('PIN turned off'); render(); break;
+      case 'pin-digit': pinDigit(el.dataset.d); break;
+      case 'pin-del': S.pinEntry = S.pinEntry.slice(0, -1); S.pinError = ''; render(); break;
+      case 'pin-next': pinNext(); break;
+      case 'pin-cancel':
+        S.gate = null; S.pinEntry = ''; S.pinFirst = ''; S.pinError = ''; render(); break;
+      case 'pin-forgot':
+        wipeVault(); S.key = ''; store.del('appKey'); S.pinEntry = ''; S.pinError = '';
+        S.gate = 'login'; S.gateError = 'Your PIN was removed from this device. Enter your password, then set up a new PIN in Me.';
+        render(); break;
       case 'demo':
         S.mode = 'demo'; store.set('mode', 'demo'); S.gate = null; S.data = null; S.specs = {}; refresh(); break;
       case 'live':
@@ -678,12 +1042,24 @@
     } else if (act === 'fanspeed' && d) {
       send(d, [{ code: 'fan_speed_percent', value: Number(el.value) }], { fan_speed_percent: Number(el.value) });
     } else if (act === 'home') {
-      S.homeId = el.value; store.set('homeId', el.value); S.room = 'All'; refresh();
+      S.homeId = el.value; store.set('homeId', el.value); S.room = 'All';
+      S.data = null; S.iconPicking = null; S.renaming = null; S.sceneState = {};
+      if (route().view === 'device') history.replaceState(null, '', location.pathname + location.search + '#devices');
+      refresh();
     }
   });
 
   document.addEventListener('submit', async (e) => {
     const form = e.target;
+    if (form.dataset.act === 'rename-save') {
+      e.preventDefault();
+      const d = findDevice(form.dataset.id);
+      const name = (form.elements.name.value || '').trim();
+      if (!d) return;
+      if (!name) { toast('Enter a name.'); return; }
+      renameChannel(d, form.dataset.code, name.slice(0, 40));
+      return;
+    }
     if (form.dataset.act !== 'unlock') return;
     e.preventDefault();
     const pw = form.elements.pw ? form.elements.pw.value : '';
@@ -693,6 +1069,110 @@
     S.gateError = ''; S.gate = null; S.data = null;
     await refresh();
   });
+
+  function lockApp() {
+    S.data = null; S.specs = {}; S.renaming = null; S.iconPicking = null;
+    S.pinEntry = ''; S.pinError = '';
+    if (readVault()) {
+      S.key = ''; S.gate = 'pin';
+    } else {
+      S.key = ''; store.del('appKey'); S.gate = 'login'; S.gateError = '';
+    }
+    render();
+  }
+
+  function pinDigit(d) {
+    if (S.pinBusy || S.pinEntry.length >= PIN_MAX) return;
+    S.pinEntry += d; S.pinError = '';
+    render();
+    const vault = readVault();
+    if (S.gate === 'pin' && vault && S.pinEntry.length === vault.len) unlockWithPin(vault);
+    else if (S.gate === 'pin-new' && S.pinStage === 'confirm' && S.pinEntry.length === S.pinFirst.length) pinNext();
+  }
+
+  async function unlockWithPin(vault) {
+    S.pinBusy = true; render();
+    const key = await openVault(S.pinEntry, vault);
+    S.pinBusy = false; S.pinEntry = '';
+    if (key) {
+      store.del('pinFails');
+      S.key = key; S.gate = null; S.pinError = '';
+      refresh();
+      return;
+    }
+    const fails = Number(store.get('pinFails') || 0) + 1;
+    if (fails >= PIN_TRIES) {
+      wipeVault();
+      S.gate = 'login';
+      S.gateError = 'Too many wrong PINs, so the PIN was removed from this device. Enter your password to continue.';
+    } else {
+      store.set('pinFails', String(fails));
+      const left = PIN_TRIES - fails;
+      S.pinError = 'Wrong PIN. ' + left + (left === 1 ? ' try' : ' tries') + ' left.';
+    }
+    render();
+  }
+
+  async function pinNext() {
+    if (S.pinStage === 'enter') {
+      if (S.pinEntry.length < PIN_MIN) { S.pinError = 'Use at least ' + PIN_MIN + ' digits.'; render(); return; }
+      if (/^(\d)\1+$/.test(S.pinEntry) || '0123456789'.includes(S.pinEntry) || '9876543210'.includes(S.pinEntry)) {
+        S.pinError = 'That PIN is too easy to guess. Try another.'; S.pinEntry = ''; render(); return;
+      }
+      S.pinFirst = S.pinEntry; S.pinEntry = ''; S.pinStage = 'confirm'; S.pinError = '';
+      render(); return;
+    }
+    if (S.pinEntry !== S.pinFirst) {
+      S.pinStage = 'enter'; S.pinFirst = ''; S.pinEntry = '';
+      S.pinError = 'Those PINs didn\'t match. Start again.';
+      render(); return;
+    }
+    if (!S.key) { S.gate = 'login'; render(); return; }
+    S.pinBusy = true; render();
+    try {
+      const vault = await sealVault(S.pinEntry, S.key);
+      store.set('pinVault', JSON.stringify(vault));
+      store.del('pinFails');
+      store.del('appKey'); // the password now lives only in encrypted form
+      S.gate = null; toast('PIN is set. Use it to unlock Home on this device.');
+    } catch (e) {
+      S.pinError = 'Could not save the PIN on this browser.';
+    }
+    S.pinBusy = false; S.pinEntry = ''; S.pinFirst = ''; S.pinStage = 'enter';
+    render();
+  }
+
+  // Physical keyboard support on the PIN screens.
+  document.addEventListener('keydown', (e) => {
+    if (S.gate !== 'pin' && S.gate !== 'pin-new') return;
+    if (/^\d$/.test(e.key)) { e.preventDefault(); pinDigit(e.key); }
+    else if (e.key === 'Backspace') { e.preventDefault(); S.pinEntry = S.pinEntry.slice(0, -1); S.pinError = ''; render(); }
+    else if (e.key === 'Enter' && S.gate === 'pin-new') { e.preventDefault(); pinNext(); }
+  });
+
+  function focusRenameInput() {
+    const input = Array.from(document.querySelectorAll('.rename input')).find((n) => n.offsetParent !== null);
+    if (input) { input.focus(); input.select(); }
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && S.renaming) { S.renaming = null; render(); }
+  });
+
+  async function renameChannel(d, code, name) {
+    const spec = S.specs[d.id] && S.specs[d.id] !== 'loading' ? S.specs[d.id] : (S.specs[d.id] = { codes: {}, writable: null, names: {} });
+    spec.names = spec.names || {};
+    const before = spec.names[code];
+    spec.names[code] = name;
+    S.renaming = null;
+    render();
+    try {
+      await api('rename', { method: 'POST', body: { deviceId: d.id, code, name } });
+    } catch (e) {
+      if (before === undefined) delete spec.names[code]; else spec.names[code] = before;
+      render();
+      toast('Rename failed: ' + e.message);
+    }
+  }
 
   async function runScene(id) {
     if (!S.data) return;
@@ -730,10 +1210,13 @@
     await S.installPrompt.userChoice.catch(() => null);
     S.installPrompt = null; render();
   }
-  window.addEventListener('hashchange', render);
+  window.addEventListener('hashchange', () => { S.iconPicking = null; S.renaming = null; render(); });
   wide.addEventListener('change', render);
+  let hiddenAt = 0;
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && !S.gate) refresh({ silent: true });
+    if (document.visibilityState === 'hidden') { hiddenAt = Date.now(); return; }
+    if (S.mode === 'live' && !S.gate && readVault() && hiddenAt && Date.now() - hiddenAt > AUTO_LOCK_MS) { lockApp(); return; }
+    if (!S.gate) refresh({ silent: true });
   });
   setInterval(() => {
     if (document.visibilityState === 'visible' && !S.dragging && !S.gate) refresh({ silent: true });
@@ -747,7 +1230,7 @@
   // ---------- Demo backend (sample data, no server needed) ----------
   const Demo = (function () {
     const db = {
-      homes: [{ id: 'h1', name: 'My Home' }],
+      homes: [{ id: 'h1', name: 'My Home' }, { id: 'h2', name: 'Beach house' }],
       homeId: 'h1',
       rooms: ['Living room', 'Bedroom', 'Kitchen', 'Hallway'],
       devices: [
@@ -757,10 +1240,16 @@
         { id: 'dev3', name: 'Air conditioner', category: 'kt', product: 'AC controller', online: true, room: 'Bedroom', status: { switch: true, temp_set: 24, temp_current: 26, mode: 'cold' } },
         { id: 'dev7', name: 'Bedroom curtains', category: 'cl', product: 'Curtain motor', online: true, room: 'Bedroom', status: { control: 'stop', percent_control: 60, percent_state: 60 } },
         { id: 'dev8', name: 'Bedside lamp', category: 'dj', product: 'Smart bulb', online: true, room: 'Bedroom', status: { switch_led: false, work_mode: 'white', bright_value_v2: 300, temp_value_v2: 0 } },
+        { id: 'dev11', name: 'Donut Lamp', category: 'kg', product: '2-gang switch', online: true, room: 'Living room', status: { switch_1: true, switch_2: false } },
+        { id: 'dev12', name: 'Desk power strip', category: 'pc', product: 'Power strip with USB', online: true, room: 'Bedroom', status: { switch_1: true, switch_2: true, switch_3: false, switch_usb1: true } },
         { id: 'dev4', name: 'Kettle plug', category: 'cz', product: 'Smart plug', online: true, room: 'Kitchen', status: { switch_1: false } },
         { id: 'dev5', name: 'Front door', category: 'mcs', product: 'Door sensor', online: true, room: 'Hallway', status: { doorcontact_state: false, battery_percentage: 86 } },
         { id: 'dev6', name: 'Porch camera', category: 'sp', product: 'Outdoor camera', online: true, room: 'Hallway', status: {} },
-        { id: 'dev10', name: 'Garage plug', category: 'cz', product: 'Smart plug', online: false, room: '', status: { switch_1: false } }
+        { id: 'dev10', name: 'Garage plug', category: 'cz', product: 'Smart plug', online: false, room: '', status: { switch_1: false } },
+        { id: 'ir1', name: 'Study AC', category: 'infrared_ac', product: 'IR remote', online: true, room: 'Bedroom', status: {}, ir: { hub: 'hub1', categoryId: 5, ac: true, state: { power: false, mode: 0, temp: 24, wind: 0 } } },
+        { id: 'ir2', name: 'Living room TV', category: 'infrared_tv', product: 'IR remote', online: true, room: 'Living room', status: {}, ir: { hub: 'hub1', categoryId: 2, ac: false } },
+        { id: 'bh1', home: 'h2', name: 'Patio lights', category: 'dj', product: 'Smart bulb', online: true, room: 'Patio', status: { switch_led: true, work_mode: 'white', bright_value_v2: 600, temp_value_v2: 0 } },
+        { id: 'bh2', home: 'h2', name: 'Pool pump', category: 'cz', product: 'Smart plug', online: true, room: 'Garden', status: { switch_1: false } }
       ],
       scenes: [
         { id: 'sc1', name: 'Good morning', actions: 3 },
@@ -781,15 +1270,26 @@
       wsdcg: { va_temperature: { scale: 1 }, va_humidity: { scale: 0 } },
       cl: { percent_control: { min: 0, max: 100, scale: 0, step: 1 } }
     };
+    const names = { dev12: { switch_1: 'Monitor', switch_2: 'Laptop charger' } };
     const clone = (x) => JSON.parse(JSON.stringify(x));
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     async function handle(path, opts) {
       await wait(200);
-      if (path.startsWith('state')) return Object.assign(clone(db), { at: Date.now() });
+      if (path.startsWith('state')) {
+        const m = path.match(/homeId=([^&]+)/);
+        const homeId = db.homes.some((h) => m && h.id === decodeURIComponent(m[1])) ? decodeURIComponent(m[1]) : 'h1';
+        const out = clone(db);
+        out.homeId = homeId;
+        out.devices = out.devices.filter((d) => (d.home || 'h1') === homeId);
+        out.rooms = homeId === 'h1' ? db.rooms : ['Patio', 'Garden'];
+        if (homeId !== 'h1') { out.scenes = [{ id: 'sc9', name: 'Arrive', actions: 2 }]; out.automations = []; }
+        out.at = Date.now();
+        return out;
+      }
       if (path.startsWith('spec')) {
         const id = decodeURIComponent(path.split('deviceId=')[1] || '');
         const dev = db.devices.find((x) => x.id === id);
-        return { deviceId: id, codes: clone(specs[dev && dev.category] || {}), writable: null };
+        return { deviceId: id, codes: clone(specs[dev && dev.category] || {}), writable: null, names: clone(names[id] || {}) };
       }
       const b = (opts && opts.body) || {};
       if (path === 'command') {
@@ -799,6 +1299,23 @@
         if (dev.status.control === 'open') dev.status.percent_control = 100;
         if (dev.status.control === 'close') dev.status.percent_control = 0;
         if ('percent_control' in dev.status) dev.status.percent_state = dev.status.percent_control;
+        return { ok: true };
+      }
+      if (path.startsWith('ir?')) {
+        return { categoryId: 2, keys: [
+          { key: 'Power', keyId: 1, name: 'Power' }, { key: 'Mute', keyId: 2, name: 'Mute' },
+          { key: 'VolumeUp', keyId: 3, name: 'Volume +' }, { key: 'VolumeDown', keyId: 4, name: 'Volume −' },
+          { key: 'ChannelUp', keyId: 5, name: 'Channel +' }, { key: 'ChannelDown', keyId: 6, name: 'Channel −' },
+          { key: 'Input', keyId: 7, name: 'Input' }, { key: 'Menu', keyId: 8, name: 'Menu' }, { key: 'OK', keyId: 9, name: 'OK' }
+        ] };
+      }
+      if (path === 'ir') {
+        const dev = db.devices.find((x) => x.id === b.remoteId);
+        if (b.action === 'ac' && dev) dev.ir.state = { power: b.power === 1, mode: b.mode, temp: b.temp, wind: b.wind };
+        return { ok: true };
+      }
+      if (path === 'rename') {
+        names[b.deviceId] = Object.assign(names[b.deviceId] || {}, { [b.code]: b.name });
         return { ok: true };
       }
       if (path === 'scene') { await wait(600); return { ok: true }; }
@@ -813,7 +1330,8 @@
   })();
 
   // ---------- Start ----------
-  if (S.mode === 'live' && !S.key) S.gate = 'login';
+  if (S.mode === 'live' && readVault()) { S.key = ''; store.del('appKey'); S.gate = 'pin'; }
+  else if (S.mode === 'live' && !S.key) S.gate = 'login';
   render();
   if (!S.gate) refresh();
 })();
