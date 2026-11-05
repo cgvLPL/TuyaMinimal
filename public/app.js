@@ -5,6 +5,12 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.17.0",
+      "items": [
+        "23 new device icons: column, desk, table, pendant and wall lamps, spotlight, fairy lights, lantern, star light, night light, Christmas tree, air purifier, humidifier, water heater, coffee maker, washing machine, fridge, robot vacuum, lock, doorbell, garage, plant and pet feeder."
+      ]
+    },
+    {
       "v": "2.16.0",
       "items": [
         "What's new: this changelog, under Me > About > Version. After an update, a message offers to show what changed."
@@ -760,6 +766,29 @@
     snow: '<path d="M7 15h10a4.5 4.5 0 0 0 .6-9 6 6 0 0 0-11.5 1.8A3.6 3.6 0 0 0 7 15z"/><path d="M8 19v.01M12 21v.01M16 19v.01"/>',
     storm: '<path d="M7 15h10a4.5 4.5 0 0 0 .6-9 6 6 0 0 0-11.5 1.8A3.6 3.6 0 0 0 7 15z"/><path d="M12.5 15l-2 3.5h3l-2 3.5"/>',
     wifioff: '<path d="M2 2l20 20M8.5 16.4a5 5 0 0 1 7 0M5 12.9a10 10 0 0 1 5.2-2.7M19 12.9a10 10 0 0 0-2.3-1.6M2 9.3a15 15 0 0 1 4.3-2.6M22 9.3a15 15 0 0 0-11-3.8M12 20h.01"/>',
+    desklamp: '<path d="M4 21h10"/><path d="M9 21l-2-7 6-5"/><path d="M12.5 6.5l3.5-3 5 5-3.5 3z"/><circle cx="7" cy="14" r="1"/>',
+    column: '<rect x="8" y="2" width="8" height="15" rx="1.5"/><path d="M8 6h8M8 10h8M8 14h8M9.5 17l-1 4M14.5 17l1 4M8 21h8"/>',
+    starlight: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
+    pendant: '<path d="M12 2v5M5 15c0-4 3-7 7-7s7 3 7 7zM10.5 18.5a1.5 1.5 0 0 0 3 0"/>',
+    tablelamp: '<path d="M7 4h10l2 7H5zM12 11v6M9 17h6v4H9z"/>',
+    walllight: '<path d="M4 4v16M4 12h4M8 8h6l3 8H8z"/>',
+    lantern: '<path d="M9 3h6M12 3V2M8 6h8l1 2v9l-1 2H8l-1-2V8zM10 21h4M10 11v4M14 11v4"/>',
+    fairy: '<path d="M2 6c4 4 8 4 10 2s6-2 10 2"/><path d="M6 9.5v2M12 8v2.5M18 9.5v2"/><circle cx="6" cy="13" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="18" cy="13" r="1.5"/>',
+    nightlight: '<path d="M15 4a7 7 0 1 0 5 12A8 8 0 0 1 15 4z"/><path d="M19 3v2M18 4h2"/>',
+    spotlight: '<path d="M4 21h7M7.5 21v-4M5 13l7-7 4 4-7 7z"/><path d="M17 12l3 2M15 15l2 3.5M14 8l1-4"/>',
+    tree: '<path d="M12 2l5 7h-3l4 6h-4l3 5H7l3-5H6l4-6H7z"/><path d="M12 20v2"/>',
+    purifier: '<rect x="6" y="3" width="12" height="18" rx="3"/><path d="M9 7h6M9 10h6"/><circle cx="12" cy="15" r="2"/>',
+    humidifier: '<path d="M12 3s-3 4-3 6a3 3 0 0 0 6 0c0-2-3-6-3-6z"/><rect x="6" y="13" width="12" height="8" rx="3"/>',
+    coffee: '<path d="M5 8h11v6a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5zM16 10h2a2 2 0 0 1 0 4h-2M8 3v2M11 3v2M5 21h12"/>',
+    washer: '<rect x="4" y="3" width="16" height="18" rx="3"/><circle cx="12" cy="13" r="4.5"/><path d="M7 6.5h2M15 6.5h.01"/>',
+    robovac: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="9" r="2"/><path d="M7 16h10"/>',
+    fridge: '<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M6 10h12M9 5v2M9 13v3"/>',
+    boiler: '<rect x="7" y="2" width="10" height="16" rx="3"/><path d="M10 21v-3M14 21v-3M12 6.5c-1.2 1.5-1.2 2.7 0 4M10 13.5h4"/>',
+    lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4M12 15v2"/>',
+    doorbell: '<rect x="8" y="3" width="8" height="18" rx="4"/><circle cx="12" cy="14" r="2"/><path d="M12 7h.01"/>',
+    garage: '<path d="M3 10l9-6 9 6v11H3zM7 21v-8h10v8M7 16h10"/>',
+    plant: '<path d="M7 14h10l-1.5 7h-7zM12 14V9M12 9c0-3-2-5-5-5 0 3 2 5 5 5zM12 11c0-2.5 2-4 4.5-4 0 2.5-2 4-4.5 4z"/>',
+    petbowl: '<path d="M3 15h18l-2 5H5zM8 15a4 4 0 0 1 8 0"/><circle cx="9" cy="6" r="1.2"/><circle cx="15" cy="6" r="1.2"/><circle cx="12" cy="4.5" r="1.2"/>',
     drop: '<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>',
     down: '<path d="M6 9l6 6 6-6"/>',
     remote: '<rect x="7" y="2" width="10" height="20" rx="3"/><path d="M12 6v.01M10 10h4M10 13.5h4M10 17h4"/>',
@@ -787,11 +816,15 @@
   };
   const icon = (name, size) => '<svg width="' + (size || 22) + '" height="' + (size || 22) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + P[name] + '</svg>';
   const ICON_CHOICES = [
-    ['light', 'Bulb'], ['lamp', 'Floor lamp'], ['ceiling', 'Ceiling light'], ['ring', 'Ring lamp'],
-    ['strip', 'Light strip'], ['plug', 'Plug'], ['multi', 'Power strip'], ['switch', 'Wall switch'],
+    ['light', 'Bulb'], ['lamp', 'Floor lamp'], ['column', 'Column lamp'], ['desklamp', 'Desk lamp'], ['tablelamp', 'Table lamp'],
+    ['ceiling', 'Ceiling light'], ['pendant', 'Pendant'], ['walllight', 'Wall light'], ['spotlight', 'Spotlight'], ['ring', 'Ring lamp'],
+    ['strip', 'Light strip'], ['fairy', 'Fairy lights'], ['lantern', 'Lantern'], ['starlight', 'Star light'], ['nightlight', 'Night light'], ['tree', 'Christmas tree'], ['plug', 'Plug'], ['multi', 'Power strip'], ['switch', 'Wall switch'],
     ['fan', 'Fan'], ['climate', 'Air conditioner'], ['heater', 'Heater'], ['thermo', 'Thermometer'],
     ['cover', 'Curtains'], ['sensor', 'Door sensor'], ['motion', 'Motion sensor'], ['camera', 'Camera'],
-    ['tv', 'TV'], ['speaker', 'Speaker'], ['appliance', 'Appliance'], ['router', 'Router'], ['remote', 'Remote'], ['generic', 'Other']
+    ['purifier', 'Air purifier'], ['humidifier', 'Humidifier'], ['boiler', 'Water heater'],
+    ['tv', 'TV'], ['speaker', 'Speaker'], ['appliance', 'Kettle'], ['coffee', 'Coffee maker'], ['washer', 'Washing machine'],
+    ['fridge', 'Fridge'], ['robovac', 'Robot vacuum'], ['lock', 'Lock'], ['doorbell', 'Doorbell'], ['garage', 'Garage'],
+    ['plant', 'Plant'], ['petbowl', 'Pet feeder'], ['router', 'Router'], ['remote', 'Remote'], ['generic', 'Other']
   ];
   function iconKeyOf(d) {
     const custom = S.icons[d.id];
