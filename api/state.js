@@ -3,6 +3,24 @@ const { call, config } = require('./_lib/tuya');
 const { handler, requireId } = require('./_lib/http');
 
 const IR_HUBS = ['wnykq', 'hwktwkq'];  // universal IR remote / IR hub categories
+// Categories that are certainly not IR blasters (so we don't probe them).
+const NOT_HUBS = ['dj', 'dd', 'fwd', 'xdd', 'dc', 'tgq', 'gyd', 'kg', 'cz', 'pc', 'tdq', 'kt', 'wk', 'qn',
+  'cl', 'clkg', 'fs', 'mcs', 'pir', 'ywbj', 'rqbj', 'sj', 'sp', 'ms', 'mal', 'sgbj', 'cs', 'jsq', 'xxj'];
+const envHubs = () => String(process.env.TUYA_IR_HUB || '').split(',').map((x) => x.trim()).filter(Boolean);
+
+// Reads AC settings reported on an infrared_ac device itself, if any.
+function acStateFromStatus(statusList) {
+  const st = {};
+  for (const s of statusList || []) st[s.code] = s.value;
+  const num = (...keys) => { for (const k of keys) if (st[k] != null && !Number.isNaN(Number(st[k]))) return Number(st[k]); return null; };
+  const powerRaw = st.power ?? st.switch ?? st.Power;
+  return {
+    power: powerRaw === true || String(powerRaw) === '1' || String(powerRaw).toLowerCase() === 'true',
+    mode: num('mode', 'M') ?? 0,
+    temp: num('temp', 'T', 'temp_set') ?? 24,
+    wind: num('wind', 'F', 'fan') ?? 0
+  };
+}
 const IR_AC_CATEGORY = 5;              // Tuya IR category ID for air conditioners
 
 function pickDevice(d, roomOf) {
@@ -23,8 +41,13 @@ function pickDevice(d, roomOf) {
 
 // IR blasters: hide the hub itself and show each remote set up on it (AC, TV, fan...) instead.
 async function expandIrRemotes(list, warnings) {
-  const hubs = list.filter((d) => IR_HUBS.includes(d.category));
-  if (!hubs.length) return list;
+  const forced = envHubs();
+  const hasRemotes = list.some((d) => String(d.category || '').startsWith('infrared'));
+  const sure = (d) => IR_HUBS.includes(d.category) || forced.includes(d.id);
+  // Known hub categories, hubs named in TUYA_IR_HUB, and (only if remotes exist) a few unknown devices.
+  const hubs = list.filter((d) => sure(d) ||
+    (hasRemotes && !NOT_HUBS.includes(d.category) && !String(d.category || '').startsWith('infrared'))).slice(0, 10);
+  if (!hubs.length) return attachHubless(list);
   const byId = new Map(list.map((d) => [d.id, d]));
   const hide = new Set();
   const extra = [];
@@ -34,7 +57,7 @@ async function expandIrRemotes(list, warnings) {
     try {
       remotes = await call('GET', `/v2.0/infrareds/${hub.id}/remotes`);
     } catch (e) {
-      warnings.push('IR remotes for ' + hub.name + ': ' + e.message + '. Authorize the IR Control Hub service in your cloud project.');
+      if (sure(hub)) warnings.push('IR remotes for ' + hub.name + ': ' + e.message + '. Authorize the IR Control Hub service in your cloud project.');
       return;
     }
     if (!Array.isArray(remotes) || !remotes.length) return; // no remotes yet: keep showing the hub
@@ -56,7 +79,7 @@ async function expandIrRemotes(list, warnings) {
             wind: Number(st.wind) || 0
           };
         } catch (e) {
-          ir.state = { power: false, mode: 0, temp: 24, wind: 0 };
+          ir.state = acStateFromStatus(known && known.status);
         }
       }
       const device = Object.assign({}, known || { id, name: r.remote_name || 'Remote', category, status: [] }, {
@@ -69,7 +92,17 @@ async function expandIrRemotes(list, warnings) {
     }));
   }));
 
-  return list.filter((d) => !hide.has(d.id)).concat(extra);
+  return attachHubless(list.filter((d) => !hide.has(d.id)).concat(extra));
+}
+
+// Remotes whose blaster wasn't found are still controllable through the standard instruction set.
+function attachHubless(list) {
+  return list.map((d) => {
+    const cat = String(d.category || '');
+    if (d.ir || !cat.startsWith('infrared')) return d;
+    const ac = cat === 'infrared_ac';
+    return Object.assign({}, d, { ir: { hub: null, categoryId: null, ac, state: ac ? acStateFromStatus(d.status) : undefined } });
+  });
 }
 
 async function settle(promise, fallback) {

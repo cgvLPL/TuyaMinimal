@@ -69,6 +69,7 @@ No dependencies and no build step. Node 18 or newer (Vercel's default is fine).
 | `TUYA_UID` | UID from step 2 |
 | `TUYA_REGION` | `us` (Western America), `us-e` (Eastern America), `eu` (Central Europe), `eu-w` (Western Europe), `sg` (Singapore), `in` (India), or `cn` (China) |
 | `APP_PASSWORD` | A long passphrase you choose. The app asks for it on each new device. |
+| `TUYA_IR_HUB` | Optional. The device ID of your IR blaster, if the app can't find it by itself (comma-separate several). |
 
 3. Redeploy (Deployments → ⋯ → Redeploy) so the variables take effect.
 4. Open your `https://<project>.vercel.app` URL and enter your app password.
@@ -95,6 +96,9 @@ No dependencies and no build step. Node 18 or newer (Vercel's default is fine).
 - **Devices from another home appear, or Me shows "Home devices: permission deny"**: the project
   can't read which devices belong to each home, so the app falls back to room membership. Authorize
   the service covering homes (Service API → Go to Authorize), or assign every device to a room in the Tuya app.
+- **An IR AC shows but the controls don't work**: the app couldn't find your IR blaster, so it falls
+  back to Tuya's standard IR commands. Add `TUYA_IR_HUB` with the blaster's device ID (Tuya project →
+  Devices → All Devices) and redeploy.
 - **The IR blaster shows instead of its remotes, or Me shows "IR remotes ... permission deny"**:
   authorize the **IR Control Hub Open Service** in your cloud project (Service API → Go to Authorize).
 - **A temperature looks 10× off**: open that device once so the app loads its exact scale.

@@ -546,7 +546,7 @@
   async function loadIrKeys(d) {
     S.irKeys[d.id] = 'loading';
     try {
-      const r = await api('ir?hubId=' + encodeURIComponent(d.ir.hub) + '&remoteId=' + encodeURIComponent(d.id));
+      const r = await api('ir?hubId=' + encodeURIComponent(d.ir.hub || 'none') + '&remoteId=' + encodeURIComponent(d.id));
       S.irKeys[d.id] = { keys: r.keys || [], categoryId: r.categoryId };
     } catch (e) {
       S.irKeys[d.id] = { error: e.message };
@@ -561,9 +561,9 @@
     const sentKey = d.id + '|' + k.key;
     try {
       await api('ir', { method: 'POST', body: {
-        hubId: d.ir.hub, remoteId: d.id, action: 'key',
-        categoryId: d.ir.categoryId != null && !Number.isNaN(d.ir.categoryId) ? d.ir.categoryId : entry.categoryId,
-        key: k.key, keyId: k.keyId
+        hubId: d.ir.hub || 'none', remoteId: d.id, action: 'key',
+        categoryId: d.ir.categoryId != null && !Number.isNaN(d.ir.categoryId) ? d.ir.categoryId : (entry.categoryId ?? 0),
+        key: k.key, keyId: k.keyId, std: !!k.std
       } });
       S.irSent[sentKey] = true; render();
       setTimeout(() => { delete S.irSent[sentKey]; render(); }, 900);
@@ -576,17 +576,20 @@
   const irPending = {};
   function sendIrAc(d, patch) {
     const st2 = d.ir.state || (d.ir.state = { power: false, mode: 0, temp: 24, wind: 0 });
-    if (!irPending[d.id]) irPending[d.id] = { before: Object.assign({}, st2) };
+    if (!irPending[d.id]) irPending[d.id] = { before: Object.assign({}, st2), changed: new Set() };
+    for (const k of Object.keys(patch)) if (st2[k] !== patch[k]) irPending[d.id].changed.add(k);
     Object.assign(st2, patch);
     render();
     clearTimeout(irPending[d.id].t);
     irPending[d.id].t = setTimeout(async () => {
       const before = irPending[d.id].before;
+      const changed = Array.from(irPending[d.id].changed);
       delete irPending[d.id];
+      if (!changed.length) return;
       try {
         await api('ir', { method: 'POST', body: {
-          hubId: d.ir.hub, remoteId: d.id, action: 'ac',
-          power: st2.power ? 1 : 0, mode: st2.mode, temp: st2.temp, wind: st2.wind
+          hubId: d.ir.hub || 'none', remoteId: d.id, action: 'ac',
+          power: st2.power ? 1 : 0, mode: st2.mode, temp: st2.temp, wind: st2.wind, changed
         } });
       } catch (e) {
         d.ir.state = before; render();
@@ -779,7 +782,7 @@
     }
     html += '<h2 class="section-title">About</h2><div class="list">' +
       '<div class="list-row"><span class="label">Adding devices</span><span class="value">Pair them in the Tuya app</span></div>' +
-      '<div class="list-row"><span class="label">Version</span><span class="value">1.4.0</span></div></div>';
+      '<div class="list-row"><span class="label">Version</span><span class="value">1.5.0</span></div></div>';
     return html;
   }
 
