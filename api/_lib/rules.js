@@ -52,4 +52,19 @@ function cleanActions(list) {
 }
 
 
-module.exports = { DEFAULT_BACKGROUND, cleanValue, cleanActions, bad, PROP_KEY };
+// IR remotes in scenes and automations: Tuya accepts their standard instructions as device
+// actions; some accounts expect the IR-specific action type instead. Try one, then the other.
+function irVariants(actions, irIds) {
+  const set = new Set((Array.isArray(irIds) ? irIds : []).map(String));
+  if (!set.size || !actions.some((a) => set.has(a.entity_id) && a.action_executor === 'dpIssue')) return [actions];
+  return [actions, actions.map((a) => (set.has(a.entity_id) && a.action_executor === 'dpIssue' ? Object.assign({}, a, { action_executor: 'irIssue' }) : a))];
+}
+async function withIrFallback(actions, irIds, send) {
+  let firstErr = null;
+  for (const variant of irVariants(actions, irIds)) {
+    try { return await send(variant); } catch (e) { if (!firstErr) firstErr = e; }
+  }
+  throw firstErr;
+}
+
+module.exports = { DEFAULT_BACKGROUND, cleanValue, cleanActions, bad, PROP_KEY, withIrFallback };

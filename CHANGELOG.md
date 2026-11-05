@@ -2,6 +2,14 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.20.0
+
+- IR remotes in scenes and automations: set an IR air conditioner's power, temperature, mode and fan, or press any button on a TV or other IR remote.
+
+## 2.19.0
+
+- Activity log in Me: see who turned what on or off, ran scenes, switched automations, edited scenes and automations, changed people, and signed in, for the last 30 days. Members only see their own homes.
+
 ## 2.18.0
 
 - Optional distance from home under the greeting ("You're 12 km from home"), turned on in Me. Your location stays on your phone.

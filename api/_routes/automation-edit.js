@@ -5,8 +5,9 @@
 // POST /api/automation-edit { op: 'delete', homeId, automationId }
 const { call } = require('../_lib/tuya');
 const { handler, requireId } = require('../_lib/http');
-const { DEFAULT_BACKGROUND, cleanValue, cleanActions, bad, PROP_KEY } = require('../_lib/rules');
+const { DEFAULT_BACKGROUND, cleanValue, cleanActions, bad, PROP_KEY, withIrFallback } = require('../_lib/rules');
 const access = require('../_lib/access');
+const activity = require('../_lib/activity');
 
 const ENTITY = /^[A-Za-z0-9_\-:.]{1,64}$/;
 
@@ -56,6 +57,7 @@ module.exports = handler(['GET', 'POST'], async (req, body) => {
   if (body.op === 'delete') {
     const id = requireId(String(body.automationId || ''), 'automation');
     await call('DELETE', `/v1.0/homes/${homeId}/automations/${id}`);
+    await activity.log(req, { kind: 'edit', homeId, text: 'deleted the automation ' + (body.name ? '"' + activity.clean(body.name, 40) + '"' : '') });
     return { ok: true };
   }
 
@@ -80,12 +82,14 @@ module.exports = handler(['GET', 'POST'], async (req, body) => {
   }
 
   if (body.op === 'create') {
-    const id = await call('POST', `/v1.0/homes/${homeId}/automations`, payload);
+    const id = await withIrFallback(payload.actions, body.irEntities, (actions) => call('POST', `/v1.0/homes/${homeId}/automations`, Object.assign({}, payload, { actions })));
+    await activity.log(req, { kind: 'edit', homeId, text: 'created the automation "' + activity.clean(name, 40) + '"' });
     return { ok: true, automationId: String(id) };
   }
   if (body.op === 'update') {
     const id = requireId(String(body.automationId || ''), 'automation');
-    await call('PUT', `/v1.0/homes/${homeId}/automations/${id}`, payload);
+    await withIrFallback(payload.actions, body.irEntities, (actions) => call('PUT', `/v1.0/homes/${homeId}/automations/${id}`, Object.assign({}, payload, { actions })));
+    await activity.log(req, { kind: 'edit', homeId, text: 'edited the automation "' + activity.clean(name, 40) + '"' });
     return { ok: true, automationId: id };
   }
   throw bad('Unknown operation.');

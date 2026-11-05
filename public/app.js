@@ -5,6 +5,18 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.20.0",
+      "items": [
+        "IR remotes in scenes and automations: set an IR air conditioner's power, temperature, mode and fan, or press any button on a TV or other IR remote."
+      ]
+    },
+    {
+      "v": "2.19.0",
+      "items": [
+        "Activity log in Me: see who turned what on or off, ran scenes, switched automations, edited scenes and automations, changed people, and signed in, for the last 30 days. Members only see their own homes."
+      ]
+    },
+    {
       "v": "2.18.0",
       "items": [
         "Optional distance from home under the greeting (\"You're 12 km from home\"), turned on in Me. Your location stays on your phone.",
@@ -257,6 +269,7 @@
     pinBusy: false,
     irKeys: {},          // remoteId -> { keys, categoryId } | 'loading' | { error }
     irSent: {},
+    irSpecs: {},         // deviceId -> standard IR instructions for scenes/automations
     editor: null,        // scene being created or edited
     me: null,            // signed-in user { id, name, role, owner }
     sync: false,         // shared storage set up on the server
@@ -270,6 +283,7 @@
     weather: null,
     showDistance: store.get('showDistance') === '1',  // "You're 12 km from home" (location stays on this phone)
     myPos: null,
+    activity: null,      // { homeId, entries, more, loading, error }
     energy: {},          // deviceId -> { at, available, today, week, days, total } | 'loading'       // { homeId, at, available, temp, code, isDay, unit } for the greeting
     tempUnit: store.get('tempUnit') || 'c',  // Celsius unless changed in Me         // deviceId -> time of the last local command (avoid flicker)          // remoteId + key -> true briefly after a button is sent   // deviceId whose icon picker is open
     icons: readIcons(),  // deviceId -> icon key, saved on this device      // { id, code } while an outlet name is being edited
@@ -340,6 +354,7 @@
     if (h.startsWith('auto/')) return { view: 'auto-edit', id: decodeURIComponent(h.slice(5)) };
     if (h === 'icons') return { view: 'icons' };
     if (h === 'changelog') return { view: 'changelog' };
+    if (h === 'activity') return { view: 'activity' };
     if (h === 'scenes' || h === 'me') return { view: h };
     return { view: 'devices' };
   }
@@ -718,7 +733,7 @@
     markPending(d.id, 1);
     if (!opts.noRender) render();
     try {
-      await api('command', { method: 'POST', body: { deviceId: d.id, commands } });
+      await api('command', { method: 'POST', body: { deviceId: d.id, commands, homeId: S.data && S.data.homeId, name: d.name } });
       S.touched[d.id] = Date.now();
       statusSoon();
     } catch (e) {
@@ -1254,6 +1269,51 @@
     send(d, cmds, Object.fromEntries(cmds.map((c) => [c.code, c.value])));
   }
 
+  // ---------- Activity log ----------
+  async function loadActivity(more) {
+    if (!S.data || !S.data.homeId) return;
+    const A = S.activity && S.activity.homeId === S.data.homeId ? S.activity : (S.activity = { homeId: S.data.homeId, entries: [], more: false });
+    if (A.loading) return;
+    A.loading = true; A.error = '';
+    if (!more) render();
+    try {
+      const before = more && A.entries.length ? A.entries[A.entries.length - 1].at : '';
+      const r = await api('activity?homeId=' + encodeURIComponent(A.homeId) + (before ? '&before=' + before : ''));
+      A.entries = more ? A.entries.concat(r.entries || []) : (r.entries || []);
+      A.more = !!r.more; A.at = Date.now();
+    } catch (e) { A.error = e.message; }
+    A.loading = false;
+    render();
+  }
+  function dayLabel(ts) {
+    const d = new Date(ts), today = new Date(); today.setHours(0, 0, 0, 0);
+    const diff = Math.round((today - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000);
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Yesterday';
+    return d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+  function activityView() {
+    let html = '<div class="detail-head se-head-top"><button class="round-btn" data-act="tab" data-tab="me" data-key="act-back" aria-label="Back to Me">' + icon('back', 20) + '</button>' +
+      '<div><p class="sub">Last 30 days</p><h1 class="detail-title">Activity</h1></div></div>';
+    if (S.mode !== 'demo' && !S.sync) return html + '<div class="empty"><strong>Needs the database</strong><p>Connect the free Neon database (README, "Sync and users") to keep an activity log.</p></div>';
+    const A = S.activity;
+    if (!A || A.homeId !== (S.data && S.data.homeId) || (!A.at && !A.loading && !A.error)) { loadActivity(false); return html + '<p class="note" style="text-align:left">Loading…</p>'; }
+    if (A.error && !A.entries.length) return html + '<div class="empty"><strong>Couldn\'t load activity</strong><p>' + esc(A.error) + '</p></div>';
+    if (!A.entries.length) return html + '<div class="empty"><strong>Nothing yet</strong><p>When anyone controls a device, runs a scene or changes a setting in this app, it shows up here.</p></div>';
+    let last = '';
+    html += A.entries.map((e) => {
+      const day = dayLabel(e.at);
+      const head = day !== last ? (last ? '</div>' : '') + '<h2 class="act-day">' + esc(day) + '</h2><div class="list act-list">' : '';
+      last = day;
+      const time = new Date(e.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return head + '<div class="list-row act-row"><span class="act-avatar" aria-hidden="true">' + esc((e.who || '?').trim().charAt(0).toUpperCase()) + '</span>' +
+        '<span class="act-text"><b>' + esc(e.who) + '</b> ' + esc(e.text) + '</span><span class="act-time">' + time + '</span></div>';
+    }).join('') + '</div>';
+    if (A.more) html += '<button class="btn ghost act-more" data-act="act-more" data-key="act-more"' + (A.loading ? ' disabled' : '') + '>' + (A.loading ? 'Loading…' : 'Show older') + '</button>';
+    html += '<p class="note" style="text-align:left;margin-top:12px">Changes made in the Tuya app or with physical switches aren\'t included.</p>';
+    return html;
+  }
+
   function changelogView() {
     let html = '<div class="detail-head se-head-top"><button class="round-btn" data-act="tab" data-tab="me" data-key="cl-back" aria-label="Back to Me">' + icon('back', 20) + '</button>' +
       '<div><p class="sub">Version ' + APP_VERSION + '</p><h1 class="detail-title">What\'s new</h1></div></div>';
@@ -1338,7 +1398,7 @@
     const sentKey = d.id + '|' + k.key;
     try {
       await api('ir', { method: 'POST', body: {
-        hubId: d.ir.hub || 'none', remoteId: d.id, action: 'key',
+        hubId: d.ir.hub || 'none', remoteId: d.id, action: 'key', homeId: S.data && S.data.homeId, name: d.name,
         categoryId: d.ir.categoryId != null && !Number.isNaN(d.ir.categoryId) ? d.ir.categoryId : (entry.categoryId ?? 0),
         key: k.key, keyId: k.keyId, std: !!k.std
       } });
@@ -1366,7 +1426,7 @@
       markPending(d.id, 1); render();
       try {
         await api('ir', { method: 'POST', body: {
-          hubId: d.ir.hub || 'none', remoteId: d.id, action: 'ac',
+          hubId: d.ir.hub || 'none', remoteId: d.id, action: 'ac', homeId: S.data && S.data.homeId, name: d.name,
           power: st2.power ? 1 : 0, mode: st2.mode, temp: st2.temp, wind: st2.wind, changed
         } });
       } catch (e) {
@@ -1524,7 +1584,7 @@
   const canEdit = () => S.mode === 'demo' || !S.me || S.me.role === 'admin';
 
   // ---------- Scene editor ----------
-  const SCENE_KINDS = ['light', 'plug', 'multi', 'climate', 'cover', 'fan', 'generic'];
+  const SCENE_KINDS = ['light', 'plug', 'multi', 'climate', 'cover', 'fan', 'generic', 'irac', 'irremote'];
   function sceneEligible(d) {
     const k = kindOf(d);
     if (!SCENE_KINDS.includes(k)) return false;
@@ -1534,6 +1594,8 @@
   }
   function defaultProps(d) {
     const k = kindOf(d), pc = powerCode(d), p = {};
+    if (k === 'irac') return { PowerOn: 'PowerOn', M: 0, T: 24, F: 0 };
+    if (k === 'irremote') return {};  // pick a button first
     if (k === 'multi') { channelCodes(d).forEach((c) => { p[c] = true; }); return p; }
     if (k === 'cover') { if ('control' in d.status) p.control = 'open'; else p.percent_control = 100; return p; }
     if (pc) p[pc] = true;
@@ -1546,7 +1608,17 @@
         return { type: 'delay', minutes: Number(p.hours || 0) * 60 + Number(p.minutes || 0), seconds: Number(p.seconds || 0) };
       }
       if (a.executor === 'ruleTrigger' && S.data && S.data.scenes.some((x) => x.id === a.entity)) return { type: 'scene', sceneId: a.entity };
-      const d = (a.executor === 'dpIssue' || a.executor === 'device_issue') ? findDevice(a.entity) : null;
+      const d = (a.executor === 'dpIssue' || a.executor === 'device_issue' || a.executor === 'irIssue') ? findDevice(a.entity) : null;
+      // IR actions stay editable only when they're in the simple form this app writes; anything else
+      // (e.g. made in the Tuya app) is kept exactly as is.
+      if (d && d.ir) {
+        const keys = Object.keys(a.props || {});
+        const acForm = d.ir.ac && keys.length && keys.every((k) => ['PowerOn', 'PowerOff', 'T', 'M', 'F'].includes(k));
+        const keyForm = !d.ir.ac && keys.length === 1 && a.props[keys[0]] === keys[0];
+        if (!(acForm || keyForm) || (a.executor === 'irIssue' && !acForm && !keyForm)) {
+          return { type: 'raw', raw: { action_executor: a.executor, entity_id: a.entity, executor_property: a.props || {} } };
+        }
+      }
       if (d && sceneEligible(d)) return { type: 'device', deviceId: d.id, props: Object.assign({}, a.props) };
       return { type: 'raw', raw: { action_executor: a.executor, entity_id: a.entity || undefined, executor_property: a.props || {} } };
     });
@@ -1581,8 +1653,53 @@
     return raw / Math.pow(10, scale);
   }
 
+  // IR remotes in scenes and automations use Tuya's standard IR instructions.
+  function loadIrSpec(d) {
+    if (S.irSpecs[d.id]) return;
+    S.irSpecs[d.id] = 'loading';
+    api('irspec?deviceId=' + encodeURIComponent(d.id))
+      .then((r) => { S.irSpecs[d.id] = r; })
+      .catch(() => { S.irSpecs[d.id] = { available: false }; })
+      .then(() => { if (!S.dragging) render(); });
+  }
+  function irActionControls(d, it, i) {
+    const p = it.props;
+    if (kindOf(d) === 'irac') {
+      const on = !('PowerOff' in p);
+      let html = '<div class="seg" style="--n:2">' +
+        '<button class="chip soft" data-act="se-ir-power" data-i="' + i + '" data-v="1" data-key="se-' + i + '-iron" aria-pressed="' + on + '">On</button>' +
+        '<button class="chip soft" data-act="se-ir-power" data-i="' + i + '" data-v="0" data-key="se-' + i + '-iroff" aria-pressed="' + !on + '">Off</button></div>';
+      if (on) {
+        const t = Number(p.T != null ? p.T : 24);
+        html += '<div class="se-row"><span class="se-label">Temperature</span><div class="stepper">' +
+          '<button class="round-btn soft sm" data-act="se-irtemp" data-i="' + i + '" data-delta="-1" data-key="se-' + i + '-irtd" aria-label="Lower temperature">' + icon('minus', 18) + '</button>' +
+          '<span class="se-value">' + t + '°</span>' +
+          '<button class="round-btn soft sm" data-act="se-irtemp" data-i="' + i + '" data-delta="1" data-key="se-' + i + '-irtu" aria-label="Raise temperature">' + icon('plus', 18) + '</button></div></div>';
+        html += '<div class="se-row"><span class="se-label">Mode</span>' + seChips(i, 'M', IR_MODES.map((m, n) => [m, n]), Number(p.M != null ? p.M : 0)) + '</div>';
+        html += '<div class="se-row"><span class="se-label">Fan</span>' + seChips(i, 'F', IR_WIND.map((w, n) => [w, n]), Number(p.F != null ? p.F : 0)) + '</div>';
+      }
+      return html;
+    }
+    // Other IR remotes (TV, fan, light...): pick one button to press.
+    const spec = S.irSpecs[d.id];
+    if (!spec) { loadIrSpec(d); return '<p class="note se-note">Loading buttons…</p>'; }
+    if (spec === 'loading') return '<p class="note se-note">Loading buttons…</p>';
+    let keys = spec.available && spec.functions && spec.functions.length ? spec.functions.map((f) => ({ code: f.code, name: f.name })) : null;
+    if (!keys) {
+      const entry = S.irKeys[d.id];
+      if (!entry) { loadIrKeys(d); return '<p class="note se-note">Loading buttons…</p>'; }
+      if (entry === 'loading') return '<p class="note se-note">Loading buttons…</p>';
+      keys = (entry.keys || []).map((k) => ({ code: k.key, name: k.name }));
+    }
+    if (!keys.length) return '<p class="note se-note">This remote has no buttons that can be used here.</p>';
+    const current = Object.keys(p)[0];
+    return '<div class="se-row"><span class="se-label">Press</span><div class="trigger-chips" role="group" aria-label="Button to press">' + keys.slice(0, 40).map((k, j) =>
+      '<button class="chip soft" data-act="se-irkey" data-i="' + i + '" data-k="' + esc(k.code) + '" data-key="se-' + i + '-k' + j + '" aria-pressed="' + (current === k.code) + '">' + esc(k.name) + '</button>').join('') + '</div></div>';
+  }
+
   function deviceActionControls(it, i) {
     const d = findDevice(it.deviceId), p = it.props, k = kindOf(d), pc = powerCode(d);
+    if (d.ir) return irActionControls(d, it, i);
     const OnOff = [['On', true], ['Off', false]];
     let html = '';
     if (k === 'multi') {
@@ -1695,7 +1812,7 @@
           : '<div class="list-row"><span class="meta">No devices here can be used in scenes yet.</span></div>') +
         (auto && S.data.scenes.length ? '<div class="list-row"><span class="label">Or run a scene</span></div>' + S.data.scenes.map((sc) =>
           '<button class="list-row" data-act="se-pick-scene" data-id="' + esc(sc.id) + '" data-key="se-pscene-' + esc(sc.id) + '"><span class="channel"><span class="icon-dot sm">' + icon('play', 14) + '</span><span class="label">' + esc(sc.name) + '</span></span></button>').join('') : '') +
-        '<p class="note se-note">Sensors, cameras and IR remotes can\'t be added here yet. Add IR remote actions in the Tuya app; they\'re kept when you edit here.</p></div>';
+        '<p class="note se-note">Sensors and cameras can\'t be added as actions.</p></div>';
     } else {
       html += '<div class="se-add-row"><button class="pill-btn" data-act="se-pick-open" data-key="se-pick-open">' + icon('plus', 18) + 'Add device</button>' +
         '<button class="pill-btn soft" data-act="se-add-delay" data-key="se-add-delay">' + icon('plus', 18) + 'Add wait</button></div>';
@@ -1899,7 +2016,7 @@
     E.saving = true; E.error = ''; render();
     try {
       await api('automation-edit', { method: 'POST', body: {
-        op: E.id ? 'update' : 'create', homeId: S.data.homeId, automationId: E.id || undefined,
+        op: E.id ? 'update' : 'create', homeId: S.data.homeId, automationId: E.id || undefined, irEntities: irEntityIds(),
         name: E.name.trim(), match_type: E.match, condition_rule: E.match === 3 ? E.conditionRule : undefined,
         background: E.background || undefined, preconditions: E.preconditions && E.preconditions.length ? E.preconditions : undefined,
         conditions, actions
@@ -1916,12 +2033,16 @@
     if (!E.confirmDelete) { E.confirmDelete = true; render(); return; }
     E.saving = true; render();
     try {
-      await api('automation-edit', { method: 'POST', body: { op: 'delete', homeId: S.data.homeId, automationId: E.id } });
+      await api('automation-edit', { method: 'POST', body: { op: 'delete', homeId: S.data.homeId, automationId: E.id, name: E.name } });
       toast('Automation deleted');
       S.editor = null; go('scenes'); refresh({ silent: true, fresh: true });
     } catch (e) {
       E.saving = false; E.confirmDelete = false; E.error = 'Couldn\'t delete: ' + e.message; render();
     }
+  }
+
+  function irEntityIds() {
+    return (S.editor ? S.editor.items : []).filter((it) => it.type === 'device').map((it) => findDevice(it.deviceId)).filter((d) => d && d.ir).map((d) => d.id);
   }
 
   function editorActions() {
@@ -1960,7 +2081,7 @@
     E.saving = true; E.error = ''; render();
     try {
       await api('scene-edit', { method: 'POST', body: {
-        op: E.id ? 'update' : 'create', homeId: S.data.homeId, sceneId: E.id || undefined,
+        op: E.id ? 'update' : 'create', homeId: S.data.homeId, sceneId: E.id || undefined, irEntities: irEntityIds(),
         name: E.name.trim(), background: E.background || undefined, actions
       } });
       toast(E.id ? 'Scene saved' : 'Scene created');
@@ -1978,7 +2099,7 @@
     if (!E.confirmDelete) { E.confirmDelete = true; render(); return; }
     E.saving = true; render();
     try {
-      await api('scene-edit', { method: 'POST', body: { op: 'delete', homeId: S.data.homeId, sceneId: E.id } });
+      await api('scene-edit', { method: 'POST', body: { op: 'delete', homeId: S.data.homeId, sceneId: E.id, name: E.name } });
       toast('Scene deleted');
       S.editor = null;
       go('scenes');
@@ -2023,6 +2144,7 @@
     html += '<div class="list-row"><label class="label" for="poll-select">Live updates</label><select id="poll-select" data-act="poll" data-key="poll-select">' +
       [[2000, 'Fastest (2 s)'], [4000, 'Fast (4 s)'], [10000, 'Normal (10 s)'], [30000, 'Saver (30 s)']].map(([ms, label]) =>
         '<option value="' + ms + '"' + (S.pollMs === ms ? ' selected' : '') + '>' + label + '</option>').join('') + '</select></div>';
+    if (S.mode === 'demo' || S.sync) html += '<button class="list-row" data-act="tab" data-tab="activity" data-key="activity-open"><span class="label">Activity</span><span class="value icon-value">Who did what' + icon('chevron', 16) + '</span></button>';
     html += '<button class="list-row" data-act="tab" data-tab="icons" data-key="icons-open"><span class="label">Device icons</span><span class="value icon-value">Change' + icon('chevron', 16) + '</span></button>';
     html += '<div class="list-row"><span class="label" id="dist-label">Distance from home</span>' +
       '<button class="switch" role="switch" aria-checked="' + S.showDistance + '" aria-labelledby="dist-label" data-act="distance" data-key="distance"><span class="knob"></span></button></div>';
@@ -2199,7 +2321,7 @@
 
   // Gentle page transitions: deeper screens slide in from the right, going back slides from the left,
   // switching tabs fades. Skipped after a swipe-back (it already animated) and for reduced motion.
-  const DEPTH = { devices: 1, scenes: 1, me: 1, device: 2, 'scene-edit': 2, 'auto-edit': 2, icons: 2, changelog: 2 };
+  const DEPTH = { devices: 1, scenes: 1, me: 1, device: 2, 'scene-edit': 2, 'auto-edit': 2, icons: 2, changelog: 2, activity: 2 };
   let skipAnim = false;
   function animateRoute(from, to, isWide) {
     if (skipAnim) { skipAnim = false; return; }
@@ -2235,7 +2357,7 @@
 
     const r = route();
     const isWide = wide.matches;
-    const activeTab = r.view === 'device' ? 'devices' : (r.view === 'scene-edit' || r.view === 'auto-edit') ? 'scenes' : (r.view === 'icons' || r.view === 'changelog') ? 'me' : r.view;
+    const activeTab = r.view === 'device' ? 'devices' : (r.view === 'scene-edit' || r.view === 'auto-edit') ? 'scenes' : (r.view === 'icons' || r.view === 'changelog' || r.view === 'activity') ? 'me' : r.view;
     let mainHtml, panelHtml = null;
 
     if (r.view === 'device' && !isWide) {
@@ -2258,6 +2380,8 @@
       mainHtml = iconsView();
     } else if (r.view === 'changelog') {
       mainHtml = changelogView();
+    } else if (r.view === 'activity') {
+      mainHtml = activityView();
     } else if (activeTab === 'scenes') {
       mainHtml = scenesView(!isWide);
       if (isWide) panelHtml = automationsPanel();
@@ -2462,6 +2586,23 @@
         it.props.temp_set = it.props.temp_set === undefined ? base : clamp(base + Number(el.dataset.delta) * step, min, max);
         render(); break;
       }
+      case 'se-ir-power': {
+        const it = S.editor.items[Number(el.dataset.i)];
+        it.props = el.dataset.v === '1'
+          ? { PowerOn: 'PowerOn', M: Number(it.props.M != null ? it.props.M : 0), T: Number(it.props.T != null ? it.props.T : 24), F: Number(it.props.F != null ? it.props.F : 0) }
+          : { PowerOff: 'PowerOff' };
+        render(); break;
+      }
+      case 'se-irtemp': {
+        const it = S.editor.items[Number(el.dataset.i)];
+        it.props.T = clamp(Number(it.props.T != null ? it.props.T : 24) + Number(el.dataset.delta), 16, 30);
+        render(); break;
+      }
+      case 'se-irkey': {
+        const it = S.editor.items[Number(el.dataset.i)];
+        it.props = { [el.dataset.k]: el.dataset.k };
+        S.editor.error = ''; render(); break;
+      }
       case 'se-save': saveScene(); break;
       case 'se-delete': deleteScene(); break;
       case 'auto': toggleAutomation(id); break;
@@ -2477,6 +2618,7 @@
       case 'pw-open': S.pwForm = { current: '', password: '', error: '', busy: false, open: true }; render(); focusFirst('pf-cur'); break;
       case 'pw-close': S.pwForm.open = false; render(); break;
       case 'alloff': allOff(); break;
+      case 'act-more': loadActivity(true); break;
       case 'distance':
         if (S.showDistance) { S.showDistance = false; store.set('showDistance', '0'); S.myPos = null; render(); break; }
         if (!('geolocation' in navigator)) { toast('This browser can\'t share your location.'); break; }
@@ -2755,7 +2897,7 @@
   }
 
   // ---------- Swipe back from the left edge (phones) ----------
-  const BACK = { device: 'devices', 'scene-edit': 'scenes', 'auto-edit': 'scenes', icons: 'me', changelog: 'me' };
+  const BACK = { device: 'devices', 'scene-edit': 'scenes', 'auto-edit': 'scenes', icons: 'me', changelog: 'me', activity: 'me' };
   let edge = null;
   const standalone = () => window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
   document.addEventListener('touchstart', (e) => {
@@ -2873,6 +3015,7 @@
     el.classList.add('spinning'); el.style.opacity = '1'; el.style.transform = 'translate(-50%, 18px)';
     if (navigator.vibrate) { try { navigator.vibrate(10); } catch (e) { /* ignore */ } }
     S.energy = {};
+    if (route().view === 'activity') S.activity = null;
     await refresh({ fresh: true, silent: true });
     loadWeather(true);
     ptrHide(); ptr = null;
@@ -2908,7 +3051,7 @@
     S.renaming = null;
     render();
     try {
-      await api('rename', { method: 'POST', body: { deviceId: d.id, code, name } });
+      await api('rename', { method: 'POST', body: { deviceId: d.id, code, name, homeId: S.data && S.data.homeId, deviceName: d.name } });
     } catch (e) {
       if (before === undefined) delete spec.names[code]; else spec.names[code] = before;
       render();
@@ -2920,7 +3063,8 @@
     if (!S.data) return;
     S.sceneState[id] = 'running'; render();
     try {
-      await api('scene', { method: 'POST', body: { homeId: S.data.homeId, sceneId: id } });
+      const sc = S.data.scenes.find((x) => x.id === id);
+      await api('scene', { method: 'POST', body: { homeId: S.data.homeId, sceneId: id, name: sc ? sc.name : '' } });
       S.sceneState[id] = 'done'; render();
       setTimeout(() => { delete S.sceneState[id]; render(); refresh({ silent: true }); }, 1600);
     } catch (e) {
@@ -2934,7 +3078,7 @@
     if (!a) return;
     a.enabled = !a.enabled; render();
     try {
-      await api('automation', { method: 'POST', body: { homeId: S.data.homeId, automationId: id, enabled: a.enabled } });
+      await api('automation', { method: 'POST', body: { homeId: S.data.homeId, automationId: id, enabled: a.enabled, name: a.name } });
     } catch (e) {
       a.enabled = !a.enabled; render();
       toast(a.name + ': ' + e.message);
@@ -3096,6 +3240,13 @@
     };
     const names = { dev12: { switch_1: 'Monitor', switch_2: 'Laptop charger' } };
     const demoIcons = {};
+    const demoAct = [
+      { at: Date.now() - 5 * 60000, who: 'Sam', text: 'turned off Kettle plug', home: true },
+      { at: Date.now() - 52 * 60000, who: 'Owner', text: 'ran the scene "Movie night"', home: true },
+      { at: Date.now() - 3 * 3600000, who: 'Sam', text: 'changed the brightness of Floor lamp', home: true },
+      { at: Date.now() - 26 * 3600000, who: 'Owner', text: 'added Sam as a member', home: false },
+      { at: Date.now() - 27 * 3600000, who: 'Owner', text: 'created the automation "Porch light at 7 pm"', home: true }
+    ];
     let demoUsers = [{ id: 'u1', name: 'Sam', role: 'member', owner: false, homes: null }];
     const clone = (x) => JSON.parse(JSON.stringify(x));
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -3126,6 +3277,7 @@
         const dev = db.devices.find((x) => x.id === b.deviceId);
         if (!dev || !dev.online) { const e = new Error('Device is offline.'); e.code = 'offline'; throw e; }
         for (const c of b.commands) dev.status[c.code] = c.value;
+        demoAct.push({ at: Date.now(), who: 'Owner', text: (b.commands.some((c) => c.value === true) ? 'turned on ' : b.commands.some((c) => c.value === false) ? 'turned off ' : 'changed ') + dev.name, home: true });
         if ('cur_power' in dev.status) dev.status.cur_power = dev.id === 'dev4' ? (dev.status.switch_1 ? 21540 : 0) : dev.status.cur_power;
         if (dev.status.control === 'open') dev.status.percent_control = 100;
         if (dev.status.control === 'close') dev.status.percent_control = 0;
@@ -3156,6 +3308,12 @@
         const f = /unit=f/.test(path);
         return { available: true, temp: f ? 75 : 24, code: 2, isDay: true, unit: f ? '°F' : '°C', place: 'Demo', lat: 51.5074, lon: -0.1278 };
       }
+      if (path.startsWith('irspec')) {
+        const ac = /ir1/.test(path);
+        return ac ? { available: true, isAc: true, functions: [{ code: 'PowerOn', name: 'Power on' }, { code: 'PowerOff', name: 'Power off' }, { code: 'T', name: 'Temperature' }, { code: 'M', name: 'Mode' }, { code: 'F', name: 'Fan' }], modes: [0, 1, 2, 3, 4] }
+          : { available: true, isAc: false, functions: [{ code: 'PowerOn', name: 'Power on' }, { code: 'PowerOff', name: 'Power off' }, { code: 'Volume+', name: 'Volume +' }, { code: 'Volume-', name: 'Volume −' }, { code: 'Mute', name: 'Mute' }, { code: 'Input', name: 'Input' }] };
+      }
+      if (path.startsWith('activity')) return { entries: demoAct.slice().sort((a, b) => b.at - a.at).map((e, i) => Object.assign({ id: 'a' + i }, e)), more: false };
       if (path.startsWith('status')) {
         const out = {};
         db.devices.forEach((x) => { out[x.id] = { online: x.online, status: clone(x.status) }; });

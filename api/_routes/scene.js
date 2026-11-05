@@ -2,11 +2,13 @@
 const { call } = require('../_lib/tuya');
 const { handler, requireId } = require('../_lib/http');
 const access = require('../_lib/access');
+const activity = require('../_lib/activity');
 
 module.exports = handler(['POST'], async (req, body) => {
   const homeId = requireId(body.homeId, 'home');
   access.requireHome(req.user, homeId);
   const sceneId = requireId(body.sceneId, 'scene');
   await call('POST', `/v1.0/homes/${homeId}/scenes/${sceneId}/trigger`);
+  await activity.log(req, { kind: 'scene', homeId, text: 'ran the scene ' + (body.name ? '"' + activity.clean(body.name, 40) + '"' : '') });
   return { ok: true };
 });

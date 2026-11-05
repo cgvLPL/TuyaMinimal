@@ -917,3 +917,15 @@ input, select, textarea { font-size: 16px; }
 .distance svg { flex: 0 0 auto; }
 /* No zoom: keep the whole interface at its designed size */
 html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+/* ---------- Activity ---------- */
+.act-day { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin: 16px 4px 8px; }
+.act-row { align-items: flex-start; gap: 12px; }
+.act-avatar {
+  width: 32px; height: 32px; border-radius: 16px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+  background: var(--chip); font-size: 13px; font-weight: 700; color: var(--text);
+}
+.act-text { flex: 1 1 auto; font-size: 14px; line-height: 1.4; padding-top: 5px; overflow-wrap: anywhere; }
+.act-text b { font-weight: 700; }
+.act-time { flex: 0 0 auto; font-size: 12px; font-weight: 600; color: var(--muted); padding-top: 7px; font-variant-numeric: tabular-nums; }
+.act-more { width: 100%; margin-top: 10px; }

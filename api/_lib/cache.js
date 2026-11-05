@@ -7,4 +7,5 @@ async function cached(key, ttlMs, fn) {
   store.set(key, { value, until: Date.now() + ttlMs });
   return value;
 }
-module.exports = { cached, clear: () => store.clear(), SLOW: 60 * 1000 };
+function peek(key) { const hit = store.get(key); return hit && hit.until > Date.now() ? hit.value : undefined; }
+module.exports = { cached, peek, clear: () => store.clear(), SLOW: 60 * 1000 };

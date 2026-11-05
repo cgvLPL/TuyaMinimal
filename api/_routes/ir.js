@@ -7,6 +7,7 @@
 const { call, TuyaError } = require('../_lib/tuya');
 const { handler, requireId } = require('../_lib/http');
 const access = require('../_lib/access');
+const activity = require('../_lib/activity');
 
 const int = (v, min, max, label) => {
   const n = Number(v);
@@ -73,6 +74,9 @@ module.exports = handler(['GET', 'POST'], async (req, body) => {
       route = 'standard';
       await acStandard(remoteId, cmd, changed);
     }
+    const MODES = ['Cool', 'Heat', 'Auto', 'Fan', 'Dry'];
+    await activity.log(req, { kind: 'device', homeId: typeof body.homeId === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(body.homeId) ? body.homeId : null,
+      text: (cmd.power ? 'set ' + activity.deviceName(remoteId, body.name) + ' to ' + MODES[cmd.mode] + ', ' + cmd.temp + '°' : 'turned off ' + activity.deviceName(remoteId, body.name)) });
     return { ok: true, route, state: Object.assign({}, cmd, { power: cmd.power === 1 }) };
   }
 

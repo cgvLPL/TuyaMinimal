@@ -18,12 +18,14 @@ so your API secret never reaches the browser.
 - Energy for plugs that measure power: live watts on the card, and on the plug's screen volts/amps,
   a 7-day chart, today, last 7 days and all-time kWh (from Tuya's data statistics)
 - Pull down to refresh
+- Activity log (Me → Activity): who controlled which device, ran scenes, switched automations,
+  edited scenes/automations, changed people or signed in, kept for 30 days. Needs the database.
 - Optional "You're 12 km from home" under the greeting (Me → Distance from home). The phone's
   location is compared with the home's location on the phone itself and never sent to the server.
 - Readings: temperature/humidity (and CO₂, PM2.5) sensors appear as a strip of readings above
   your devices instead of as cards, including IR blasters with a built-in thermometer
 - Tap-to-run scenes: run, create, edit and delete them (devices, outlets, brightness, AC settings,
-  curtains, waits); IR remote actions made in the Tuya app are kept when you edit
+  curtains, waits); IR remotes can be used too (AC settings, or any remote button)
 - Automations: create, edit and delete them (admins). When: a time on chosen days, or a device
   turning on/off, a door opening, motion, a leak or smoke, temperature or humidity above/below a value;
   match any or all. Then: device actions, waits, or running a scene. Switch any automation on or off.
@@ -59,6 +61,8 @@ api/_routes/       the endpoints (folders starting with _ aren't deployed as sep
   settings.js      shared settings such as custom icons
   energy.js        daily kWh for plugs that measure power: Tuya statistics, else the device's
                    energy report log, else an estimate from its wattage log
+  irspec.js        which IR remote commands can be used in scenes and automations
+  activity.js      the activity log: who did what (needs the database)
   weather.js       current weather at the home's location (Open-Meteo, cached 10 minutes)
 api/_lib/          Tuya client and signing, sign-in, home access checks, scene/automation validation, Neon helpers
 ```

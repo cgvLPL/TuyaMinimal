@@ -26,12 +26,34 @@ async function q(text, params) {
     throw new TuyaError('Database error: ' + (e && e.message ? e.message : 'unknown'), 'storage', 502);
   }
 }
+const ACT = 'tuyahome_activity';
 async function setup() {
   if (!ready) {
-    ready = q(`CREATE TABLE IF NOT EXISTS ${TABLE} (key TEXT PRIMARY KEY, value TEXT NOT NULL, expires_at BIGINT)`)
-      .catch((e) => { ready = null; throw e; });
+    ready = (async () => {
+      await q(`CREATE TABLE IF NOT EXISTS ${TABLE} (key TEXT PRIMARY KEY, value TEXT NOT NULL, expires_at BIGINT)`);
+      await q(`CREATE TABLE IF NOT EXISTS ${ACT} (id TEXT PRIMARY KEY, at BIGINT NOT NULL, user_id TEXT, user_name TEXT, home_id TEXT, kind TEXT, text TEXT NOT NULL)`);
+      await q(`CREATE INDEX IF NOT EXISTS ${ACT}_at ON ${ACT} (at)`);
+    })().catch((e) => { ready = null; throw e; });
   }
   return ready;
+}
+
+// Activity log: who did what, kept for 30 days.
+const KEEP_MS = 30 * 86400000;
+async function addActivity(e) {
+  await setup();
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  await q(`INSERT INTO ${ACT} (id, at, user_id, user_name, home_id, kind, text) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [id, Date.now(), e.userId || null, e.userName || null, e.homeId || null, e.kind || null, String(e.text).slice(0, 200)]);
+  if (Math.random() < 0.02) await q(`DELETE FROM ${ACT} WHERE at < $1`, [Date.now() - KEEP_MS]).catch(() => null);
+}
+// Entries for one home, plus (for admins) home-less entries such as sign-ins and people changes.
+async function listActivity({ homeId, includeGlobal, before, limit }) {
+  await setup();
+  return q(`SELECT id, at, user_name, home_id, kind, text FROM ${ACT}
+            WHERE (home_id = $1 OR ($2 = 1 AND home_id IS NULL)) AND at < $3 AND at > $4
+            ORDER BY at DESC LIMIT $5`,
+    [homeId || '', includeGlobal ? 1 : 0, before || Date.now() + 1, Date.now() - KEEP_MS, Math.min(100, limit || 50)]);
 }
 // Expired rows are ignored when read and cleared out now and then.
 async function sweep() {
@@ -75,4 +97,4 @@ async function incr(key, ttlSeconds) {
   return rows.length ? Number(rows[0].value) : 1;
 }
 
-module.exports = { enabled, getJSON, setJSON, del, count, incr };
+module.exports = { enabled, getJSON, setJSON, del, count, incr, addActivity, listActivity };
