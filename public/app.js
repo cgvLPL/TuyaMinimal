@@ -104,9 +104,12 @@
     const h = location.hash.replace(/^#/, '');
     if (h.startsWith('device/')) return { view: 'device', id: decodeURIComponent(h.slice(7)) };
     if (h.startsWith('scene/')) return { view: 'scene-edit', id: decodeURIComponent(h.slice(6)) };
+    if (h.startsWith('auto/')) return { view: 'auto-edit', id: decodeURIComponent(h.slice(5)) };
+    if (h === 'icons') return { view: 'icons' };
     if (h === 'scenes' || h === 'me') return { view: h };
     return { view: 'devices' };
   }
+  function inEditor() { const v = route().view; return v === 'scene-edit' || v === 'auto-edit'; }
   function go(hash) {
     if (location.hash === '#' + hash) render(); else location.hash = hash;
   }
@@ -180,7 +183,7 @@
     } finally {
       S.loading = false;
       const typing = document.activeElement && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName) && document.activeElement.type !== 'range';
-      if (!S.dragging && !S.renaming && !typing && !(S.editor && route().view === 'scene-edit')) render();
+      if (!S.dragging && !S.renaming && !typing && !(S.editor && inEditor())) render();
       if (S.refreshAgain) { S.refreshAgain = false; refresh({ silent: true }); }
     }
   }
@@ -627,7 +630,8 @@
         '</select><span class="title-chevron" aria-hidden="true">' + icon('down', 16) + '</span></span>'
       : '<span>' + esc(homeName) + '</span>';
     const initial = (S.me && S.me.name ? S.me.name : 'H').trim().charAt(0).toUpperCase();
-    let html = '<div class="hello">' +
+    // The top (greeting, rooms, readings, heading) stays put; only the device cards scroll.
+    let html = '<div class="dv-top"><div class="hello">' +
       '<div class="hello-text"><h1 class="title">' + esc(greeting()) + '</h1>' +
       weatherLine(data.homeId) +
       '<p class="hello-sub">' + homeLine + '<span class="hello-dot" aria-hidden="true"></span><span>' + onCount + (onCount === 1 ? ' device on' : ' devices on') + '</span></p></div>' +
@@ -639,7 +643,7 @@
         '<span class="room-box">' + icon(roomIcon(r), 22) + '</span><span class="room-name">' + esc(r) + '</span></button>').join('') + '</div>';
     }
     if (!data.devices.length) {
-      return html + '<div class="empty"><strong>No devices found</strong><p>Link your Tuya app account to your cloud project (see the README), then tap Refresh in Me.</p></div>';
+      return html + '</div><div class="dv-scroll"><div class="empty"><strong>No devices found</strong><p>Link your Tuya app account to your cloud project (see the README), then tap Refresh in Me.</p></div></div>';
     }
     const readings = shown.filter(isReadingDevice);
     const cards = shown.filter((d) => !isReadingDevice(d));
@@ -648,9 +652,10 @@
     }
     if (cards.length) {
       html += '<div class="section-head"><h2>Devices</h2><span class="section-count">' + cards.length + '</span>' + allOffButton() + '</div>';
-      html += '<div class="grid">' + cards.map((d) => deviceCard(d, selectedId)).join('') + '</div>';
+      html += '</div><div class="dv-scroll" data-scroll="devices"><div class="grid">' + cards.map((d) => deviceCard(d, selectedId)).join('') + '</div></div>';
+      return html;
     }
-    else if (!readings.length) html += '<div class="empty"><strong>Nothing in this room</strong><p>Assign devices to rooms in the Tuya app.</p></div>';
+    html += '</div><div class="dv-scroll">' + (readings.length ? '' : '<div class="empty"><strong>Nothing in this room</strong><p>Assign devices to rooms in the Tuya app.</p></div>') + '</div>';
     return html;
   }
 
@@ -699,9 +704,9 @@
     if (!n) return '';
     const armed = S.allOffArmed && Date.now() - S.allOffArmed < 4000;
     const where = S.room === 'All' ? '' : ' in ' + S.room;
-    return '<button class="pill-btn' + (armed ? ' armed' : ' soft') + '" data-act="alloff" data-key="alloff" aria-label="' +
-      esc(armed ? 'Confirm: turn off ' + n + ' devices' + where : 'Turn off everything' + where) + '">' + icon('power', 18) +
-      (armed ? 'Turn off ' + n + '?' : 'All off') + '</button>';
+    const label = armed ? 'Tap again to turn off ' + n + ' devices' + where : 'Turn off everything' + where;
+    return '<button class="icon-btn power-off' + (armed ? ' armed' : '') + '" data-act="alloff" data-key="alloff" aria-label="' + esc(label) + '" title="' + esc(label) + '">' +
+      icon('power', 20) + '</button>';
   }
   function allOff() {
     const targets = allOffTargets();
@@ -866,14 +871,28 @@
     send(d, cmds, Object.fromEntries(cmds.map((c) => [c.code, c.value])));
   }
 
+  function iconsView() {
+    const devices = S.data ? S.data.devices : [];
+    let html = '<div class="detail-head se-head-top"><button class="round-btn" data-act="tab" data-tab="me" data-key="icons-back" aria-label="Back to Me">' + icon('back', 20) + '</button>' +
+      '<div><p class="sub">Settings</p><h1 class="detail-title">Device icons</h1></div></div>';
+    if (!devices.length) return html + '<div class="empty"><strong>No devices yet</strong><p>Devices appear here once they load.</p></div>';
+    html += '<div class="list">' + devices.map((d) => {
+      const open = S.iconPicking === d.id;
+      const current = iconKeyOf(d);
+      const label = (ICON_CHOICES.find(([k]) => k === current) || [current, 'Other'])[1];
+      return '<button class="list-row" data-act="icon-open" data-id="' + esc(d.id) + '" data-key="icon-open-' + esc(d.id) + '" aria-expanded="' + open + '" aria-controls="icons-' + esc(d.id) + '">' +
+        '<span class="channel"><span class="icon-dot sm">' + icon(current, 18) + '</span><span class="se-title">' + esc(d.name) +
+        '<span class="se-room">' + esc((d.room ? d.room + ', ' : '') + label) + '</span></span></span>' + icon(open ? 'down' : 'chevron', 16) + '</button>' +
+        (open ? iconSection(d, '-' + d.id) : '');
+    }).join('') + '</div>';
+    html += '<p class="note" style="text-align:left;margin-top:10px">' + (S.sync ? 'Icons sync to everyone who uses this app.' : 'Icons are saved in this browser. Set up sync to share them across devices.') + '</p>';
+    return html;
+  }
+
   function iconSection(d, sfx) {
-    const open = S.iconPicking === d.id;
     const current = iconKeyOf(d);
-    const label = (ICON_CHOICES.find(([k]) => k === current) || [current, 'Other'])[1];
-    let html = '<div class="list">' +
-      '<button class="list-row" data-act="icon-open" data-id="' + esc(d.id) + '" data-key="icon-open' + sfx + '" aria-expanded="' + open + '" aria-controls="icons' + sfx + '">' +
-      '<span class="label">Icon</span><span class="value icon-value">' + esc(label) + '<span class="mini-dot">' + icon(current, 18) + '</span></span></button>';
-    if (open) {
+    let html = '<div>';
+    {
       html += '<div class="icon-pick" id="icons' + sfx + '">' +
         '<div class="icon-grid" role="radiogroup" aria-label="Icon for ' + esc(d.name) + '">' +
         ICON_CHOICES.map(([k, name]) =>
@@ -883,7 +902,6 @@
         '<div class="icon-actions">' +
         (S.icons[d.id] ? '<button class="chip soft" data-act="icon-reset" data-id="' + esc(d.id) + '" data-key="icon-reset' + sfx + '">Use default</button>' : '') +
         '<button class="chip soft" data-act="icon-open" data-id="' + esc(d.id) + '" data-key="icon-done' + sfx + '">Done</button></div>' +
-        '<p class="note icon-note">' + (S.sync ? 'Icons sync to everyone who uses this app.' : 'Icons are saved in this browser. Set up sync (see Me) to share them across devices.') + '</p>' +
         '</div>';
     }
     return html + '</div>';
@@ -1082,7 +1100,6 @@
       '<div><p class="sub">' + esc(d.room || 'No room') + '</p><h2 class="detail-title">' + esc(d.name) + '</h2></div></div>' +
       '<div class="hero">' + hero + '</div>' +
       '<div class="list">' + rows.join('') + '</div>' +
-      iconSection(d, sfx) +
       '</div>';
   }
 
@@ -1103,7 +1120,7 @@
           (!canEdit() ? '' : '<button class="scene-edit edit-btn" data-act="scene-open" data-id="' + esc(s.id) + '" data-key="scene-edit-' + esc(s.id) + '" aria-label="Edit ' + esc(s.name) + '">' + icon('pencil', 16) + '</button>') + '</div>';
       }).join('') + '</div>';
     }
-    if (withAutomations) html += '<h2 class="section-title">Automations</h2>' + automationsList();
+    if (withAutomations) html += '<div class="section-head" style="margin-top:28px"><h2>Automations</h2>' + newAutoButton() + '</div>' + automationsList();
     return html;
   }
 
@@ -1131,7 +1148,8 @@
         const p = a.props || {};
         return { type: 'delay', minutes: Number(p.hours || 0) * 60 + Number(p.minutes || 0), seconds: Number(p.seconds || 0) };
       }
-      const d = a.executor === 'dpIssue' ? findDevice(a.entity) : null;
+      if (a.executor === 'ruleTrigger' && S.data && S.data.scenes.some((x) => x.id === a.entity)) return { type: 'scene', sceneId: a.entity };
+      const d = (a.executor === 'dpIssue' || a.executor === 'device_issue') ? findDevice(a.entity) : null;
       if (d && sceneEligible(d)) return { type: 'device', deviceId: d.id, props: Object.assign({}, a.props) };
       return { type: 'raw', raw: { action_executor: a.executor, entity_id: a.entity || undefined, executor_property: a.props || {} } };
     });
@@ -1140,7 +1158,7 @@
     if (!S.data) return;
     const sc = id === 'new' ? null : S.data.scenes.find((x) => x.id === id);
     S.editor = {
-      routeId: id, id: sc ? sc.id : null, name: sc ? sc.name : '',
+      kind: 'scene', routeId: id, id: sc ? sc.id : null, name: sc ? sc.name : '',
       background: sc ? sc.background : ((S.data.scenes.find((x) => x.background) || {}).background || ''),
       items: sc ? stepsToItems(sc.steps) : [], picking: !sc, saving: false, confirmDelete: false, error: ''
     };
@@ -1229,6 +1247,11 @@
         '<div class="se-delay"><label class="field-inline"><span>Minutes</span><input type="number" inputmode="numeric" min="0" max="59" value="' + it.minutes + '" data-act="se-delay" data-i="' + i + '" data-field="minutes" data-key="se-dm-' + i + '"></label>' +
         '<label class="field-inline"><span>Seconds</span><input type="number" inputmode="numeric" min="0" max="59" value="' + it.seconds + '" data-act="se-delay" data-i="' + i + '" data-field="seconds" data-key="se-ds-' + i + '"></label></div></div>';
     }
+    if (it.type === 'scene') {
+      const sc = S.data.scenes.find((x) => x.id === it.sceneId);
+      return '<div class="se-item"><div class="se-head"><span class="icon-dot sm">' + icon('play', 16) + '</span>' +
+        '<span class="se-title">Run scene<span class="se-room">' + esc(sc ? sc.name : 'Scene not found') + '</span></span>' + moves + '</div></div>';
+    }
     if (it.type === 'raw') {
       const d = it.raw.entity_id ? findDevice(it.raw.entity_id) : null;
       const what = /^ir/.test(it.raw.action_executor) ? 'IR remote action' : /^rule/.test(it.raw.action_executor) ? 'Automation action' : 'Action';
@@ -1246,18 +1269,25 @@
       '<div class="se-controls">' + deviceActionControls(it, i) + '</div></div>';
   }
 
-  function sceneEditorView(routeId) {
+  function sceneEditorView(routeId, kind) {
+    kind = kind || 'scene';
     if (!S.data) return loadingView();
-    if (!S.editor || S.editor.routeId !== routeId) openEditor(routeId);
+    if (!S.editor || S.editor.routeId !== routeId || S.editor.kind !== kind) {
+      if (kind === 'auto') openAutoEditor(routeId); else openEditor(routeId);
+    }
     const E = S.editor;
+    const auto = kind === 'auto', noun = auto ? 'automation' : 'scene';
+    if (E && E.loading) return '<div class="detail-head se-head-top"><div><p class="sub">Automation</p><h1 class="detail-title">Loading…</h1></div></div>';
     if (!E || (routeId !== 'new' && !E.id)) {
-      return '<div class="empty"><strong>Scene not found</strong><p>It may have been deleted in the Tuya app.</p></div>';
+      return '<div class="empty"><strong>' + (auto ? 'Automation' : 'Scene') + ' not found</strong><p>' + esc((E && E.error) || 'It may have been deleted in the Tuya app.') + '</p></div>';
     }
     let html = '<div class="detail-head se-head-top"><button class="round-btn" data-act="se-cancel" data-key="se-back" aria-label="Back to scenes">' + icon('back', 20) + '</button>' +
-      '<div><p class="sub">Tap-to-run scene</p><h1 class="detail-title">' + (E.id ? 'Edit scene' : 'New scene') + '</h1></div></div>';
-    html += '<div class="field"><label for="se-name">Scene name</label><input id="se-name" maxlength="40" autocomplete="off" placeholder="For example, Movie night" value="' + esc(E.name) + '" data-act="se-name" data-key="se-name"></div>';
-    html += '<h2 class="section-title">Actions</h2>';
-    if (!E.items.length && !E.picking) html += '<div class="empty"><strong>No actions yet</strong><p>Add the devices this scene should control.</p></div>';
+      '<div><p class="sub">' + (auto ? 'Automation' : 'Tap-to-run scene') + '</p><h1 class="detail-title">' + (E.id ? 'Edit ' + noun : 'New ' + noun) + '</h1></div></div>';
+    html += '<div class="field"><label for="se-name">' + (auto ? 'Automation name' : 'Scene name') + '</label><input id="se-name" maxlength="40" autocomplete="off" placeholder="' +
+      (auto ? 'For example, Hall light when the door opens' : 'For example, Movie night') + '" value="' + esc(E.name) + '" data-act="se-name" data-key="se-name"></div>';
+    if (auto) html += conditionsSection(E);
+    html += '<h2 class="section-title">' + (auto ? 'Then' : 'Actions') + '</h2>';
+    if (!E.items.length && !E.picking) html += '<div class="empty"><strong>No actions yet</strong><p>Add the devices this ' + noun + ' should control.</p></div>';
     html += '<div class="se-list">' + E.items.map((it, i) => sceneItemCard(it, i, E.items.length)).join('') + '</div>';
     if (E.picking) {
       const eligible = S.data.devices.filter(sceneEligible);
@@ -1266,28 +1296,244 @@
         (eligible.length ? eligible.map((d) => '<button class="list-row" data-act="se-pick" data-id="' + esc(d.id) + '" data-key="se-pick-' + esc(d.id) + '">' +
           '<span class="channel"><span class="icon-dot sm">' + deviceIcon(d, 18) + '</span><span class="label">' + esc(d.name) + '</span></span><span class="value">' + esc(d.room || '') + '</span></button>').join('')
           : '<div class="list-row"><span class="meta">No devices here can be used in scenes yet.</span></div>') +
-        '<p class="note se-note">Sensors, cameras and IR remotes can\'t be added here yet. Add IR remote actions in the Tuya app; they\'re kept when you edit the scene here.</p></div>';
+        (auto && S.data.scenes.length ? '<div class="list-row"><span class="label">Or run a scene</span></div>' + S.data.scenes.map((sc) =>
+          '<button class="list-row" data-act="se-pick-scene" data-id="' + esc(sc.id) + '" data-key="se-pscene-' + esc(sc.id) + '"><span class="channel"><span class="icon-dot sm">' + icon('play', 14) + '</span><span class="label">' + esc(sc.name) + '</span></span></button>').join('') : '') +
+        '<p class="note se-note">Sensors, cameras and IR remotes can\'t be added here yet. Add IR remote actions in the Tuya app; they\'re kept when you edit here.</p></div>';
     } else {
       html += '<div class="se-add-row"><button class="pill-btn" data-act="se-pick-open" data-key="se-pick-open">' + icon('plus', 18) + 'Add device</button>' +
         '<button class="pill-btn soft" data-act="se-add-delay" data-key="se-add-delay">' + icon('plus', 18) + 'Add wait</button></div>';
     }
     if (E.error) html += '<p class="error" role="alert">' + esc(E.error) + '</p>';
     html += '<div class="se-actions">' +
-      '<button class="btn" data-act="se-save" data-key="se-save"' + (E.saving ? ' disabled' : '') + '>' + (E.saving ? 'Saving…' : 'Save scene') + '</button>' +
+      '<button class="btn" data-act="se-save" data-key="se-save"' + (E.saving ? ' disabled' : '') + '>' + (E.saving ? 'Saving…' : 'Save ' + noun) + '</button>' +
       '<button class="btn ghost" data-act="se-cancel" data-key="se-cancel">Cancel</button></div>';
     if (E.id) {
       html += '<div class="list" style="margin-top:20px"><button class="list-row danger" data-act="se-delete" data-key="se-delete"' + (E.saving ? ' disabled' : '') + '>' +
-        '<span class="label">' + (E.confirmDelete ? 'Tap again to delete this scene' : 'Delete scene') + '</span></button></div>';
+        '<span class="label">' + (E.confirmDelete ? 'Tap again to delete this ' + noun : 'Delete ' + noun) + '</span></button></div>';
     }
     return html;
   }
 
+  // ---------- Automation editor: conditions ("When") ----------
+  const DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const timeZone = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (e) { return 'UTC'; } };
+
+  // What a device can trigger on, based on what it reports.
+  function triggerOptions(d) {
+    const st = d.status, out = [];
+    const k = kindOf(d);
+    if (k === 'multi') {
+      channelCodes(d).forEach((c) => {
+        out.push({ label: channelName(d, c) + ' turns on', code: c, op: '==', value: true });
+        out.push({ label: channelName(d, c) + ' turns off', code: c, op: '==', value: false });
+      });
+    } else if (powerCode(d) && k !== 'sensor' && k !== 'camera' && !d.ir) {
+      out.push({ label: 'Turns on', code: powerCode(d), op: '==', value: true });
+      out.push({ label: 'Turns off', code: powerCode(d), op: '==', value: false });
+    }
+    if (typeof st.doorcontact_state === 'boolean') {
+      out.push({ label: 'Opens', code: 'doorcontact_state', op: '==', value: true });
+      out.push({ label: 'Closes', code: 'doorcontact_state', op: '==', value: false });
+    }
+    if ('pir' in st) out.push({ label: 'Detects motion', code: 'pir', op: '==', value: 'pir' });
+    if ('watersensor_state' in st) out.push({ label: 'Detects a leak', code: 'watersensor_state', op: '==', value: 'alarm' });
+    if ('smoke_sensor_status' in st) out.push({ label: 'Detects smoke', code: 'smoke_sensor_status', op: '==', value: 'alarm' });
+    const tc = ['va_temperature', 'temp_current'].find((c) => typeof st[c] === 'number');
+    if (tc && k !== 'climate') {
+      out.push({ label: 'Temperature above', code: tc, op: '>', thresh: 'temp' });
+      out.push({ label: 'Temperature below', code: tc, op: '<', thresh: 'temp' });
+    }
+    const hc = ['va_humidity', 'humidity_value'].find((c) => typeof st[c] === 'number');
+    if (hc) {
+      out.push({ label: 'Humidity above', code: hc, op: '>', thresh: 'hum' });
+      out.push({ label: 'Humidity below', code: hc, op: '<', thresh: 'hum' });
+    }
+    return out;
+  }
+  function codeScale(d, code, guess) {
+    const sp = specOf(d, code);
+    if (sp && typeof sp.scale === 'number') return sp.scale;
+    return guess && Math.abs(d.status[code]) >= 60 ? 1 : 0;
+  }
+  function condFromOption(d, opt, keepValue) {
+    const c = { type: 'device', deviceId: d.id, code: opt.code, op: opt.op, thresh: opt.thresh || null };
+    if (opt.thresh) {
+      const scale = codeScale(d, opt.code, opt.thresh === 'temp');
+      const shown = keepValue != null ? keepValue : opt.thresh === 'temp' ? 25 : 60;
+      c.scale = scale; c.value = Math.round(shown * Math.pow(10, scale));
+    } else c.value = opt.value;
+    return c;
+  }
+  function conditionsToItems(conds) {
+    return (conds || []).map((c) => {
+      const disp = c.display || {};
+      if (Number(c.entity_type) === 6 && !disp.date && /^\d{2}:\d{2}$/.test(String(disp.time || ''))) {
+        const loops = /^[01]{7}$/.test(String(disp.loops || '')) ? String(disp.loops) : '1111111';
+        return { type: 'timer', time: disp.time, days: loops.split('').map((x) => x === '1'), tz: disp.timezone_id || timeZone() };
+      }
+      if (Number(c.entity_type) === 1) {
+        const d = findDevice(c.entity_id);
+        if (d) {
+          const opt = triggerOptions(d).find((o) => o.code === disp.code && o.op === disp.operator && (o.thresh || o.value === disp.value));
+          if (opt) {
+            const scale = opt.thresh ? codeScale(d, opt.code, opt.thresh === 'temp') : 0;
+            return { type: 'device', deviceId: d.id, code: opt.code, op: opt.op, value: disp.value, thresh: opt.thresh || null, scale };
+          }
+        }
+      }
+      return { type: 'raw', raw: c };
+    });
+  }
+  function rawConditionLabel(c) {
+    const t = Number(c.entity_type);
+    if (t === 3) return 'Weather condition from the Tuya app';
+    if (t === 6) return 'One-off schedule from the Tuya app';
+    if (t === 15) return 'External trigger from the Tuya app';
+    const d = findDevice(c.entity_id);
+    return (d ? d.name + ': ' : '') + 'condition from the Tuya app';
+  }
+
+  function conditionCard(c, i) {
+    const tools = '<div class="se-tools"><button class="edit-btn" data-act="ae-cremove" data-i="' + i + '" data-key="ae-rm-' + i + '" aria-label="Remove this condition">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>';
+    if (c.type === 'timer') {
+      return '<div class="se-item"><div class="se-head"><span class="icon-dot sm">' +
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>' +
+        '</span><span class="se-title">At a time<span class="se-room">' + esc(c.tz) + '</span></span>' + tools + '</div>' +
+        '<div class="field-inline"><label for="ae-time-' + i + '">Time</label><input id="ae-time-' + i + '" type="time" value="' + esc(c.time) + '" data-act="ae-time" data-i="' + i + '" data-key="ae-time-' + i + '"></div>' +
+        '<div class="days" role="group" aria-label="Days">' + DAY_LETTERS.map((l, d) =>
+          '<button class="day" data-act="ae-day" data-i="' + i + '" data-d="' + d + '" data-key="ae-day-' + i + '-' + d + '" aria-pressed="' + !!c.days[d] + '" aria-label="' + DAY_NAMES[d] + '">' + l + '</button>').join('') + '</div></div>';
+    }
+    if (c.type === 'raw') {
+      return '<div class="se-item"><div class="se-head"><span class="icon-dot sm">' + icon('generic', 18) + '</span><span class="se-title">' + esc(rawConditionLabel(c.raw)) + '</span>' + tools + '</div>' +
+        '<p class="note se-note">Kept as is when you save.</p></div>';
+    }
+    const d = findDevice(c.deviceId);
+    if (!d) return '<div class="se-item"><div class="se-head"><span class="icon-dot sm">' + icon('generic', 18) + '</span><span class="se-title">Device not found</span>' + tools + '</div></div>';
+    const opts = triggerOptions(d);
+    let html = '<div class="se-item"><div class="se-head"><span class="icon-dot sm">' + deviceIcon(d, 18) + '</span><span class="se-title">' + esc(d.name) +
+      (d.room ? '<span class="se-room">' + esc(d.room) + '</span>' : '') + '</span>' + tools + '</div>' +
+      '<div class="trigger-chips" role="group" aria-label="When ' + esc(d.name) + '">' + opts.map((o, j) => {
+        const on = o.code === c.code && o.op === c.op && (o.thresh ? true : o.value === c.value);
+        return '<button class="chip soft" data-act="ae-trigger" data-i="' + i + '" data-j="' + j + '" data-key="ae-tr-' + i + '-' + j + '" aria-pressed="' + on + '">' + esc(o.label) + '</button>';
+      }).join('') + '</div>';
+    if (c.thresh) {
+      const shown = c.value / Math.pow(10, c.scale || 0);
+      html += '<div class="se-row"><span class="se-label">' + (c.thresh === 'temp' ? 'Temperature' : 'Humidity') + '</span><div class="stepper">' +
+        '<button class="round-btn soft sm" data-act="ae-thresh" data-i="' + i + '" data-delta="-1" data-key="ae-th-d-' + i + '" aria-label="Lower">' + icon('minus', 18) + '</button>' +
+        '<span class="se-value">' + (Math.round(shown * 10) / 10) + (c.thresh === 'temp' ? '°' : '%') + '</span>' +
+        '<button class="round-btn soft sm" data-act="ae-thresh" data-i="' + i + '" data-delta="1" data-key="ae-th-u-' + i + '" aria-label="Raise">' + icon('plus', 18) + '</button></div></div>';
+    }
+    return html + '</div>';
+  }
+
+  function conditionsSection(E) {
+    let html = '<h2 class="section-title">When</h2>';
+    if (E.conditions.length > 1) {
+      html += '<div class="seg match-seg" style="--n:2" role="group" aria-label="Match">' +
+        '<button class="chip soft" data-act="ae-match" data-v="1" data-key="ae-m1" aria-pressed="' + (E.match === 1) + '">Any of these</button>' +
+        '<button class="chip soft" data-act="ae-match" data-v="2" data-key="ae-m2" aria-pressed="' + (E.match === 2) + '">All of these</button></div>';
+    }
+    if (!E.conditions.length && !E.condPicking) html += '<div class="empty"><strong>No conditions yet</strong><p>Choose what starts this automation: a time, or something a device does.</p></div>';
+    html += '<div class="se-list">' + E.conditions.map(conditionCard).join('') + '</div>';
+    if (E.condPicking) {
+      const devs = S.data.devices.filter((d) => triggerOptions(d).length);
+      html += '<div class="list se-picker"><div class="list-row"><span class="label">Choose a device</span>' +
+        '<button class="chip soft" data-act="ae-pick-close" data-key="ae-pick-close">Close</button></div>' +
+        (devs.length ? devs.map((d) => '<button class="list-row" data-act="ae-pick-dev" data-id="' + esc(d.id) + '" data-key="ae-pick-' + esc(d.id) + '">' +
+          '<span class="channel"><span class="icon-dot sm">' + deviceIcon(d, 18) + '</span><span class="label">' + esc(d.name) + '</span></span><span class="value">' + esc(d.room || '') + '</span></button>').join('')
+          : '<div class="list-row"><span class="meta">No devices here can start automations.</span></div>') + '</div>';
+    } else if (E.conditions.length < 10) {
+      html += '<div class="se-add-row"><button class="pill-btn" data-act="ae-add-timer" data-key="ae-add-timer">' + icon('plus', 18) + 'Add time</button>' +
+        '<button class="pill-btn soft" data-act="ae-pick-open" data-key="ae-pick-open">' + icon('plus', 18) + 'Add device</button></div>';
+    }
+    return html;
+  }
+
+  function conditionsPayload() {
+    const E = S.editor;
+    if (!E.conditions.length) return 'Add at least one condition under When.';
+    const out = [];
+    for (const c of E.conditions) {
+      if (c.type === 'timer') {
+        if (!c.days.some(Boolean)) return 'Pick at least one day for each time.';
+        if (!/^\d{2}:\d{2}$/.test(c.time)) return 'Set a time for each schedule.';
+        out.push({ entity_type: 6, entity_id: 'timer', display: { time: c.time, loops: c.days.map((x) => (x ? '1' : '0')).join(''), timezone_id: c.tz || timeZone() } });
+      } else if (c.type === 'raw') {
+        out.push(c.raw);
+      } else {
+        if (!findDevice(c.deviceId)) return 'Remove the condition for the device that\'s no longer in this home.';
+        out.push({ entity_type: 1, entity_id: c.deviceId, display: { code: c.code, operator: c.op, value: c.value } });
+      }
+    }
+    return out;
+  }
+
+  async function openAutoEditor(id) {
+    if (!S.data) return;
+    const base = { kind: 'auto', routeId: id, id: null, name: '', match: 1, background: '', preconditions: [], conditionRule: '',
+      conditions: [], items: [], picking: false, condPicking: false, saving: false, confirmDelete: false, error: '' };
+    if (id === 'new') { S.editor = Object.assign(base, { condPicking: false }); return; }
+    S.editor = Object.assign(base, { loading: true });
+    try {
+      const a = await api('automation-edit?homeId=' + encodeURIComponent(S.data.homeId) + '&id=' + encodeURIComponent(id));
+      if (!S.editor || S.editor.routeId !== id) return;
+      Object.assign(S.editor, {
+        loading: false, id: a.id, name: a.name, match: a.match_type === 2 ? 2 : a.match_type === 3 ? 3 : 1,
+        conditionRule: a.condition_rule || '', background: a.background || '', preconditions: a.preconditions || [],
+        conditions: conditionsToItems(a.conditions),
+        items: stepsToItems((a.actions || []).map((x) => ({ executor: x.action_executor, entity: x.entity_id || '', props: x.executor_property || {} })))
+      });
+      S.editor.items.forEach((it) => { if (it.type === 'device' && !S.specs[it.deviceId]) loadSpec(it.deviceId, true); });
+      S.editor.conditions.forEach((c) => { if (c.type === 'device' && !S.specs[c.deviceId]) loadSpec(c.deviceId, true); });
+    } catch (e) {
+      if (S.editor && S.editor.routeId === id) Object.assign(S.editor, { loading: false, error: e.message });
+    }
+    render();
+  }
+
+  async function saveAutomation() {
+    const E = S.editor;
+    const conditions = conditionsPayload();
+    if (typeof conditions === 'string') { E.error = conditions; render(); return; }
+    const actions = editorActions();
+    if (typeof actions === 'string') { E.error = actions; render(); return; }
+    E.saving = true; E.error = ''; render();
+    try {
+      await api('automation-edit', { method: 'POST', body: {
+        op: E.id ? 'update' : 'create', homeId: S.data.homeId, automationId: E.id || undefined,
+        name: E.name.trim(), match_type: E.match, condition_rule: E.match === 3 ? E.conditionRule : undefined,
+        background: E.background || undefined, preconditions: E.preconditions && E.preconditions.length ? E.preconditions : undefined,
+        conditions, actions
+      } });
+      toast(E.id ? 'Automation saved' : 'Automation created');
+      S.editor = null; go('scenes'); refresh({ silent: true, fresh: true });
+    } catch (e) {
+      E.saving = false; E.error = 'Couldn\'t save: ' + e.message; render();
+    }
+  }
+
+  async function deleteAutomation() {
+    const E = S.editor;
+    if (!E.confirmDelete) { E.confirmDelete = true; render(); return; }
+    E.saving = true; render();
+    try {
+      await api('automation-edit', { method: 'POST', body: { op: 'delete', homeId: S.data.homeId, automationId: E.id } });
+      toast('Automation deleted');
+      S.editor = null; go('scenes'); refresh({ silent: true, fresh: true });
+    } catch (e) {
+      E.saving = false; E.confirmDelete = false; E.error = 'Couldn\'t delete: ' + e.message; render();
+    }
+  }
+
   function editorActions() {
     const E = S.editor;
-    if (!E.name.trim()) return 'Give the scene a name.';
+    const noun = E.kind === 'auto' ? 'automation' : 'scene';
+    if (!E.name.trim()) return 'Give the ' + noun + ' a name.';
     if (!E.items.length) return 'Add at least one action.';
-    if (E.items[E.items.length - 1].type === 'delay') return 'A scene can\'t end with a wait. Add an action after it, or remove the wait.';
-    if (E.items.filter((it) => it.type === 'delay').length > 2) return 'A scene can have at most 2 waits.';
+    if (E.items[E.items.length - 1].type === 'delay') return 'A ' + noun + ' can\'t end with a wait. Add an action after it, or remove the wait.';
+    if (E.items.filter((it) => it.type === 'delay').length > 2) return 'A ' + noun + ' can have at most 2 waits.';
     const out = [];
     for (const it of E.items) {
       if (it.type === 'delay') {
@@ -1297,6 +1543,8 @@
           hours: String(Math.floor(total / 3600)), minutes: String(Math.floor((total % 3600) / 60)), seconds: String(total % 60) } });
       } else if (it.type === 'raw') {
         out.push(it.raw);
+      } else if (it.type === 'scene') {
+        out.push({ action_executor: 'ruleTrigger', entity_id: it.sceneId, executor_property: {} });
       } else {
         const d = findDevice(it.deviceId);
         if (!d) return 'Remove the device that\'s no longer in this home.';
@@ -1309,6 +1557,7 @@
 
   async function saveScene() {
     const E = S.editor;
+    if (E.kind === 'auto') return saveAutomation();
     const actions = editorActions();
     if (typeof actions === 'string') { E.error = actions; render(); return; }
     E.saving = true; E.error = ''; render();
@@ -1328,6 +1577,7 @@
 
   async function deleteScene() {
     const E = S.editor;
+    if (E.kind === 'auto') return deleteAutomation();
     if (!E.confirmDelete) { E.confirmDelete = true; render(); return; }
     E.saving = true; render();
     try {
@@ -1343,18 +1593,23 @@
 
   function automationsList() {
     const a = S.data ? S.data.automations : [];
-    if (!a.length) return '<div class="empty"><strong>No automations</strong><p>Automations you create in the Tuya app appear here, where you can switch them on or off.</p></div>';
+    if (!a.length) return '<div class="empty"><strong>No automations yet</strong><p>' + (canEdit() ? 'Tap New automation to make one, like turning on a light when a door opens. ' : '') + 'Automations from the Tuya app show up here too.</p></div>';
     return '<div class="list">' + a.map((x) =>
-      '<div class="list-row"><span class="label">' + esc(x.name) + '</span>' +
-      '<button class="switch" role="switch" aria-checked="' + x.enabled + '" aria-label="' + esc(x.name) + '" data-act="auto" data-id="' + esc(x.id) + '" data-key="auto-' + esc(x.id) + '"><span class="knob"></span></button></div>'
+      '<div class="list-row"><span class="label">' + esc(x.name) + '</span><span class="user-actions">' +
+      (canEdit() ? '<button class="edit-btn" data-act="auto-open" data-id="' + esc(x.id) + '" data-key="auto-edit-' + esc(x.id) + '" aria-label="Edit ' + esc(x.name) + '">' + icon('pencil', 16) + '</button>' : '') +
+      '<button class="switch" role="switch" aria-checked="' + x.enabled + '" aria-label="' + esc(x.name) + '" data-act="auto" data-id="' + esc(x.id) + '" data-key="auto-' + esc(x.id) + '"><span class="knob"></span></button></span></div>'
     ).join('') + '</div>';
+  }
+
+  function newAutoButton() {
+    return canEdit() ? '<button class="pill-btn" style="margin-left:auto" data-act="auto-new" data-key="auto-new">' + icon('plus', 18) + 'New automation</button>' : '';
   }
 
   function automationsPanel() {
     const a = S.data ? S.data.automations : [];
     const active = a.filter((x) => x.enabled).length;
     return '<div class="detail"><div class="detail-head"><div><p class="sub">' +
-      active + ' of ' + a.length + ' on</p><h2 class="detail-title">Automations</h2></div></div>' + automationsList() + '</div>';
+      active + ' of ' + a.length + ' on</p><h2 class="detail-title">Automations</h2></div>' + newAutoButton() + '</div>' + automationsList() + '</div>';
   }
 
   function meView() {
@@ -1371,6 +1626,7 @@
     html += '<div class="list-row"><label class="label" for="poll-select">Live updates</label><select id="poll-select" data-act="poll" data-key="poll-select">' +
       [[2000, 'Fastest (2 s)'], [4000, 'Fast (4 s)'], [10000, 'Normal (10 s)'], [30000, 'Saver (30 s)']].map(([ms, label]) =>
         '<option value="' + ms + '"' + (S.pollMs === ms ? ' selected' : '') + '>' + label + '</option>').join('') + '</select></div>';
+    html += '<button class="list-row" data-act="tab" data-tab="icons" data-key="icons-open"><span class="label">Device icons</span><span class="value icon-value">Change' + icon('chevron', 16) + '</span></button>';
     html += '<div class="list-row"><label class="label" for="unit-select">Weather units</label><select id="unit-select" data-act="tempunit" data-key="unit-select">' +
       '<option value="c"' + (S.tempUnit === 'c' ? ' selected' : '') + '>Celsius (°C)</option>' +
       '<option value="f"' + (S.tempUnit === 'f' ? ' selected' : '') + '>Fahrenheit (°F)</option></select></div>';
@@ -1407,7 +1663,7 @@
     }
     html += '<h2 class="section-title">About</h2><div class="list">' +
       '<div class="list-row"><span class="label">Adding devices</span><span class="value">Pair them in the Tuya app</span></div>' +
-      '<div class="list-row"><span class="label">Version</span><span class="value">2.7.0</span></div></div>';
+      '<div class="list-row"><span class="label">Version</span><span class="value">2.10.0</span></div></div>';
     return html;
   }
 
@@ -1562,7 +1818,7 @@
 
     const r = route();
     const isWide = wide.matches;
-    const activeTab = r.view === 'device' ? 'devices' : r.view === 'scene-edit' ? 'scenes' : r.view;
+    const activeTab = r.view === 'device' ? 'devices' : (r.view === 'scene-edit' || r.view === 'auto-edit') ? 'scenes' : r.view === 'icons' ? 'me' : r.view;
     let mainHtml, panelHtml = null;
 
     if (r.view === 'device' && !isWide) {
@@ -1578,7 +1834,11 @@
         if (selId && S.data && !S.specs[selId]) loadSpec(selId, true);
       }
     } else if (r.view === 'scene-edit') {
-      mainHtml = sceneEditorView(r.id);
+      mainHtml = sceneEditorView(r.id, 'scene');
+    } else if (r.view === 'auto-edit') {
+      mainHtml = sceneEditorView(r.id, 'auto');
+    } else if (r.view === 'icons') {
+      mainHtml = iconsView();
     } else if (activeTab === 'scenes') {
       mainHtml = scenesView(!isWide);
       if (isWide) panelHtml = automationsPanel();
@@ -1587,6 +1847,10 @@
     }
 
     const mainTop = shell.main.scrollTop, panelTop = shell.panel.scrollTop;
+    const oldList = shell.main.querySelector('.dv-scroll'), listTop = oldList ? oldList.scrollTop : 0;
+    const devicesPage = activeTab === 'devices' && !(r.view === 'device' && !isWide) && !!S.data;
+    shell.main.classList.toggle('devices-view', devicesPage);
+    document.documentElement.classList.toggle('lock-scroll', devicesPage);
     shell.app.className = 'app' + (panelHtml == null ? ' no-panel' : '');
     shell.rail.innerHTML = '<span class="mark" aria-hidden="true">' + icon('home') + '</span>' + tabs(activeTab);
     shell.tabbar.innerHTML = tabs(activeTab);
@@ -1594,10 +1858,15 @@
     shell.panel.innerHTML = panelHtml || '';
     shell.main.scrollTop = mainTop;
     shell.panel.scrollTop = panelTop;
+    const newList = shell.main.querySelector('.dv-scroll');
+    if (newList && oldList) newList.scrollTop = listTop;
 
     const routeKey = r.view + ':' + (r.id || '');
     if (routeKey !== lastRouteKey) {
-      if (!isWide || activeTab !== lastTab) { window.scrollTo(0, 0); shell.main.scrollTop = 0; }
+      if (!isWide || activeTab !== lastTab) {
+        window.scrollTo(0, 0); shell.main.scrollTop = 0;
+        const l = shell.main.querySelector('.dv-scroll'); if (l && r.view === 'devices' && lastRouteKey.indexOf('device:') !== 0) l.scrollTop = 0;
+      }
       shell.panel.scrollTop = 0;
       lastRouteKey = routeKey;
       lastTab = activeTab;
@@ -1706,6 +1975,38 @@
       case 'scene-new': S.editor = null; go('scene/new'); break;
       case 'scene-open': S.editor = null; go('scene/' + encodeURIComponent(id)); break;
       case 'se-cancel': S.editor = null; go('scenes'); break;
+      case 'auto-new': S.editor = null; go('auto/new'); break;
+      case 'auto-open': S.editor = null; go('auto/' + encodeURIComponent(id)); break;
+      case 'se-pick-scene': S.editor.items.push({ type: 'scene', sceneId: id }); S.editor.picking = false; S.editor.error = ''; render(); break;
+      case 'ae-add-timer': S.editor.conditions.push({ type: 'timer', time: '07:00', days: [true, true, true, true, true, true, true], tz: timeZone() }); S.editor.error = ''; render(); break;
+      case 'ae-pick-open': S.editor.condPicking = true; render(); break;
+      case 'ae-pick-close': S.editor.condPicking = false; render(); break;
+      case 'ae-pick-dev': {
+        const dev = findDevice(id); if (!dev) break;
+        const opts = triggerOptions(dev); if (!opts.length) break;
+        S.editor.conditions.push(condFromOption(dev, opts[0]));
+        S.editor.condPicking = false; S.editor.error = '';
+        if (!S.specs[dev.id]) loadSpec(dev.id, true);
+        render(); break;
+      }
+      case 'ae-cremove': S.editor.conditions.splice(Number(el.dataset.i), 1); render(); break;
+      case 'ae-day': { const c = S.editor.conditions[Number(el.dataset.i)]; c.days[Number(el.dataset.d)] = !c.days[Number(el.dataset.d)]; render(); break; }
+      case 'ae-match': S.editor.match = Number(el.dataset.v); render(); break;
+      case 'ae-trigger': {
+        const c = S.editor.conditions[Number(el.dataset.i)], dev = findDevice(c.deviceId);
+        const opt = triggerOptions(dev)[Number(el.dataset.j)];
+        const keep = c.thresh && opt.thresh === c.thresh ? c.value / Math.pow(10, c.scale || 0) : null;
+        S.editor.conditions[Number(el.dataset.i)] = condFromOption(dev, opt, keep);
+        render(); break;
+      }
+      case 'ae-thresh': {
+        const c = S.editor.conditions[Number(el.dataset.i)];
+        const step = c.thresh === 'temp' ? 1 : 5;
+        const shown = c.value / Math.pow(10, c.scale || 0) + Number(el.dataset.delta) * step;
+        const limited = c.thresh === 'temp' ? clamp(shown, -20, 60) : clamp(shown, 0, 100);
+        c.value = Math.round(limited * Math.pow(10, c.scale || 0));
+        render(); break;
+      }
       case 'se-pick-open': S.editor.picking = true; render(); break;
       case 'se-pick-close': S.editor.picking = false; render(); break;
       case 'se-pick': {
@@ -1837,6 +2138,7 @@
       render(); return;
     }
     if (act === 'se-delay' && S.editor) { render(); return; }
+    if (act === 'ae-time' && S.editor) { const c = S.editor.conditions[Number(el.dataset.i)]; if (c && /^\d{2}:\d{2}$/.test(el.value)) c.time = el.value; return; }
     if (act === 'uf') { S.userForm[el.dataset.field] = el.value; if (el.dataset.field === 'role') render(); return; }
     if (act === 'tempunit') { S.tempUnit = el.value === 'f' ? 'f' : 'c'; store.set('tempUnit', S.tempUnit); loadWeather(true); return; }
     if (act === 'poll') { S.pollMs = Number(el.value) || 4000; store.set('pollMs', String(S.pollMs)); schedulePoll(); toast('Live updates every ' + S.pollMs / 1000 + ' s'); return; }
@@ -2100,7 +2402,7 @@
   }
   window.addEventListener('hashchange', () => {
     S.iconPicking = null; S.renaming = null;
-    if (route().view !== 'scene-edit') S.editor = null;
+    if (!inEditor()) S.editor = null;
     render();
   });
   wide.addEventListener('change', render);
@@ -2134,7 +2436,7 @@
       }
       if (changed) S.data.at = r.at;
       const typing = document.activeElement && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName) && document.activeElement.type !== 'range';
-      if (changed && !S.dragging && !S.renaming && !typing && !(S.editor && route().view === 'scene-edit')) render();
+      if (changed && !S.dragging && !S.renaming && !typing && !(S.editor && inEditor())) render();
     } catch (e) {
       if (e.code === 'unauthorized') refresh({ silent: true });
     } finally {
@@ -2202,9 +2504,15 @@
           { executor: 'dpIssue', entity: 'dev8', props: { switch_led: false } }] }
       ],
       automations: [
-        { id: 'au1', name: 'Porch light at sunset', enabled: true },
-        { id: 'au2', name: 'Hall light when the door opens', enabled: true },
-        { id: 'au3', name: 'AC off when everyone leaves', enabled: false }
+        { id: 'au1', name: 'Porch light at 7 pm', enabled: true, match_type: 1,
+          conditions: [{ entity_type: 6, entity_id: 'timer', display: { time: '19:00', loops: '1111111', timezone_id: 'Europe/London' } }],
+          actions: [{ action_executor: 'dpIssue', entity_id: 'dev2', executor_property: { switch_led: true } }] },
+        { id: 'au2', name: 'Hall light when the door opens', enabled: true, match_type: 1,
+          conditions: [{ entity_type: 1, entity_id: 'dev5', display: { code: 'doorcontact_state', operator: '==', value: true } }],
+          actions: [{ action_executor: 'dpIssue', entity_id: 'dev1', executor_property: { switch_led: true } }] },
+        { id: 'au3', name: 'Bedroom too warm', enabled: false, match_type: 1,
+          conditions: [{ entity_type: 1, entity_id: 'dev13', display: { code: 'va_temperature', operator: '>', value: 260 } }],
+          actions: [{ action_executor: 'dpIssue', entity_id: 'dev3', executor_property: { switch: true, temp_set: 22 } }] }
       ],
       warnings: []
     };
@@ -2285,6 +2593,18 @@
         if (b.op === 'homes') demoUsers.forEach((u) => { if (u.id === b.id) u.homes = b.homes; });
         if (b.op === 'delete') demoUsers = demoUsers.filter((u) => u.id !== b.id);
         return { users: clone(demoUsers) };
+      }
+      if (path.startsWith('automation-edit?')) {
+        const id = decodeURIComponent((path.match(/[?&]id=([^&]+)/) || [])[1] || '');
+        const a = db.automations.find((x) => x.id === id);
+        if (!a) { const e = new Error('Automation not found.'); throw e; }
+        return clone(a);
+      }
+      if (path === 'automation-edit') {
+        if (b.op === 'create') db.automations.push({ id: 'au' + Date.now(), name: b.name, enabled: true, match_type: b.match_type, conditions: b.conditions, actions: b.actions });
+        if (b.op === 'update') { const a = db.automations.find((x) => x.id === b.automationId); if (a) Object.assign(a, { name: b.name, match_type: b.match_type, conditions: b.conditions, actions: b.actions }); }
+        if (b.op === 'delete') db.automations = db.automations.filter((x) => x.id !== b.automationId);
+        return { ok: true };
       }
       if (path === 'scene-edit') {
         const toSteps = (acts) => acts.map((a) => ({ executor: a.action_executor, entity: a.entity_id || (a.action_executor === 'delay' ? 'delay' : ''), props: a.executor_property || {} }));

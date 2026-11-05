@@ -9,6 +9,7 @@ const routes = {
   scene: require('./_routes/scene'),
   'scene-edit': require('./_routes/scene-edit'),
   automation: require('./_routes/automation'),
+  'automation-edit': require('./_routes/automation-edit'),
   rename: require('./_routes/rename'),
   ir: require('./_routes/ir'),
   login: require('./_routes/login'),

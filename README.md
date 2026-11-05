@@ -19,9 +19,12 @@ so your API secret never reaches the browser.
   your devices instead of as cards, including IR blasters with a built-in thermometer
 - Tap-to-run scenes: run, create, edit and delete them (devices, outlets, brightness, AC settings,
   curtains, waits); IR remote actions made in the Tuya app are kept when you edit
-- On/off switches for automations
+- Automations: create, edit and delete them (admins). When: a time on chosen days, or a device
+  turning on/off, a door opening, motion, a leak or smoke, temperature or humidity above/below a value;
+  match any or all. Then: device actions, waits, or running a scene. Switch any automation on or off.
+  Weather and other conditions made in the Tuya app are kept when you edit.
 - Several homes: switch between them from the home name at the top of Devices
-- Custom device icons (saved per browser)
+- Custom device icons in Me → Device icons (synced when the database is set up)
 - Optional PIN unlock per device instead of typing the password (Me → Security)
 - Light and dark mode, offline app shell, installable from Chrome or Safari
 - Demo mode with sample devices: open `/?demo`
@@ -42,6 +45,7 @@ api/_routes/       the endpoints (folders starting with _ aren't deployed as sep
   scene.js         run a scene
   scene-edit.js    create, update or delete a tap-to-run scene (admins)
   automation.js    enable or disable an automation
+  automation-edit.js  read, create, update or delete an automation (admins)
   rename.js        rename one outlet of a multi-outlet device
   ir.js            buttons and commands for IR remotes
   login.js         sign in with a password, returns a session
@@ -49,7 +53,7 @@ api/_routes/       the endpoints (folders starting with _ aren't deployed as sep
   users.js         manage people (admins), change your own password
   settings.js      shared settings such as custom icons
   weather.js       current weather at the home's location (Open-Meteo, cached 10 minutes)
-api/_lib/          Tuya client and signing, sign-in, home access checks, Neon database helpers
+api/_lib/          Tuya client and signing, sign-in, home access checks, scene/automation validation, Neon helpers
 ```
 
 One dependency (the Neon database driver, installed by Vercel) and no build step. Runs on Node 22 (set in package.json).
