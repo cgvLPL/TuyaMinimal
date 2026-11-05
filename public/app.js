@@ -5,6 +5,13 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.24.0",
+      "items": [
+        "Five more backgrounds: Ember, Tide, Mist, Halftone and Dusk.",
+        "Me > Background is now a picker with previews. Photo backgrounds get a light dimming layer so text stays readable."
+      ]
+    },
+    {
       "v": "2.23.0",
       "items": [
         "Optional backgrounds: choose Aura (a soft colour glow on black) in Me > Background. The app switches to its dark look so everything stays readable."
@@ -386,6 +393,7 @@
     if (h === 'icons') return { view: 'icons' };
     if (h === 'changelog') return { view: 'changelog' };
     if (h === 'activity') return { view: 'activity' };
+    if (h === 'backgrounds') return { view: 'backgrounds' };
     if (h === 'scenes' || h === 'me') return { view: h };
     return { view: 'devices' };
   }
@@ -969,14 +977,14 @@
     return ['cloud', 'Cloudy'];
   }
   // ---------- Optional backgrounds ----------
-  const BACKGROUNDS = [['system', 'System'], ['aura', 'Aura']];
+  const BACKGROUNDS = [['system', 'System'], ['aura', 'Aura'], ['ember', 'Ember'], ['tide', 'Tide'], ['mist', 'Mist'], ['halftone', 'Halftone'], ['dusk', 'Dusk']];
   function applyBackground() {
     const root = document.documentElement;
     if (S.bg && S.bg !== 'system') root.setAttribute('data-bg', S.bg); else root.removeAttribute('data-bg');
     // Photo backgrounds are dark, so the status bar follows.
     document.querySelectorAll('meta[name="theme-color"]').forEach((m) => {
       if (!m.dataset.orig) m.dataset.orig = m.getAttribute('content');
-      m.setAttribute('content', S.bg === 'aura' ? '#000000' : m.dataset.orig);
+      m.setAttribute('content', S.bg && S.bg !== 'system' ? '#000000' : m.dataset.orig);
     });
   }
   applyBackground();
@@ -1355,6 +1363,17 @@
     }).join('') + '</div>';
     if (A.more) html += '<button class="btn ghost act-more" data-act="act-more" data-key="act-more"' + (A.loading ? ' disabled' : '') + '>' + (A.loading ? 'Loading…' : 'Show older') + '</button>';
     html += '<p class="note" style="text-align:left;margin-top:12px">Changes made in the Tuya app or with physical switches aren\'t included.</p>';
+    return html;
+  }
+
+  function backgroundsView() {
+    let html = '<div class="detail-head se-head-top"><button class="round-btn" data-act="tab" data-tab="me" data-key="bg-back" aria-label="Back to Me">' + icon('back', 20) + '</button>' +
+      '<div><p class="sub">Display</p><h1 class="detail-title">Background</h1></div></div>';
+    html += '<div class="bg-grid" role="radiogroup" aria-label="Background">' + BACKGROUNDS.map(([v, n]) =>
+      '<button class="bg-choice" role="radio" aria-checked="' + (S.bg === v) + '" data-act="bg-set" data-v="' + v + '" data-key="bg-' + v + '">' +
+      '<span class="bg-thumb' + (v === 'system' ? ' bg-system' : '') + '"' + (v === 'system' ? '' : ' style="background-image:url(/backgrounds/thumbs/' + v + '.jpg)"') + '>' +
+      (S.bg === v ? '<span class="bg-check">' + icon('check', 16) + '</span>' : '') + '</span><span class="bg-name">' + n + '</span></button>').join('') + '</div>';
+    html += '<p class="note" style="text-align:left;margin-top:12px">Photo backgrounds use the dark look so text stays readable. Saved on this device.</p>';
     return html;
   }
 
@@ -2192,8 +2211,8 @@
     html += '<button class="list-row" data-act="tab" data-tab="icons" data-key="icons-open"><span class="label">Device icons</span><span class="value icon-value">Change' + icon('chevron', 16) + '</span></button>';
     html += '<div class="list-row"><span class="label" id="dist-label">Distance from home</span>' +
       '<button class="switch" role="switch" aria-checked="' + S.showDistance + '" aria-labelledby="dist-label" data-act="distance" data-key="distance"><span class="knob"></span></button></div>';
-    html += '<div class="list-row"><label class="label" for="bg-select">Background</label><select id="bg-select" data-act="bg" data-key="bg-select">' +
-      BACKGROUNDS.map(([v, n]) => '<option value="' + v + '"' + (S.bg === v ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>';
+    html += '<button class="list-row" data-act="tab" data-tab="backgrounds" data-key="bg-open"><span class="label">Background</span><span class="value icon-value">' +
+      esc((BACKGROUNDS.find(([v]) => v === S.bg) || BACKGROUNDS[0])[1]) + icon('chevron', 16) + '</span></button>';
     html += '<div class="list-row"><label class="label" for="unit-select">Weather units</label><select id="unit-select" data-act="tempunit" data-key="unit-select">' +
       '<option value="c"' + (S.tempUnit === 'c' ? ' selected' : '') + '>Celsius (°C)</option>' +
       '<option value="f"' + (S.tempUnit === 'f' ? ' selected' : '') + '>Fahrenheit (°F)</option></select></div>';
@@ -2369,7 +2388,7 @@
 
   // Gentle page transitions: deeper screens slide in from the right, going back slides from the left,
   // switching tabs fades. Skipped after a swipe-back (it already animated) and for reduced motion.
-  const DEPTH = { devices: 1, scenes: 1, me: 1, device: 2, 'scene-edit': 2, 'auto-edit': 2, icons: 2, changelog: 2, activity: 2 };
+  const DEPTH = { devices: 1, scenes: 1, me: 1, device: 2, 'scene-edit': 2, 'auto-edit': 2, icons: 2, changelog: 2, activity: 2, backgrounds: 2 };
   let skipAnim = false;
   function animateRoute(from, to, isWide) {
     if (skipAnim) { skipAnim = false; return; }
@@ -2405,7 +2424,7 @@
 
     const r = route();
     const isWide = wide.matches;
-    const activeTab = r.view === 'device' ? 'devices' : (r.view === 'scene-edit' || r.view === 'auto-edit') ? 'scenes' : (r.view === 'icons' || r.view === 'changelog' || r.view === 'activity') ? 'me' : r.view;
+    const activeTab = r.view === 'device' ? 'devices' : (r.view === 'scene-edit' || r.view === 'auto-edit') ? 'scenes' : (r.view === 'icons' || r.view === 'changelog' || r.view === 'activity' || r.view === 'backgrounds') ? 'me' : r.view;
     let mainHtml, panelHtml = null;
 
     if (r.view === 'device' && !isWide) {
@@ -2430,6 +2449,8 @@
       mainHtml = changelogView();
     } else if (r.view === 'activity') {
       mainHtml = activityView();
+    } else if (r.view === 'backgrounds') {
+      mainHtml = backgroundsView();
     } else if (activeTab === 'scenes') {
       mainHtml = scenesView(!isWide);
       if (isWide) panelHtml = automationsPanel();
@@ -2667,6 +2688,10 @@
       case 'pw-close': S.pwForm.open = false; render(); break;
       case 'alloff': allOff(); break;
       case 'act-more': loadActivity(true); break;
+      case 'bg-set':
+        S.bg = BACKGROUNDS.some(([v]) => v === el.dataset.v) ? el.dataset.v : 'system';
+        store.set('bg', S.bg); applyBackground(); render();
+        break;
       case 'distance':
         if (S.showDistance) { S.showDistance = false; store.set('showDistance', '0'); S.myPos = null; render(); break; }
         if (!('geolocation' in navigator)) { toast('This browser can\'t share your location.'); break; }
@@ -2946,7 +2971,7 @@
   }
 
   // ---------- Swipe back from the left edge (phones) ----------
-  const BACK = { device: 'devices', 'scene-edit': 'scenes', 'auto-edit': 'scenes', icons: 'me', changelog: 'me', activity: 'me' };
+  const BACK = { device: 'devices', 'scene-edit': 'scenes', 'auto-edit': 'scenes', icons: 'me', changelog: 'me', activity: 'me', backgrounds: 'me' };
   let edge = null;
   const standalone = () => window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
   document.addEventListener('touchstart', (e) => {

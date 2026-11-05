@@ -2,6 +2,11 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.24.0
+
+- Five more backgrounds: Ember, Tide, Mist, Halftone and Dusk.
+- Me > Background is now a picker with previews. Photo backgrounds get a light dimming layer so text stays readable.
+
 ## 2.23.0
 
 - Optional backgrounds: choose Aura (a soft colour glow on black) in Me > Background. The app switches to its dark look so everything stays readable.

@@ -1284,7 +1284,7 @@ dialog.confirm { background: var(--glass-strong); }
    Photo backgrounds are dark, so the app switches to its dark palette,
    and content surfaces let a little of the colour through.
    ========================================================= */
-html[data-bg="aura"] {
+html[data-bg] {
   color-scheme: dark;
   --bg: #000000;
   --surface: #161618;
@@ -1308,18 +1308,57 @@ html[data-bg="aura"] {
   --danger: #FF6B5E;
   background: #000000;
 }
-html[data-bg="aura"]::before {
+html[data-bg]::before {
   content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-  background: #000000 url("/backgrounds/aura.jpg") center / contain no-repeat;
+  background-color: #000000; background-repeat: no-repeat; background-position: center; background-size: cover;
 }
-html[data-bg="aura"] body { background: transparent; color: var(--text); }
-html[data-bg="aura"] .card.active { box-shadow: none; }
-html[data-bg="aura"] .tab[aria-current="page"] .pill { background: rgba(255, 255, 255, 0.16); }
-html[data-bg="aura"] .offline-tag { background: rgba(255, 107, 94, 0.16); }
-html[data-bg="aura"] .tabbar::after, html[data-bg="aura"] .rail::after,
-html[data-bg="aura"] .detail-head .round-btn::after, html[data-bg="aura"] dialog.confirm::after {
+/* A dimming layer over photo backgrounds keeps white text readable (Apple suggests ~35% over bright content) */
+html[data-bg]::after {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: rgba(0, 0, 0, var(--dim, 0.35));
+}
+html[data-bg="aura"]::before     { background-image: url("/backgrounds/aura.jpg"); background-size: contain; }
+html[data-bg="aura"]             { --dim: 0; }
+html[data-bg="ember"]::before    { background-image: url("/backgrounds/ember.jpg"); }
+html[data-bg="ember"]            { --dim: 0.42; }
+html[data-bg="tide"]::before     { background-image: url("/backgrounds/tide.jpg"); }
+html[data-bg="tide"]             { --dim: 0.4; }
+html[data-bg="mist"]::before     { background-image: url("/backgrounds/mist.jpg"); }
+html[data-bg="mist"]             { --dim: 0.45; }
+html[data-bg="halftone"]::before { background-image: url("/backgrounds/halftone.jpg"); }
+html[data-bg="halftone"]         { --dim: 0.25; }
+html[data-bg="dusk"]::before     { background-image: url("/backgrounds/dusk.jpg"); }
+html[data-bg="dusk"]             { --dim: 0.3; }
+/* Text sitting straight on a photo gets a soft shadow for legibility */
+html[data-bg] .hello, html[data-bg] .section-head h2, html[data-bg] .section-title, html[data-bg] .detail-head,
+html[data-bg] .act-day, html[data-bg] .room-name, html[data-bg] .cl-version, html[data-bg] .head .title, html[data-bg] .note {
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.45);
+}
+html[data-bg] body { background: transparent; color: var(--text); }
+html[data-bg] .card.active { box-shadow: none; }
+html[data-bg] .tab[aria-current="page"] .pill { background: rgba(255, 255, 255, 0.16); }
+html[data-bg] .offline-tag { background: rgba(255, 107, 94, 0.16); }
+html[data-bg] .tabbar::after, html[data-bg] .rail::after,
+html[data-bg] .detail-head .round-btn::after, html[data-bg] dialog.confirm::after {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 38%); mix-blend-mode: normal;
 }
 @media (prefers-reduced-transparency: reduce) {
-  html[data-bg="aura"] { --content: #1C1C1E; --glass: #1C1C1E; --glass-strong: #2C2C2E; }
+  html[data-bg] { --content: #1C1C1E; --glass: #1C1C1E; --glass-strong: #2C2C2E; }
 }
+
+/* ---------- Background picker ---------- */
+.bg-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.bg-choice { border: 0; background: none; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--text); }
+.bg-thumb {
+  position: relative; width: 100%; aspect-ratio: 2 / 3; border-radius: 18px; overflow: hidden;
+  background: #000 center / cover no-repeat; box-shadow: 0 0 0 1px var(--line);
+}
+.bg-thumb.bg-system { background: linear-gradient(135deg, #F2F2F7 0 50%, #000000 50% 100%); }
+.bg-choice[aria-checked="true"] .bg-thumb { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--text); }
+.bg-check {
+  position: absolute; right: 8px; bottom: 8px; width: 26px; height: 26px; border-radius: 13px;
+  display: flex; align-items: center; justify-content: center; background: #FFFFFF; color: #000000;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+.bg-name { font-size: 13px; font-weight: 600; }
+@media (min-width: 900px) { .bg-grid { grid-template-columns: repeat(4, minmax(0, 160px)); } }
