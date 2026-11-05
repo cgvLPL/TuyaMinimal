@@ -1278,3 +1278,48 @@ dialog.confirm { background: var(--glass-strong); }
 @media (prefers-contrast: more) and (prefers-color-scheme: dark) {
   :root { --glass: rgba(28, 28, 30, 0.94); --content: #1C1C1E; --muted: #D1D1D6; --line: rgba(255, 255, 255, 0.4); }
 }
+
+/* =========================================================
+   Optional background: Aura (a soft colour pill on black).
+   Photo backgrounds are dark, so the app switches to its dark palette,
+   and content surfaces let a little of the colour through.
+   ========================================================= */
+html[data-bg="aura"] {
+  color-scheme: dark;
+  --bg: #000000;
+  --surface: #161618;
+  --content: rgba(24, 24, 28, 0.62);
+  --content-blur: blur(26px) saturate(170%);
+  --text: #FFFFFF;
+  --muted: #B8B8C0;
+  --chip: rgba(255, 255, 255, 0.12);
+  --track-off: rgba(120, 120, 128, 0.4);
+  --line: rgba(255, 255, 255, 0.12);
+  --edge: rgba(255, 255, 255, 0.1);
+  --ink: #F2F2F7; --on-ink: #000000;
+  --on-ink-muted: rgba(60, 60, 67, 0.75); --on-ink-soft: rgba(0, 0, 0, 0.08);
+  --glass: rgba(30, 30, 36, 0.5);
+  --glass-strong: rgba(36, 36, 42, 0.66);
+  --glass-ink: #F2F2F7;
+  --blur: blur(14px) saturate(190%);
+  --glass-shadow: 0 8px 26px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.4);
+  --glass-edge-hi: rgba(255, 255, 255, 0.34);
+  --glass-edge-lo: rgba(255, 255, 255, 0.06);
+  --danger: #FF6B5E;
+  background: #000000;
+}
+html[data-bg="aura"]::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: #000000 url("/backgrounds/aura.jpg") center / contain no-repeat;
+}
+html[data-bg="aura"] body { background: transparent; color: var(--text); }
+html[data-bg="aura"] .card.active { box-shadow: none; }
+html[data-bg="aura"] .tab[aria-current="page"] .pill { background: rgba(255, 255, 255, 0.16); }
+html[data-bg="aura"] .offline-tag { background: rgba(255, 107, 94, 0.16); }
+html[data-bg="aura"] .tabbar::after, html[data-bg="aura"] .rail::after,
+html[data-bg="aura"] .detail-head .round-btn::after, html[data-bg="aura"] dialog.confirm::after {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 38%); mix-blend-mode: normal;
+}
+@media (prefers-reduced-transparency: reduce) {
+  html[data-bg="aura"] { --content: #1C1C1E; --glass: #1C1C1E; --glass-strong: #2C2C2E; }
+}

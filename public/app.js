@@ -5,6 +5,12 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.23.0",
+      "items": [
+        "Optional backgrounds: choose Aura (a soft colour glow on black) in Me > Background. The app switches to its dark look so everything stays readable."
+      ]
+    },
+    {
       "v": "2.22.0",
       "items": [
         "Redesigned to follow Apple's Liquid Glass guidelines: glass only on the navigation layer (tab bar, side rail, back buttons, alerts), standard materials for cards and lists, a plain system background, system label colours, a quiet selected-tab fill, and toggles that turn glassy while pressed. Respects Reduce Transparency and Increase Contrast."
@@ -307,6 +313,7 @@
     weather: null,
     showDistance: store.get('showDistance') === '1',  // "You're 12 km from home" (location stays on this phone)
     myPos: null,
+    bg: store.get('bg') || 'system',  // optional background: 'system' or 'aura'
     activity: null,      // { homeId, entries, more, loading, error }
     energy: {},          // deviceId -> { at, available, today, week, days, total } | 'loading'       // { homeId, at, available, temp, code, isDay, unit } for the greeting
     tempUnit: store.get('tempUnit') || 'c',  // Celsius unless changed in Me         // deviceId -> time of the last local command (avoid flicker)          // remoteId + key -> true briefly after a button is sent   // deviceId whose icon picker is open
@@ -961,6 +968,19 @@
     if (code >= 95) return ['storm', 'Thunderstorm'];
     return ['cloud', 'Cloudy'];
   }
+  // ---------- Optional backgrounds ----------
+  const BACKGROUNDS = [['system', 'System'], ['aura', 'Aura']];
+  function applyBackground() {
+    const root = document.documentElement;
+    if (S.bg && S.bg !== 'system') root.setAttribute('data-bg', S.bg); else root.removeAttribute('data-bg');
+    // Photo backgrounds are dark, so the status bar follows.
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => {
+      if (!m.dataset.orig) m.dataset.orig = m.getAttribute('content');
+      m.setAttribute('content', S.bg === 'aura' ? '#000000' : m.dataset.orig);
+    });
+  }
+  applyBackground();
+
   // ---------- Distance from home ----------
   // Uses the phone's location only on the phone: it's compared with the home's coordinates here
   // and never sent to the server.
@@ -2172,6 +2192,8 @@
     html += '<button class="list-row" data-act="tab" data-tab="icons" data-key="icons-open"><span class="label">Device icons</span><span class="value icon-value">Change' + icon('chevron', 16) + '</span></button>';
     html += '<div class="list-row"><span class="label" id="dist-label">Distance from home</span>' +
       '<button class="switch" role="switch" aria-checked="' + S.showDistance + '" aria-labelledby="dist-label" data-act="distance" data-key="distance"><span class="knob"></span></button></div>';
+    html += '<div class="list-row"><label class="label" for="bg-select">Background</label><select id="bg-select" data-act="bg" data-key="bg-select">' +
+      BACKGROUNDS.map(([v, n]) => '<option value="' + v + '"' + (S.bg === v ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>';
     html += '<div class="list-row"><label class="label" for="unit-select">Weather units</label><select id="unit-select" data-act="tempunit" data-key="unit-select">' +
       '<option value="c"' + (S.tempUnit === 'c' ? ' selected' : '') + '>Celsius (°C)</option>' +
       '<option value="f"' + (S.tempUnit === 'f' ? ' selected' : '') + '>Fahrenheit (°F)</option></select></div>';
@@ -2736,6 +2758,7 @@
     if (act === 'se-delay' && S.editor) { render(); return; }
     if (act === 'ae-time' && S.editor) { const c = S.editor.conditions[Number(el.dataset.i)]; if (c && /^\d{2}:\d{2}$/.test(el.value)) c.time = el.value; return; }
     if (act === 'uf') { S.userForm[el.dataset.field] = el.value; if (el.dataset.field === 'role') render(); return; }
+    if (act === 'bg') { S.bg = BACKGROUNDS.some(([v]) => v === el.value) ? el.value : 'system'; store.set('bg', S.bg); applyBackground(); render(); return; }
     if (act === 'tempunit') { S.tempUnit = el.value === 'f' ? 'f' : 'c'; store.set('tempUnit', S.tempUnit); loadWeather(true); return; }
     if (act === 'poll') { S.pollMs = Number(el.value) || 4000; store.set('pollMs', String(S.pollMs)); schedulePoll(); toast('Live updates every ' + S.pollMs / 1000 + ' s'); return; }
     if (act === 'user-role') { userOp({ op: 'role', id: el.dataset.id, role: el.value }, 'Role updated'); return; }
