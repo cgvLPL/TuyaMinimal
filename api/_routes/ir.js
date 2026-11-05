@@ -6,6 +6,7 @@
 // through Tuya's standard instruction set for IR devices (PowerOn, PowerOff, T, M, F, ...).
 const { call, TuyaError } = require('../_lib/tuya');
 const { handler, requireId } = require('../_lib/http');
+const access = require('../_lib/access');
 
 const int = (v, min, max, label) => {
   const n = Number(v);
@@ -35,6 +36,7 @@ module.exports = handler(['GET', 'POST'], async (req, body) => {
   const hubId = requireId(String(q.hubId || 'none'), 'IR blaster');
   const remoteId = requireId(String(q.remoteId || ''), 'remote');
   const viaHub = hubId !== 'none';
+  await access.requireDevice(req.user, remoteId);
 
   if (req.method === 'GET') {
     if (viaHub) {

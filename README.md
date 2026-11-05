@@ -13,6 +13,8 @@ so your API secret never reaches the browser.
 - RGB color for color bulbs and light strips (color wheel, presets, saturation, brightness)
 - "All off" for the whole home or the selected room
 - People: give family members their own password (admins and members), and sync icons across devices
+- Greeting with the current weather at your home (from the home's address in the Tuya app,
+  via the free Open-Meteo service; switch °C/°F in Me)
 - Readings: temperature/humidity (and CO₂, PM2.5) sensors appear as a strip of readings above
   your devices instead of as cards, including IR blasters with a built-in thermometer
 - Tap-to-run scenes: run, create, edit and delete them (devices, outlets, brightness, AC settings,
@@ -46,7 +48,8 @@ api/_routes/       the endpoints (folders starting with _ aren't deployed as sep
   logout.js        end this device's session
   users.js         manage people (admins), change your own password
   settings.js      shared settings such as custom icons
-api/_lib/          Tuya client and signing, sign-in, Neon database helpers
+  weather.js       current weather at the home's location (Open-Meteo, cached 10 minutes)
+api/_lib/          Tuya client and signing, sign-in, home access checks, Neon database helpers
 ```
 
 One dependency (the Neon database driver, installed by Vercel) and no build step. Runs on Node 22 (set in package.json).
@@ -84,6 +87,7 @@ One dependency (the Neon database driver, installed by Vercel) and no build step
 | `TUYA_REGION` | `us` (Western America), `us-e` (Eastern America), `eu` (Central Europe), `eu-w` (Western Europe), `sg` (Singapore), `in` (India), or `cn` (China) |
 | `APP_PASSWORD` | A long passphrase you choose. The app asks for it on each new device. |
 | `TUYA_IR_HUB` | Optional. The device ID of your IR blaster, if the app can't find it by itself (comma-separate several). |
+| `OWNER_NAME` | Optional. Your name for the greeting ("Hi Alex!"). Without it the owner sees "Hi there!". |
 
 3. Redeploy (Deployments → ⋯ → Redeploy) so the variables take effect.
 4. Open your `https://<project>.vercel.app` URL and enter your app password.
@@ -120,6 +124,9 @@ People:
   **Members** control devices, run scenes and switch automations. **Admins** can also create, edit
   and delete scenes and manage people.
 - Everyone signs in with just their password, so each password must be unique.
+- Admins can limit a member to one home: in **Me → People**, set their home to **Only <home>**.
+  The server enforces it, so they can't see or control devices, scenes or automations in other homes.
+  Admins always have every home.
 - Signing in gives each device a session, so passwords aren't sent with every request.
   Removing a person signs them out everywhere straight away. **Me → Sign out** ends a session.
 - After 10 wrong passwords from one network, sign-in pauses for 15 minutes.

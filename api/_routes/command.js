@@ -1,11 +1,13 @@
 // POST /api/command  { deviceId, commands: [{ code, value }] }
 const { call, TuyaError } = require('../_lib/tuya');
 const { handler, requireId } = require('../_lib/http');
+const access = require('../_lib/access');
 
 const CODE = /^[a-z0-9_]{1,48}$/;
 
 module.exports = handler(['POST'], async (req, body) => {
   const deviceId = requireId(body.deviceId, 'device');
+  await access.requireDevice(req.user, deviceId);
   const commands = Array.isArray(body.commands) ? body.commands : [];
   const isHsv = (v) => v && typeof v === 'object' && !Array.isArray(v) &&
     ['h', 's', 'v'].every((k) => Number.isInteger(v[k]) && v[k] >= 0 && v[k] <= 1000) && Object.keys(v).length === 3;

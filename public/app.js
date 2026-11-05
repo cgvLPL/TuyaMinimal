@@ -39,7 +39,9 @@
     pwForm: { current: '', password: '', error: '', busy: false, open: false },
     allOffArmed: 0,      // time the "All off" button was armed
     pollMs: Number(store.get('pollMs')) || 4000,  // live status interval
-    touched: {},         // deviceId -> time of the last local command (avoid flicker)          // remoteId + key -> true briefly after a button is sent   // deviceId whose icon picker is open
+    touched: {},
+    weather: null,       // { homeId, at, available, temp, code, isDay, unit } for the greeting
+    tempUnit: store.get('tempUnit') || (/[-_]US$/i.test((navigator.language || '')) ? 'f' : 'c'),         // deviceId -> time of the last local command (avoid flicker)          // remoteId + key -> true briefly after a button is sent   // deviceId whose icon picker is open
     icons: readIcons(),  // deviceId -> icon key, saved on this device      // { id, code } while an outlet name is being edited
     installPrompt: null
   };
@@ -159,6 +161,7 @@
       S.sync = !!data.sync;
       if (data.settings && data.settings.icons) { S.icons = Object.assign({}, data.settings.icons); saveIcons(); }
       if (data.homeId) { S.homeId = data.homeId; store.set('homeId', data.homeId); }
+      loadWeather();
       prefetchLightSpecs();
     } catch (e) {
       if (e.code === 'unauthorized') {
@@ -459,6 +462,14 @@
     tree: '<path d="M12 21v-5M6 16h12L12 3z"/>',
     desk: '<path d="M3 8h18M5 8v12M19 8v12M13 8v6h6"/>',
     car: '<path d="M5 17h14v-4l-2-5H7l-2 5zM5 17v2M19 17v2M8 13.5v.01M16 13.5v.01"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+    cloudsun: '<path d="M8 2.5V4M2.5 8H4M4.1 4.1l1.1 1.1M12.6 6.4A4 4 0 0 0 5.1 9"/><path d="M8.5 20h8.5a4 4 0 0 0 .5-8 5.5 5.5 0 0 0-10.4 1.8A3.2 3.2 0 0 0 8.5 20z"/>',
+    cloud: '<path d="M7 19h10a4.5 4.5 0 0 0 .6-9 6 6 0 0 0-11.5 1.8A3.6 3.6 0 0 0 7 19z"/>',
+    fog: '<path d="M4 8h16M3 12h18M5 16h14M8 20h8"/>',
+    rain: '<path d="M7 15h10a4.5 4.5 0 0 0 .6-9 6 6 0 0 0-11.5 1.8A3.6 3.6 0 0 0 7 15z"/><path d="M8 21l1-3M12 21l1-3M16 21l1-3"/>',
+    snow: '<path d="M7 15h10a4.5 4.5 0 0 0 .6-9 6 6 0 0 0-11.5 1.8A3.6 3.6 0 0 0 7 15z"/><path d="M8 19v.01M12 21v.01M16 19v.01"/>',
+    storm: '<path d="M7 15h10a4.5 4.5 0 0 0 .6-9 6 6 0 0 0-11.5 1.8A3.6 3.6 0 0 0 7 15z"/><path d="M12.5 15l-2 3.5h3l-2 3.5"/>',
     drop: '<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>',
     down: '<path d="M6 9l6 6 6-6"/>',
     remote: '<rect x="7" y="2" width="10" height="20" rx="3"/><path d="M12 6v.01M10 10h4M10 13.5h4M10 17h4"/>',
@@ -553,9 +564,47 @@
     return 'home';
   }
   function greeting() {
-    if (S.me && !S.me.owner && S.me.name) return 'Hi ' + S.me.name;
-    const h = new Date().getHours();
-    return h < 5 ? 'Good evening' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+    const name = S.me && S.me.name && !(S.me.owner && S.me.name === 'Owner') ? S.me.name : '';
+    return name ? 'Hi ' + name + '!' : 'Hi there!';
+  }
+
+  // Weather for the greeting (WMO weather codes from Open-Meteo).
+  function weatherInfo(code, isDay) {
+    if (code === 0) return isDay ? ['sun', 'Clear'] : ['moon', 'Clear'];
+    if (code === 1) return isDay ? ['sun', 'Mainly clear'] : ['moon', 'Mainly clear'];
+    if (code === 2) return ['cloudsun', 'Partly cloudy'];
+    if (code === 3) return ['cloud', 'Overcast'];
+    if (code === 45 || code === 48) return ['fog', 'Fog'];
+    if (code >= 51 && code <= 57) return ['rain', 'Drizzle'];
+    if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) return ['rain', code >= 80 ? 'Rain showers' : 'Rain'];
+    if ((code >= 71 && code <= 77) || code === 85 || code === 86) return ['snow', 'Snow'];
+    if (code >= 95) return ['storm', 'Thunderstorm'];
+    return ['cloud', 'Cloudy'];
+  }
+  function weatherLine(homeId) {
+    const w = S.weather;
+    if (!w || w.homeId !== homeId || w.unit !== S.tempUnit) return '<p class="weather" aria-hidden="true"><span class="wx-placeholder"></span></p>';
+    if (w.error) return '';
+    if (!w.available) return '<p class="weather wx-missing">Add your home\'s address in the Tuya app to see the weather.</p>';
+    const [ic, desc] = weatherInfo(w.code, w.isDay);
+    return '<p class="weather"><span class="wx-icon">' + icon(ic, 26) + '</span><span class="wx-temp">' + w.temp + w.unitLabel + '</span><span class="wx-desc">' + desc + '</span></p>';
+  }
+  async function loadWeather(force) {
+    if (!S.data || !S.data.homeId) return;
+    const homeId = S.data.homeId, w = S.weather;
+    if (!force && w && w.homeId === homeId && w.unit === S.tempUnit && Date.now() - w.at < 10 * 60 * 1000) return;
+    if (loadWeather.busy) return;
+    loadWeather.busy = true;
+    try {
+      const r = await api('weather?homeId=' + encodeURIComponent(homeId) + '&unit=' + S.tempUnit);
+      S.weather = { homeId, unit: S.tempUnit, at: Date.now(), available: !!r.available, temp: r.temp, code: r.code, isDay: r.isDay, unitLabel: r.unit === '°F' ? '°F' : '°C' };
+    } catch (e) {
+      S.weather = { homeId, unit: S.tempUnit, at: Date.now(), error: true };
+    } finally {
+      loadWeather.busy = false;
+    }
+    const typing = document.activeElement && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName) && document.activeElement.type !== 'range';
+    if (!S.dragging && !typing && !S.gate) render();
   }
 
   function devicesView(selectedId) {
@@ -580,6 +629,7 @@
     const initial = (S.me && S.me.name ? S.me.name : 'H').trim().charAt(0).toUpperCase();
     let html = '<div class="hello">' +
       '<div class="hello-text"><h1 class="title">' + esc(greeting()) + '</h1>' +
+      weatherLine(data.homeId) +
       '<p class="hello-sub">' + homeLine + '<span class="hello-dot" aria-hidden="true"></span><span>' + onCount + (onCount === 1 ? ' device on' : ' devices on') + '</span></p></div>' +
       '<button class="avatar" data-act="tab" data-tab="me" data-key="avatar" aria-label="Me">' + (S.me && !S.me.owner ? esc(initial) : icon('me', 22)) + '</button></div>';
     if (S.mode === 'demo') html += '<p class="banner">You are viewing sample devices. Connect your server in Me to control your own.</p>';
@@ -1321,6 +1371,9 @@
     html += '<div class="list-row"><label class="label" for="poll-select">Live updates</label><select id="poll-select" data-act="poll" data-key="poll-select">' +
       [[2000, 'Fastest (2 s)'], [4000, 'Fast (4 s)'], [10000, 'Normal (10 s)'], [30000, 'Saver (30 s)']].map(([ms, label]) =>
         '<option value="' + ms + '"' + (S.pollMs === ms ? ' selected' : '') + '>' + label + '</option>').join('') + '</select></div>';
+    html += '<div class="list-row"><label class="label" for="unit-select">Weather units</label><select id="unit-select" data-act="tempunit" data-key="unit-select">' +
+      '<option value="c"' + (S.tempUnit === 'c' ? ' selected' : '') + '>Celsius (°C)</option>' +
+      '<option value="f"' + (S.tempUnit === 'f' ? ' selected' : '') + '>Fahrenheit (°F)</option></select></div>';
     html += '<button class="list-row" data-act="refresh" data-key="refresh"><span class="label">Refresh now</span><span class="value">' + (updated ? 'Updated ' + updated : '') + '</span></button>';
     if (S.installPrompt) html += '<button class="list-row" data-act="install" data-key="install"><span class="label">Install app</span>' + icon('chevron', 16) + '</button>';
     if (!live) html += '<button class="list-row" data-act="live" data-key="live"><span class="label">Connect my server</span>' + icon('chevron', 16) + '</button>';
@@ -1354,7 +1407,7 @@
     }
     html += '<h2 class="section-title">About</h2><div class="list">' +
       '<div class="list-row"><span class="label">Adding devices</span><span class="value">Pair them in the Tuya app</span></div>' +
-      '<div class="list-row"><span class="label">Version</span><span class="value">2.4.0</span></div></div>';
+      '<div class="list-row"><span class="label">Version</span><span class="value">2.6.0</span></div></div>';
     return html;
   }
 
@@ -1370,10 +1423,21 @@
     html += '<div class="list"><div class="list-row"><span class="channel"><span class="label">Owner</span></span><span class="value">Admin, uses APP_PASSWORD</span></div>';
     html += S.users.map((u) => {
       const armed = S.userDelete === u.id;
+      const homes = (S.data && S.data.homes) || [];
+      const isAdmin = u.role === 'admin';
+      const sel = Array.isArray(u.homes) ? u.homes : null;
+      const homeOptions = isAdmin
+        ? '<option selected>All homes (admin)</option>'
+        : '<option value=""' + (!sel ? ' selected' : '') + '>All homes</option>' +
+          (sel && sel.length > 1 ? '<option selected disabled>' + sel.length + ' homes</option>' : '') +
+          (sel && sel.length === 0 ? '<option value="none" selected>No homes</option>' : '') +
+          homes.map((h) => '<option value="' + esc(h.id) + '"' + (sel && sel.length === 1 && sel[0] === h.id ? ' selected' : '') + '>Only ' + esc(h.name) + '</option>').join('');
       return '<div class="list-row user-row"><span class="label">' + esc(u.name) + '</span><span class="user-actions">' +
         '<label class="sr-only" for="role-' + esc(u.id) + '">Role for ' + esc(u.name) + '</label>' +
         '<select id="role-' + esc(u.id) + '" data-act="user-role" data-id="' + esc(u.id) + '" data-key="role-' + esc(u.id) + '">' +
         ['member', 'admin'].map((r) => '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' + (r === 'admin' ? 'Admin' : 'Member') + '</option>').join('') + '</select>' +
+        '<label class="sr-only" for="uhome-' + esc(u.id) + '">Homes for ' + esc(u.name) + '</label>' +
+        '<select id="uhome-' + esc(u.id) + '" data-act="user-homes" data-id="' + esc(u.id) + '" data-key="uhome-' + esc(u.id) + '"' + (isAdmin ? ' disabled' : '') + '>' + homeOptions + '</select>' +
         '<button class="chip soft' + (armed ? ' danger-chip' : '') + '" data-act="user-del" data-id="' + esc(u.id) + '" data-key="udel-' + esc(u.id) + '">' + (armed ? 'Confirm' : 'Remove') + '</button></span></div>';
     }).join('');
     const F = S.userForm;
@@ -1384,13 +1448,18 @@
         '<div class="field"><label for="uf-role">Role</label><select id="uf-role" data-act="uf" data-field="role" data-key="uf-role">' +
         '<option value="member"' + (F.role === 'member' ? ' selected' : '') + '>Member: control devices and run scenes</option>' +
         '<option value="admin"' + (F.role === 'admin' ? ' selected' : '') + '>Admin: also edit scenes and manage people</option></select></div>' +
+        (F.role === 'member' && S.data && S.data.homes && S.data.homes.length > 1
+          ? '<div class="field"><label for="uf-home">Homes</label><select id="uf-home" data-act="uf" data-field="home" data-key="uf-home">' +
+            '<option value=""' + (!F.home ? ' selected' : '') + '>All homes</option>' +
+            S.data.homes.map((h) => '<option value="' + esc(h.id) + '"' + (F.home === h.id ? ' selected' : '') + '>Only ' + esc(h.name) + '</option>').join('') + '</select></div>'
+          : '') +
         (F.error ? '<p class="error" role="alert">' + esc(F.error) + '</p>' : '') +
         '<div class="pin-actions"><button type="button" class="btn ghost" data-act="user-form-close" data-key="uf-cancel">Cancel</button>' +
         '<button type="submit" class="btn" data-key="uf-save"' + (F.busy ? ' disabled' : '') + '>' + (F.busy ? 'Adding…' : 'Add person') + '</button></div></form>';
     } else {
       html += '<button class="list-row" data-act="user-form-open" data-key="uf-open"><span class="label">Add a person</span>' + icon('plus', 16) + '</button>';
     }
-    html += '</div><p class="note" style="text-align:left;margin-top:10px">Each person signs in with their own password. Removing someone signs them out everywhere.</p>';
+    html += '</div><p class="note" style="text-align:left;margin-top:10px">Each person signs in with their own password. Choose "Only" a home to limit a member to it: they won\'t see or control anything elsewhere. Admins always have every home. Removing someone signs them out everywhere.</p>';
     return html;
   }
 
@@ -1768,9 +1837,15 @@
       render(); return;
     }
     if (act === 'se-delay' && S.editor) { render(); return; }
-    if (act === 'uf') { S.userForm[el.dataset.field] = el.value; return; }
+    if (act === 'uf') { S.userForm[el.dataset.field] = el.value; if (el.dataset.field === 'role') render(); return; }
+    if (act === 'tempunit') { S.tempUnit = el.value === 'f' ? 'f' : 'c'; store.set('tempUnit', S.tempUnit); loadWeather(true); return; }
     if (act === 'poll') { S.pollMs = Number(el.value) || 4000; store.set('pollMs', String(S.pollMs)); schedulePoll(); toast('Live updates every ' + S.pollMs / 1000 + ' s'); return; }
     if (act === 'user-role') { userOp({ op: 'role', id: el.dataset.id, role: el.value }, 'Role updated'); return; }
+    if (act === 'user-homes') {
+      const homes = el.value === '' ? null : el.value === 'none' ? [] : [el.value];
+      userOp({ op: 'homes', id: el.dataset.id, homes }, homes ? 'Limited to that home' : 'Access to all homes');
+      return;
+    }
     if (act === 'bright' && d) {
       const bc = brightCode(d);
       const value = fromPct(Number(el.value), lightRange(d, bc));
@@ -1845,7 +1920,11 @@
     if (F.password.length < 8) { F.error = 'Passwords need at least 8 characters.'; render(); return; }
     F.busy = true; F.error = ''; render();
     try {
-      const r = await api('users', { method: 'POST', body: { op: 'create', name: F.name.trim(), password: F.password, role: F.role } });
+      let r = await api('users', { method: 'POST', body: { op: 'create', name: F.name.trim(), password: F.password, role: F.role } });
+      if (F.role === 'member' && F.home) {
+        const created = (r.users || []).find((u) => u.name.toLowerCase() === F.name.trim().toLowerCase());
+        if (created) r = await api('users', { method: 'POST', body: { op: 'homes', id: created.id, homes: [F.home] } });
+      }
       S.users = r.users || S.users;
       S.userForm = { name: '', password: '', role: 'member', error: '', busy: false, open: false };
       toast('Added. Give them their password to sign in.');
@@ -2137,7 +2216,7 @@
     };
     const names = { dev12: { switch_1: 'Monitor', switch_2: 'Laptop charger' } };
     const demoIcons = {};
-    let demoUsers = [{ id: 'u1', name: 'Sam', role: 'member', owner: false }];
+    let demoUsers = [{ id: 'u1', name: 'Sam', role: 'member', owner: false, homes: null }];
     const clone = (x) => JSON.parse(JSON.stringify(x));
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     async function handle(path, opts) {
@@ -2185,6 +2264,10 @@
         if (b.action === 'ac' && dev) dev.ir.state = { power: b.power === 1, mode: b.mode, temp: b.temp, wind: b.wind };
         return { ok: true };
       }
+      if (path.startsWith('weather')) {
+        const f = /unit=f/.test(path);
+        return { available: true, temp: f ? 75 : 24, code: 2, isDay: true, unit: f ? '°F' : '°C', place: 'Demo' };
+      }
       if (path.startsWith('status')) {
         const out = {};
         db.devices.forEach((x) => { out[x.id] = { online: x.online, status: clone(x.status) }; });
@@ -2199,6 +2282,7 @@
           demoUsers.push({ id: 'u' + Date.now(), name: b.name, role: b.role, owner: false });
         }
         if (b.op === 'role') demoUsers.forEach((u) => { if (u.id === b.id) u.role = b.role; });
+        if (b.op === 'homes') demoUsers.forEach((u) => { if (u.id === b.id) u.homes = b.homes; });
         if (b.op === 'delete') demoUsers = demoUsers.filter((u) => u.id !== b.id);
         return { users: clone(demoUsers) };
       }

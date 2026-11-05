@@ -59,6 +59,15 @@ module.exports = handler(['GET', 'POST'], async (req, body) => {
   const target = users.find((u) => u.id === id);
   if (!target) throw bad('That user doesn\'t exist anymore.');
 
+  if (body.op === 'homes') {
+    // null = every home; otherwise a list of home IDs. Applies to members (admins always see every home).
+    if (body.homes === null) delete target.homes;
+    else if (Array.isArray(body.homes) && body.homes.length <= 50 && body.homes.every((h) => /^[A-Za-z0-9_-]{1,64}$/.test(String(h)))) {
+      target.homes = body.homes.map(String);
+    } else throw bad('Invalid homes.');
+    await auth.saveUsers(users);
+    return list();
+  }
   if (body.op === 'role') {
     if (!ROLES.includes(body.role)) throw bad('Invalid role.');
     target.role = body.role;

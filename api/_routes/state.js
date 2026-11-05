@@ -110,16 +110,9 @@ function attachHubless(list) {
 }
 
 // Rooms, room membership, home membership and IR remote lists rarely change, so a warm server
-// keeps them for a minute. That makes the full refresh much faster.
-const cache = new Map();
-async function cached(key, ttlMs, fn) {
-  const hit = cache.get(key);
-  if (hit && hit.until > Date.now()) return hit.value;
-  const value = await fn();
-  cache.set(key, { value, until: Date.now() + ttlMs });
-  return value;
-}
-const SLOW = 60 * 1000;
+// keeps them for a minute (shared with the access checks). That makes the full refresh faster.
+const { cached, SLOW, clear: clearCache } = require('../_lib/cache');
+const access = require('../_lib/access');
 
 async function settle(promise, fallback) {
   try { return { value: await promise }; } catch (e) { return { value: fallback, error: e.message }; }
@@ -127,12 +120,13 @@ async function settle(promise, fallback) {
 
 module.exports = handler(['GET'], async (req) => {
   const { uid } = config();
-  if (req.query && req.query.fresh) cache.clear();
+  if (req.query && req.query.fresh) clearCache();
   const [devices, homesRes] = await Promise.all([
     call('GET', `/v1.0/users/${uid}/devices`),
     settle(cached('homes', SLOW, () => call('GET', `/v1.0/users/${uid}/homes`)), [])
   ]);
-  const homes = (homesRes.value || []).map((h) => ({ id: String(h.home_id), name: h.name }));
+  const homes = (homesRes.value || []).map((h) => ({ id: String(h.home_id), name: h.name }))
+    .filter((h) => access.homeAllowed(req.user, h.id));
   const wanted = req.query && req.query.homeId ? requireId(String(req.query.homeId), 'home') : null;
   const home = homes.find((h) => h.id === wanted) || homes[0] || null;
 
@@ -185,7 +179,16 @@ module.exports = handler(['GET'], async (req) => {
     }));
   }
 
-  const homeDevices = (devices || []).filter((d) => !inHome || inHome.has(d.id));
+  let homeDevices = (devices || []).filter((d) => !inHome || inHome.has(d.id));
+  if (access.restricted(req.user)) {
+    // A restricted member only ever gets devices proven to be in one of their homes.
+    if (!home) { homeDevices = []; warnings.push('No homes are assigned to you yet. Ask an admin.'); }
+    else {
+      const allowed = await access.allowedDeviceIds(req.user);
+      homeDevices = homeDevices.filter((d) => allowed.has(d.id));
+    }
+    scenes = home ? scenes : []; automations = home ? automations : [];
+  }
   const irDevices = await expandIrRemotes(homeDevices, warnings);
 
   let settings = null;

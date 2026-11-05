@@ -552,3 +552,14 @@ dialog.confirm p { margin: 0 0 22px; font-size: 15px; color: var(--muted); line-
   dialog.confirm[open] { animation: pop .18s ease-out; }
   @keyframes pop { from { transform: scale(.96); opacity: 0; } to { transform: none; opacity: 1; } }
 }
+.user-actions { flex-wrap: wrap; justify-content: flex-end; }
+.user-actions select:disabled { opacity: .6; }
+
+/* ---------- Greeting weather ---------- */
+.weather { display: flex; align-items: center; gap: 8px; margin: 8px 0 2px; min-height: 30px; }
+.wx-icon { display: flex; color: var(--text); }
+.wx-temp { font-size: 22px; font-weight: 600; letter-spacing: -0.3px; font-variant-numeric: tabular-nums; }
+.wx-desc { font-size: 15px; font-weight: 500; color: var(--muted); }
+.wx-placeholder { width: 140px; height: 18px; border-radius: 9px; background: var(--chip); }
+.wx-missing { font-size: 13px; font-weight: 500; color: var(--muted); min-height: 0; }
+.hello-sub { margin-top: 4px; font-size: 14px; }

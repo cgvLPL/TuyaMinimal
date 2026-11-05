@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const store = require('./store');
 const { TuyaError } = require('./tuya');
 
-const OWNER = { id: 'owner', name: 'Owner', role: 'admin', owner: true };
+const OWNER = { id: 'owner', name: process.env.OWNER_NAME || 'Owner', role: 'admin', owner: true };
 const SESSION_DAYS = 180;
 const MAX_FAILS = 10, FAIL_WINDOW = 15 * 60;
 
@@ -22,7 +22,7 @@ function verifyPassword(pw, stored) {
   const key = crypto.scryptSync(pw, Buffer.from(saltHex, 'hex'), 32);
   return crypto.timingSafeEqual(key, Buffer.from(keyHex, 'hex'));
 }
-const publicUser = (u) => ({ id: u.id, name: u.name, role: u.role, owner: !!u.owner });
+const publicUser = (u) => ({ id: u.id, name: u.name, role: u.role, owner: !!u.owner, homes: Array.isArray(u.homes) ? u.homes : null });
 
 async function listUsers() { return store.enabled() ? store.getJSON('users', []) : []; }
 async function saveUsers(list) { await store.setJSON('users', list); }

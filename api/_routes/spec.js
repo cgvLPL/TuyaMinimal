@@ -2,6 +2,7 @@
 // plus custom names for multi-outlet devices (e.g. "Switch 1" renamed to "Lamp").
 const { call } = require('../_lib/tuya');
 const { handler, requireId } = require('../_lib/http');
+const access = require('../_lib/access');
 
 function parse(values) {
   if (!values) return {};
@@ -26,6 +27,7 @@ async function channelNames(deviceId) {
 
 module.exports = handler(['GET'], async (req) => {
   const deviceId = requireId(String((req.query && req.query.deviceId) || ''), 'device');
+  await access.requireDevice(req.user, deviceId);
   const r = await call('GET', `/v1.0/devices/${deviceId}/specifications`);
   const codes = {};
   for (const f of [...(r.status || []), ...(r.functions || [])]) {

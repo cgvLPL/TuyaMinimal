@@ -3,6 +3,7 @@
 // scenes...) runs less often; this one keeps switches and readings current between them.
 const { call, config, TuyaError } = require('../_lib/tuya');
 const { handler } = require('../_lib/http');
+const access = require('../_lib/access');
 
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 
@@ -13,9 +14,11 @@ module.exports = handler(['GET'], async (req) => {
   const wanted = new Set(ids);
   const { uid } = config();
   const list = await call('GET', `/v1.0/users/${uid}/devices`);
+  const allowed = await access.allowedDeviceIds(req.user);
   const devices = {};
   for (const d of list || []) {
     if (wanted.size && !wanted.has(d.id)) continue;
+    if (allowed && !allowed.has(d.id)) continue;
     const status = {};
     for (const s of d.status || []) status[s.code] = s.value;
     devices[d.id] = { online: !!d.online, status };
