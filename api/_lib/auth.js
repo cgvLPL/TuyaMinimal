@@ -24,8 +24,19 @@ function verifyPassword(pw, stored) {
 }
 const publicUser = (u) => ({ id: u.id, name: u.name, role: u.role, owner: !!u.owner, homes: Array.isArray(u.homes) ? u.homes : null });
 
-async function listUsers() { return store.enabled() ? store.getJSON('users', []) : []; }
-async function saveUsers(list) { await store.setJSON('users', list); }
+// Users and sessions are read on every request, so a warm server keeps them for a few seconds.
+// Changes made through this server clear the copy at once; other instances catch up within 15 s.
+const memo = new Map();
+const MEMO_MS = 15000;
+async function remember(key, fn) {
+  const hit = memo.get(key);
+  if (hit && hit.until > Date.now()) return hit.value;
+  const value = await fn();
+  memo.set(key, { value, until: Date.now() + MEMO_MS });
+  return value;
+}
+async function listUsers() { return store.enabled() ? remember('users', () => store.getJSON('users', [])) : []; }
+async function saveUsers(list) { await store.setJSON('users', list); memo.clear(); }
 
 function clientIp(req) {
   return String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || (req.socket && req.socket.remoteAddress) || 'unknown';
@@ -51,7 +62,8 @@ async function resolve(req) {
   if (!given) return null;
   if (safeEqual(given, process.env.APP_PASSWORD)) return OWNER;
   if (given.startsWith('sess_') && store.enabled()) {
-    const s = await store.getJSON('sess:' + sha(given).toString('hex'), null);
+    const k = 'sess:' + sha(given).toString('hex');
+    const s = await remember(k, () => store.getJSON(k, null));
     if (s) {
       if (s.uid === 'owner') return OWNER;
       const u = (await listUsers()).find((x) => x.id === s.uid);
@@ -79,7 +91,7 @@ async function login(req, password) {
 
 async function logout(req) {
   const given = String(req.headers['x-app-key'] || '');
-  if (given.startsWith('sess_') && store.enabled()) await store.del('sess:' + sha(given).toString('hex'));
+  if (given.startsWith('sess_') && store.enabled()) { await store.del('sess:' + sha(given).toString('hex')); memo.clear(); }
 }
 
 module.exports = { OWNER, resolve, login, logout, hashPassword, verifyPassword, listUsers, saveUsers, publicUser, checkRate, noteFail, safeEqual };

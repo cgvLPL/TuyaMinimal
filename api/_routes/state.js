@@ -72,7 +72,8 @@ async function expandIrRemotes(list, warnings) {
       const categoryId = Number(r.category_id);
       const category = (known && known.category) || 'infrared';
       const isAc = categoryId === IR_AC_CATEGORY || category === 'infrared_ac';
-      const ir = { hub: hub.id, categoryId, remoteIndex: r.remote_index != null ? Number(r.remote_index) : null, ac: isAc };
+      const ir = { hub: hub.id, categoryId, remoteIndex: r.remote_index != null ? Number(r.remote_index) : null, ac: isAc,
+        brand: r.brand_name ? String(r.brand_name).slice(0, 40) : null };
       if (isAc) {
         try {
           const st = await call('GET', `/v2.0/infrareds/${hub.id}/remotes/${id}/ac/status`);

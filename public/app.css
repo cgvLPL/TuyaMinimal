@@ -874,3 +874,29 @@ html, body { overscroll-behavior-y: contain; }
   .main.enter-forward, .main.enter-back, .main.enter-fade, .main.enter-back-soft { animation: none; }
 }
 .card.offline .card-switch { opacity: .4; }
+.energy-why .meta { line-height: 1.45; }
+.why-detail { display: inline-block; margin-top: 6px; font-size: 11px; opacity: .8; }
+
+/* iPhone (iOS 26): the system blurs content under the status bar with a soft edge that reaches a bit
+   below it. Start the page low enough that the greeting and headings never sit in that blur. */
+@media (max-width: 899px) {
+  .main { padding-top: calc(var(--safe-top) + 30px); }
+}
+@media (max-width: 899px) and (display-mode: standalone) {
+  .main { padding-top: calc(max(var(--safe-top), 20px) + 30px); }
+}
+
+/* ---------- Touch polish (phones) ---------- */
+/* No double-tap zoom or tap delay on controls; no text selection or callouts on long-press */
+button, .card, .room-tile, .scene, .list-row, .switch, .chip, .key, .day, .swatch, .icon-choice {
+  touch-action: manipulation;
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+}
+/* iPhone zooms into any field with text smaller than 16px when it's focused; keep fields at 16px */
+input, select, textarea { font-size: 16px; }
+.list-row select, .user-actions select, .home-select { font-size: 16px; }
+.home-select { font-size: inherit; }
+@supports (-webkit-touch-callout: none) {
+  .home-select { font-size: 16px; }
+}

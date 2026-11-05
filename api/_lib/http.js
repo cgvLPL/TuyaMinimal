@@ -18,9 +18,10 @@ function handler(methods, fn, opts) {
         return send(res, 405, { error: 'Method not allowed.' });
       }
       if (!opts.public) {
-        await auth.checkRate(req);
+        // Valid sessions go straight through; only failed attempts touch the rate limiter.
         const user = await auth.resolve(req);
         if (!user) {
+          await auth.checkRate(req);
           await auth.noteFail(req);
           return send(res, 401, { error: 'Please sign in again.', code: 'unauthorized' });
         }

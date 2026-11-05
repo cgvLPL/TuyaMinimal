@@ -380,7 +380,7 @@
     if (e === 'loading' || (!force && e && Date.now() - e.at < 5 * 60 * 1000)) return;
     S.energy[d.id] = 'loading';
     try {
-      const r = await api('energy?deviceId=' + encodeURIComponent(d.id) + '&today=' + localYmd());
+      const r = await api('energy?deviceId=' + encodeURIComponent(d.id) + '&today=' + localYmd() + '&tzo=' + (-new Date().getTimezoneOffset()));
       S.energy[d.id] = Object.assign({ at: Date.now() }, r);
     } catch (err) {
       S.energy[d.id] = { at: Date.now(), available: false, error: err.message };
@@ -406,13 +406,21 @@
       const dayName = (ymd) => ['S', 'M', 'T', 'W', 'T', 'F', 'S'][new Date(+ymd.slice(0, 4), +ymd.slice(4, 6) - 1, +ymd.slice(6, 8)).getDay()];
       html += '<div class="energy-chart" role="img" aria-label="Daily use over the last 7 days: ' + esc(e.days.map((x) => fmtKwh(x.kwh)).join(', ')) + '">' +
         e.days.map((x, i) => '<span class="bar-wrap"><span class="bar' + (i === e.days.length - 1 ? ' today' : '') + '" style="height:' + Math.max(4, Math.round((x.kwh / max) * 100)) + '%"></span><span class="bar-day">' + dayName(x.day) + '</span></span>').join('') + '</div>';
+      if (e.source === 'estimate') html += '<div class="list-row"><span class="meta">Estimated from this plug\'s power readings, since Tuya doesn\'t keep its energy totals.</span></div>';
       html += '<div class="list-row"><span class="label">Today</span><span class="value">' + fmtKwh(e.today) + '</span></div>' +
         '<div class="list-row"><span class="label">Last 7 days</span><span class="value">' + fmtKwh(e.week) + '</span></div>' +
         (e.total != null ? '<div class="list-row"><span class="label">All time</span><span class="value">' + fmtKwh(e.total) + '</span></div>' : '');
     } else if (e.available) {
       html += '<div class="list-row"><span class="label">All time</span><span class="value">' + fmtKwh(e.total) + '</span></div>';
     } else {
-      html += '<div class="list-row"><span class="meta">Usage history isn\'t available for this plug.</span></div>';
+      const why = (e.reasons || []).join('. ') || e.error || '';
+      const denied = /permission|deny|not authorized|No permissions/i.test(why);
+      html += '<div class="list-row energy-why"><span class="meta">' +
+        (denied
+          ? 'Tuya refused the usage history. In your Tuya cloud project, open Service API and authorize the device log and data statistics services, then pull down to refresh.'
+          : 'No usage history yet. Tuya hasn\'t received energy reports from this plug in the last 7 days.') +
+        (why ? '<br><span class="why-detail">' + esc(why) + '</span>' : '') + '</span></div>' +
+        '<button class="list-row" data-act="energy-retry" data-id="' + esc(d.id) + '" data-key="energy-retry"><span class="label">Try again</span>' + icon('chevron', 16) + '</button>';
     }
     return html + '</div>';
   }
@@ -902,6 +910,10 @@
     send(d, cmds, Object.fromEntries(cmds.map((c) => [c.code, c.value])));
   }
   document.addEventListener('pointerup', endArc);
+  // A slider let go without changing value never fires "change"; make sure updates resume anyway.
+  ['pointerup', 'pointercancel', 'touchend', 'touchcancel'].forEach((ev) => document.addEventListener(ev, () => {
+    setTimeout(() => { if (!arcDrag && S.dragging) { S.dragging = false; render(); } }, 400);
+  }, { passive: true }));
   document.addEventListener('pointercancel', endArc);
 
   function lightModeSeg(d, sfx) {
@@ -1166,13 +1178,14 @@
       if (hh != null) rows.push('<div class="list-row"><span class="label">Humidity</span><span class="value">' + Math.round(hh) + '%</span></div>');
     }
     if (typeof st.battery_percentage === 'number') rows.push('<div class="list-row"><span class="label">Battery</span><span class="value">' + st.battery_percentage + '%</span></div>');
-    rows.push('<div class="list-row"><span class="label">Model</span><span class="value">' + esc(d.product || d.category) + '</span></div>');
+    if (d.ir && d.ir.brand) rows.push('<div class="list-row"><span class="label">Brand</span><span class="value">' + esc(d.ir.brand) + '</span></div>');
+    else rows.push('<div class="list-row"><span class="label">Model</span><span class="value">' + esc(d.product || d.category) + '</span></div>');
 
     return '<div class="detail">' +
       '<div class="detail-head">' +
       (inPanel ? '' : '<button class="round-btn" data-act="back" data-key="back" aria-label="Back to devices">' + icon('back', 20) + '</button>') +
       '<span class="icon-dot head-icon">' + deviceIcon(d) + '</span>' +
-      '<div><p class="sub">' + esc(d.room || 'No room') + '</p><h2 class="detail-title">' + esc(d.name) + '</h2></div></div>' +
+      '<div><p class="sub">' + esc((d.room || 'No room') + (d.ir && d.ir.brand ? ', ' + d.ir.brand : '')) + '</p><h2 class="detail-title">' + esc(d.name) + '</h2></div></div>' +
       '<div class="hero">' + hero + '</div>' +
       '<div class="list">' + rows.join('') + '</div>' +
       (d.online ? energySection(d) : '') +
@@ -1739,7 +1752,7 @@
     }
     html += '<h2 class="section-title">About</h2><div class="list">' +
       '<div class="list-row"><span class="label">Adding devices</span><span class="value">Pair them in the Tuya app</span></div>' +
-      '<div class="list-row"><span class="label">Version</span><span class="value">2.14.0</span></div></div>';
+      '<div class="list-row"><span class="label">Version</span><span class="value">2.15.1</span></div></div>';
     return html;
   }
 
@@ -2026,6 +2039,7 @@
         sendSoon(d, 'temp_set', clamp(d.status.temp_set + Number(el.dataset.delta) * step, min, max));
         break;
       }
+      case 'energy-retry': if (d) { delete S.energy[d.id]; render(); } break;
       case 'lmode': {
         if (!d) break;
         if (el.dataset.val === 'colour') sendColour(d, currentColour(d));
@@ -2425,8 +2439,10 @@
   // ---------- Swipe back from the left edge (phones) ----------
   const BACK = { device: 'devices', 'scene-edit': 'scenes', 'auto-edit': 'scenes', icons: 'me' };
   let edge = null;
+  const standalone = () => window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
   document.addEventListener('touchstart', (e) => {
-    if (wide.matches || S.gate || e.touches.length !== 1 || !shell) return;
+    // In a browser tab the system's own back swipe already does this, so only add it to the installed app.
+    if (!standalone() || wide.matches || S.gate || e.touches.length !== 1 || !shell) return;
     const t = e.touches[0];
     if (t.clientX > 24 || !BACK[route().view]) return;
     if (e.target.closest('input, select, textarea, dialog')) return;
@@ -2444,10 +2460,11 @@
     edge.dx = Math.max(0, dx);
     shell.main.style.transform = 'translateX(' + edge.dx + 'px)';
   }, { passive: true });
-  function endEdge() {
+  function endEdge(ev) {
     if (!edge) return;
     const e = edge; edge = null;
     if (!e.active) return;
+    if (ev && ev.type === 'touchcancel') { e.dx = 0; }  // the system took over the gesture: just spring back
     const fast = e.dx > 40 && (e.dx / Math.max(1, Date.now() - e.t0)) > 0.5;
     const main = shell.main;
     main.classList.remove('swiping');
@@ -2670,8 +2687,26 @@
   schedulePoll();
   window.addEventListener('online', () => { if (!S.gate) refresh({ silent: true }); });
 
+  // Updates: when a new version is deployed, the service worker installs it and the app reloads once,
+  // at a calm moment (not while typing, dragging or editing), so nobody has to close and reopen it.
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => null); });
+    let reloading = false, waitingReload = false;
+    const calm = () => !S.dragging && !S.renaming && !(S.editor && inEditor()) &&
+      !(document.activeElement && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName)) &&
+      !document.querySelector('dialog[open]');
+    const tryReload = () => {
+      if (reloading) return;
+      if (!calm()) { waitingReload = true; return; }
+      reloading = true; location.reload();
+    };
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').then((reg) => {
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => null); });
+      }).catch(() => null);
+    });
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) tryReload(); });
+    setInterval(() => { if (waitingReload) tryReload(); }, 3000);
   }
 
   // ---------- Demo backend (sample data, no server needed) ----------
@@ -2695,8 +2730,8 @@
         { id: 'dev5', name: 'Front door', category: 'mcs', product: 'Door sensor', online: true, room: 'Hallway', status: { doorcontact_state: false, battery_percentage: 86 } },
         { id: 'dev6', name: 'Porch camera', category: 'sp', product: 'Outdoor camera', online: true, room: 'Hallway', status: {} },
         { id: 'dev10', name: 'Garage plug', category: 'cz', product: 'Smart plug', online: false, room: '', status: { switch_1: false } },
-        { id: 'ir1', name: 'Study AC', category: 'infrared_ac', product: 'IR remote', online: true, room: 'Bedroom', status: {}, ir: { hub: 'hub1', categoryId: 5, ac: true, state: { power: false, mode: 0, temp: 24, wind: 0 } } },
-        { id: 'ir2', name: 'Living room TV', category: 'infrared_tv', product: 'IR remote', online: true, room: 'Living room', status: {}, ir: { hub: 'hub1', categoryId: 2, ac: false } },
+        { id: 'ir1', name: 'Study AC', category: 'infrared_ac', product: 'IR remote', online: true, room: 'Bedroom', status: {}, ir: { hub: 'hub1', categoryId: 5, ac: true, brand: 'Daikin', state: { power: false, mode: 0, temp: 24, wind: 0 } } },
+        { id: 'ir2', name: 'Living room TV', category: 'infrared_tv', product: 'IR remote', online: true, room: 'Living room', status: {}, ir: { hub: 'hub1', categoryId: 2, ac: false, brand: 'Samsung' } },
         { id: 'bh1', home: 'h2', name: 'Patio lights', category: 'dj', product: 'Smart bulb', online: true, room: 'Patio', status: { switch_led: true, work_mode: 'white', bright_value_v2: 600, temp_value_v2: 0 } },
         { id: 'bh2', home: 'h2', name: 'Pool pump', category: 'cz', product: 'Smart plug', online: true, room: 'Garden', status: { switch_1: false } }
       ],

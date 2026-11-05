@@ -55,7 +55,8 @@ api/_routes/       the endpoints (folders starting with _ aren't deployed as sep
   logout.js        end this device's session
   users.js         manage people (admins), change your own password
   settings.js      shared settings such as custom icons
-  energy.js        daily and total kWh for plugs that measure power
+  energy.js        daily kWh for plugs that measure power: Tuya statistics, else the device's
+                   energy report log, else an estimate from its wattage log
   weather.js       current weather at the home's location (Open-Meteo, cached 10 minutes)
 api/_lib/          Tuya client and signing, sign-in, home access checks, scene/automation validation, Neon helpers
 ```
@@ -136,8 +137,13 @@ People:
   The server enforces it, so they can't see or control devices, scenes or automations in other homes.
   Admins always have every home.
 - Signing in gives each device a session, so passwords aren't sent with every request.
-  Removing a person signs them out everywhere straight away. **Me → Sign out** ends a session.
+  Removing a person signs them out everywhere within seconds. **Me → Sign out** ends a session.
 - After 10 wrong passwords from one network, sign-in pauses for 15 minutes.
+
+## Updates
+
+After you deploy a new version, the installed app downloads it in the background and reloads itself
+once, at a quiet moment (never while you're typing, dragging a slider or editing a scene).
 
 ## Troubleshooting
 
@@ -159,6 +165,8 @@ People:
   Devices → All Devices) and redeploy.
 - **The IR blaster shows instead of its remotes, or Me shows "IR remotes ... permission deny"**:
   authorize the **IR Control Hub Open Service** in your cloud project (Service API → Go to Authorize).
+- **Energy shows "Tuya refused the usage history"**: authorize the device log and data statistics
+  services in your cloud project (Service API → Go to Authorize). Logs cover the last 7 days.
 - **A temperature looks 10× off**: open that device once so the app loads its exact scale.
 
 ## Security notes
