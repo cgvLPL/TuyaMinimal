@@ -30,24 +30,23 @@ Not included: pairing new devices (keep using the Tuya app for that) and camera 
 
 ```
 public/            the PWA (index.html, app.js, app.css, manifest, service worker, icons)
-api/               Vercel serverless functions (the proxy)
-  _lib/tuya.js     Tuya Cloud client: request signing and token handling
-  _lib/http.js     password check, validation, errors
-  state.js         GET  /api/state       homes, rooms, devices, scenes, automations
-  command.js       POST /api/command     send commands to one device
-  spec.js          GET  /api/spec        value ranges for a device's controls
-  scene.js         POST /api/scene       run a scene
-  automation.js    POST /api/automation  enable or disable an automation
-  rename.js        POST /api/rename      rename one outlet of a multi-outlet device
-  ir.js            GET/POST /api/ir      buttons and commands for IR remotes
-  scene-edit.js    POST /api/scene-edit  create, update or delete a tap-to-run scene (admins)
-  status.js        GET  /api/status      live device states only (fast, one Tuya request)
-  login.js         POST /api/login       sign in with a password, returns a session
-  logout.js        POST /api/logout      end this device's session
-  users.js         GET/POST /api/users   manage people (admins), change your own password
-  settings.js      GET/POST /api/settings shared settings such as custom icons
-  _lib/store.js    optional Upstash Redis storage
-  _lib/auth.js     passwords, sessions, roles, sign-in rate limiting
+api/router.js      the only serverless function: every request goes to /api/router?r=<name>
+api/_routes/       the endpoints (folders starting with _ aren't deployed as separate functions,
+                   which keeps the project within the free plan's 12-function limit)
+  state.js         homes, rooms, devices, scenes, automations
+  status.js        live device states only (fast, one Tuya request)
+  command.js       send commands to one device
+  spec.js          value ranges for a device's controls
+  scene.js         run a scene
+  scene-edit.js    create, update or delete a tap-to-run scene (admins)
+  automation.js    enable or disable an automation
+  rename.js        rename one outlet of a multi-outlet device
+  ir.js            buttons and commands for IR remotes
+  login.js         sign in with a password, returns a session
+  logout.js        end this device's session
+  users.js         manage people (admins), change your own password
+  settings.js      shared settings such as custom icons
+api/_lib/          Tuya client and signing, sign-in, storage helpers
 ```
 
 No dependencies and no build step. Node 18 or newer (Vercel's default is fine).

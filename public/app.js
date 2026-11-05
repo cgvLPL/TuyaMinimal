@@ -117,7 +117,10 @@
     if (opts.body) headers['Content-Type'] = 'application/json';
     let res;
     try {
-      res = await fetch('/api/' + path, {
+      // All endpoints go through one serverless function: /api/router?r=<name>&<params>
+      const q = path.indexOf('?');
+      const url = '/api/router?r=' + (q < 0 ? path : path.slice(0, q) + '&' + path.slice(q + 1));
+      res = await fetch(url, {
         method: opts.method || 'GET',
         headers,
         body: opts.body ? JSON.stringify(opts.body) : undefined
@@ -1756,7 +1759,7 @@
     S.gateError = 'Signing in…'; render();
     let token = pw;
     try {
-      const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw }) });
+      const res = await fetch('/api/router?r=login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw }) });
       const j = await res.json().catch(() => ({}));
       if (res.ok && j.token) { token = j.token; S.me = j.user || null; S.sync = !!j.sync; }
       else if (res.status === 401 || res.status === 429) { S.gateError = j.error || 'That password isn\'t right.'; render(); return; }
