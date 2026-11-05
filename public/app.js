@@ -40,6 +40,7 @@
     allOffArmed: 0,      // time the "All off" button was armed
     pollMs: Number(store.get('pollMs')) || 4000,  // live status interval
     touched: {},
+    pending: {},         // deviceId -> number of commands still on their way
     weather: null,
     energy: {},          // deviceId -> { at, available, today, week, days, total } | 'loading'       // { homeId, at, available, temp, code, isDay, unit } for the greeting
     tempUnit: store.get('tempUnit') || 'c',  // Celsius unless changed in Me         // deviceId -> time of the last local command (avoid flicker)          // remoteId + key -> true briefly after a button is sent   // deviceId whose icon picker is open
@@ -474,6 +475,7 @@
     const before = Object.assign({}, d.status);
     Object.assign(d.status, patch || {});
     S.touched[d.id] = Date.now();
+    markPending(d.id, 1);
     if (!opts.noRender) render();
     try {
       await api('command', { method: 'POST', body: { deviceId: d.id, commands } });
@@ -481,10 +483,17 @@
       statusSoon();
     } catch (e) {
       d.status = opts.revertTo || before;
-      render();
       toast(d.name + ': ' + e.message);
+    } finally {
+      markPending(d.id, -1);
+      render();
     }
   }
+  function markPending(id, delta) {
+    const n = (S.pending[id] || 0) + delta;
+    if (n > 0) S.pending[id] = n; else delete S.pending[id];
+  }
+  const isPending = (id) => !!S.pending[id];
   // Debounced send for +/- taps, so five quick taps become one command.
   function sendSoon(d, code, value) {
     const key = d.id + code;
@@ -531,6 +540,7 @@
     rain: '<path d="M7 15h10a4.5 4.5 0 0 0 .6-9 6 6 0 0 0-11.5 1.8A3.6 3.6 0 0 0 7 15z"/><path d="M8 21l1-3M12 21l1-3M16 21l1-3"/>',
     snow: '<path d="M7 15h10a4.5 4.5 0 0 0 .6-9 6 6 0 0 0-11.5 1.8A3.6 3.6 0 0 0 7 15z"/><path d="M8 19v.01M12 21v.01M16 19v.01"/>',
     storm: '<path d="M7 15h10a4.5 4.5 0 0 0 .6-9 6 6 0 0 0-11.5 1.8A3.6 3.6 0 0 0 7 15z"/><path d="M12.5 15l-2 3.5h3l-2 3.5"/>',
+    wifioff: '<path d="M2 2l20 20M8.5 16.4a5 5 0 0 1 7 0M5 12.9a10 10 0 0 1 5.2-2.7M19 12.9a10 10 0 0 0-2.3-1.6M2 9.3a15 15 0 0 1 4.3-2.6M22 9.3a15 15 0 0 0-11-3.8M12 20h.01"/>',
     drop: '<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>',
     down: '<path d="M6 9l6 6 6-6"/>',
     remote: '<rect x="7" y="2" width="10" height="20" rx="3"/><path d="M12 6v.01M10 10h4M10 13.5h4M10 17h4"/>',
@@ -593,7 +603,8 @@
   function switchBtn(d, extraKey, code, vertical) {
     const on = code ? !!d.status[code] : isOn(d);
     const label = code ? channelName(d, code) : d.name + (isMulti(d) ? ', all outlets' : ' power');
-    return '<button class="switch' + (vertical ? ' v' : '') + '" role="switch" aria-checked="' + on + '" aria-label="' + esc(label) + '"' +
+    const busy = isPending(d.id);
+    return '<button class="switch' + (vertical ? ' v' : '') + (busy ? ' pending' : '') + '" role="switch" aria-checked="' + on + '" aria-label="' + esc(label) + '"' + (busy ? ' aria-busy="true"' : '') +
       ' data-act="toggle" data-id="' + esc(d.id) + '"' + (code ? ' data-code="' + esc(code) + '"' : '') +
       ' data-key="sw-' + esc(d.id) + (code ? '-' + esc(code) : '') + (extraKey || '') + '"' +
       (d.online ? '' : ' disabled') + '><span class="knob"></span></button>';
@@ -601,10 +612,11 @@
 
   function deviceCard(d, selectedId) {
     const on = isOn(d), toggle = hasToggle(d);
-    const cls = ['card', toggle && on && d.online ? 'active' : '', d.online ? '' : 'offline', d.id === selectedId ? 'selected' : ''].join(' ');
+    const cls = ['card', toggle && on && d.online ? 'active' : '', d.online ? '' : 'offline', d.id === selectedId ? 'selected' : '', isPending(d.id) ? 'pending' : ''].join(' ');
     return '<div class="' + cls + '">' +
       '<button class="card-open" data-act="open" data-id="' + esc(d.id) + '" data-key="open-' + esc(d.id) + '" aria-label="' + esc(d.name) + ', ' + esc(statusText(d)) + ', show controls">' +
-      '<span class="card-top"><span class="icon-dot"' + (on && d.online && kindOf(d) === 'light' && inColour(d) ? ' style="background:' + colourCss(d) + ';color:#141414"' : '') + '>' + deviceIcon(d) + '</span><span class="card-room">' + esc(d.room) + '</span></span>' +
+      '<span class="card-top"><span class="icon-dot"' + (on && d.online && kindOf(d) === 'light' && inColour(d) ? ' style="background:' + colourCss(d) + ';color:#141414"' : '') + '>' + deviceIcon(d) + '</span>' + (d.online ? '<span class="card-room">' + esc(d.room) + '</span>'
+        : '<span class="offline-tag">' + icon('wifioff', 13) + 'Offline</span>') + '</span>' +
       '<span class="card-text"><span class="card-name">' + esc(d.name) + '</span><span class="card-status">' + esc(statusText(d)) + '</span></span>' +
       '</button>' +
       (toggle ? '<div class="card-switch">' + switchBtn(d, '', null, true) + '</div>' : '') +
@@ -821,7 +833,8 @@
     const on = isOn(d), multi = isMulti(d);
     const text = multi ? statusText(d) : (on ? 'On' : 'Off');
     const aria = multi ? (on ? 'Turn all outlets off' : 'Turn all outlets on') : d.name + ' power';
-    return '<button class="power-btn" data-act="toggle" data-id="' + esc(d.id) + '" data-key="pwr-' + esc(d.id) + '" aria-pressed="' + on + '" aria-label="' + esc(aria) + '"' + (d.online ? '' : ' disabled') + '>' +
+    const busy = isPending(d.id);
+    return '<button class="power-btn' + (busy ? ' pending' : '') + '" data-act="toggle" data-id="' + esc(d.id) + '" data-key="pwr-' + esc(d.id) + '" aria-pressed="' + on + '" aria-label="' + esc(aria) + '"' + (busy ? ' aria-busy="true"' : '') + (d.online ? '' : ' disabled') + '>' +
       icon('power', 40) + '<span>' + esc(text) + '</span></button>';
   }
 
@@ -1030,14 +1043,17 @@
       const changed = Array.from(irPending[d.id].changed);
       delete irPending[d.id];
       if (!changed.length) return;
+      markPending(d.id, 1); render();
       try {
         await api('ir', { method: 'POST', body: {
           hubId: d.ir.hub || 'none', remoteId: d.id, action: 'ac',
           power: st2.power ? 1 : 0, mode: st2.mode, temp: st2.temp, wind: st2.wind, changed
         } });
       } catch (e) {
-        d.ir.state = before; render();
+        d.ir.state = before;
         toast(d.name + ': ' + e.message);
+      } finally {
+        markPending(d.id, -1); render();
       }
     }, 500);
   }
@@ -1723,7 +1739,7 @@
     }
     html += '<h2 class="section-title">About</h2><div class="list">' +
       '<div class="list-row"><span class="label">Adding devices</span><span class="value">Pair them in the Tuya app</span></div>' +
-      '<div class="list-row"><span class="label">Version</span><span class="value">2.13.0</span></div></div>';
+      '<div class="list-row"><span class="label">Version</span><span class="value">2.14.0</span></div></div>';
     return html;
   }
 
@@ -1858,6 +1874,24 @@
     shell = { app, rail: $('.rail', app), main: $('.main', app), panel: $('.panel', app), tabbar: $('.tabbar', app) };
   }
 
+  // Gentle page transitions: deeper screens slide in from the right, going back slides from the left,
+  // switching tabs fades. Skipped after a swipe-back (it already animated) and for reduced motion.
+  const DEPTH = { devices: 1, scenes: 1, me: 1, device: 2, 'scene-edit': 2, 'auto-edit': 2, icons: 2 };
+  let skipAnim = false;
+  function animateRoute(from, to, isWide) {
+    if (skipAnim) { skipAnim = false; return; }
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (isWide && (from === 'devices' || from === 'device') && (to === 'devices' || to === 'device')) return; // panel swap on tablets
+    const a = DEPTH[from] || 1, b = DEPTH[to] || 1;
+    const cls = b > a ? 'enter-forward' : b < a ? 'enter-back' : 'enter-fade';
+    const el = shell.main;
+    el.classList.remove('enter-forward', 'enter-back', 'enter-fade');
+    void el.offsetWidth;  // restart the animation
+    el.classList.add(cls);
+    clearTimeout(animateRoute.t);
+    animateRoute.t = setTimeout(() => el.classList.remove(cls), 400);
+  }
+
   function render() {
     const app = $('#app');
     const focusKey = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.key : null;
@@ -1920,8 +1954,10 @@
     shell.panel.scrollTop = panelTop;
     const newList = shell.main.querySelector('.dv-scroll');
     if (newList && oldList) newList.scrollTop = listTop;
+    if (newList) newList.classList.toggle('scrolled', newList.scrollTop > 2);
 
     const routeKey = r.view + ':' + (r.id || '');
+    if (routeKey !== lastRouteKey && lastRouteKey) animateRoute(lastRouteKey.split(':')[0], r.view, isWide);
     if (routeKey !== lastRouteKey) {
       if (!isWide || activeTab !== lastTab) {
         window.scrollTo(0, 0); shell.main.scrollTop = 0;
@@ -2385,6 +2421,62 @@
     S.pinBusy = false; S.pinEntry = ''; S.pinFirst = ''; S.pinStage = 'enter';
     render();
   }
+
+  // ---------- Swipe back from the left edge (phones) ----------
+  const BACK = { device: 'devices', 'scene-edit': 'scenes', 'auto-edit': 'scenes', icons: 'me' };
+  let edge = null;
+  document.addEventListener('touchstart', (e) => {
+    if (wide.matches || S.gate || e.touches.length !== 1 || !shell) return;
+    const t = e.touches[0];
+    if (t.clientX > 24 || !BACK[route().view]) return;
+    if (e.target.closest('input, select, textarea, dialog')) return;
+    edge = { x0: t.clientX, y0: t.clientY, dx: 0, t0: Date.now(), active: false };
+  }, { passive: true });
+  document.addEventListener('touchmove', (e) => {
+    if (!edge) return;
+    const t = e.touches[0], dx = t.clientX - edge.x0, dy = t.clientY - edge.y0;
+    if (!edge.active) {
+      if (Math.abs(dy) > 12 && Math.abs(dy) > dx) { edge = null; return; }  // it's a vertical scroll
+      if (dx < 10) return;
+      edge.active = true;
+      shell.main.classList.add('swiping');
+    }
+    edge.dx = Math.max(0, dx);
+    shell.main.style.transform = 'translateX(' + edge.dx + 'px)';
+  }, { passive: true });
+  function endEdge() {
+    if (!edge) return;
+    const e = edge; edge = null;
+    if (!e.active) return;
+    const fast = e.dx > 40 && (e.dx / Math.max(1, Date.now() - e.t0)) > 0.5;
+    const main = shell.main;
+    main.classList.remove('swiping');
+    if (e.dx > window.innerWidth * 0.33 || fast) {
+      main.style.transition = 'transform .18s ease-out';
+      main.style.transform = 'translateX(100%)';
+      setTimeout(() => {
+        main.style.transition = ''; main.style.transform = '';
+        skipAnim = true;
+        const target = BACK[route().view];
+        if (route().view === 'scene-edit' || route().view === 'auto-edit') S.editor = null;
+        go(target);
+        main.classList.add('enter-back-soft');
+        setTimeout(() => main.classList.remove('enter-back-soft'), 300);
+      }, 170);
+    } else {
+      main.style.transition = 'transform .2s ease-out';
+      main.style.transform = '';
+      setTimeout(() => { main.style.transition = ''; }, 220);
+    }
+  }
+  document.addEventListener('touchend', endEdge);
+  document.addEventListener('touchcancel', endEdge);
+
+  // Only fade the top edge of the card list once it has actually scrolled.
+  document.addEventListener('scroll', (e) => {
+    const el = e.target;
+    if (el && el.classList && el.classList.contains('dv-scroll')) el.classList.toggle('scrolled', el.scrollTop > 2);
+  }, true);
 
   // ---------- Pull down to refresh ----------
   const PTR_TRIGGER = 64;

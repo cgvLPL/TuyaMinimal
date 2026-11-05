@@ -826,3 +826,51 @@ html, body { overscroll-behavior-y: contain; }
 .bar.today { background: var(--glass-ink, var(--ink)); }
 .bar-day { font-size: 11px; font-weight: 600; color: var(--muted); }
 .energy .list-row + .list-row, .energy .energy-chart + .list-row { border-top: 1px solid rgba(120, 120, 140, 0.16); }
+
+/* Card list top edge: no fade or clipping at rest; a soft fade only while scrolled */
+.dv-scroll { padding-top: 12px; -webkit-mask-image: none; mask-image: none; }
+.dv-scroll.scrolled {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 10px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 10px);
+}
+.dv-top .section-head { margin-bottom: 0; }
+/* Count badge: readable in light and dark */
+.section-count { color: var(--text); background: var(--chip); font-weight: 700; min-width: 26px; text-align: center; }
+@media (prefers-color-scheme: dark) { .section-count { background: rgba(255, 255, 255, 0.14); } }
+
+/* ---------- Pending commands ---------- */
+.switch.pending .knob { animation: knob-pulse 0.9s ease-in-out infinite; }
+@keyframes knob-pulse { 0%, 100% { opacity: 1; transform-origin: center; } 50% { opacity: .45; } }
+.switch.v.pending[aria-checked="true"] .knob { animation-name: knob-pulse; }
+.power-btn.pending { animation: ring-pulse 1.1s ease-in-out infinite; }
+@keyframes ring-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(120, 120, 140, 0.35); } 50% { box-shadow: 0 0 0 10px rgba(120, 120, 140, 0); } }
+@media (prefers-reduced-motion: reduce) {
+  .switch.pending .knob, .power-btn.pending { animation: none; }
+  .switch.pending .knob { opacity: .55; }
+}
+
+/* ---------- Offline devices ---------- */
+.card.offline { opacity: 1; }
+.card.offline .icon-dot, .card.offline .card-text { opacity: .5; }
+.offline-tag {
+  display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto;
+  font-size: 11px; font-weight: 700; padding: 4px 8px 4px 7px; border-radius: 10px;
+  color: var(--danger); background: rgba(180, 35, 24, 0.10);
+}
+@media (prefers-color-scheme: dark) { .offline-tag { background: rgba(255, 107, 94, 0.16); } }
+
+/* ---------- Page transitions ---------- */
+.main.enter-forward { animation: enter-forward .26s cubic-bezier(.2, .8, .2, 1); }
+.main.enter-back { animation: enter-back .26s cubic-bezier(.2, .8, .2, 1); }
+.main.enter-fade { animation: enter-fade .18s ease-out; }
+.main.enter-back-soft { animation: enter-fade .2s ease-out; }
+@keyframes enter-forward { from { opacity: 0; transform: translateX(32px); } to { opacity: 1; transform: none; } }
+@keyframes enter-back { from { opacity: 0; transform: translateX(-32px); } to { opacity: 1; transform: none; } }
+@keyframes enter-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ---------- Swipe back ---------- */
+.main.swiping { will-change: transform; box-shadow: -14px 0 30px rgba(0, 0, 0, 0.12); }
+@media (prefers-reduced-motion: reduce) {
+  .main.enter-forward, .main.enter-back, .main.enter-fade, .main.enter-back-soft { animation: none; }
+}
+.card.offline .card-switch { opacity: .4; }
