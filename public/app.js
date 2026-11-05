@@ -448,6 +448,14 @@
     speaker: '<rect x="6" y="3" width="12" height="18" rx="3"/><circle cx="12" cy="14" r="3"/><path d="M12 7v.01"/>',
     appliance: '<path d="M6 8h11l-1 12H7L6 8zM9 8V5h5v3M17 10h2v5h-2.4"/>',
     router: '<rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 16.5v.01M11 16.5v.01M8.5 9.5a5 5 0 0 1 7 0M6 7a9 9 0 0 1 12 0"/>',
+    sofa: '<path d="M5 11V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3M3 12a1.5 1.5 0 0 1 3 0v2h12v-2a1.5 1.5 0 0 1 3 0v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zM6 17v2M18 17v2"/>',
+    bed: '<path d="M3 18v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6M3 15h18M3 18v2M21 18v2M6 10V7h5v3"/>',
+    pot: '<path d="M4 10h16v5a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4zM2 10h2M20 10h2M9 6.5c0-1 1-1 1-2.5M14 6.5c0-1 1-1 1-2.5"/>',
+    bath: '<path d="M3 12h18v2.5a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5zM6 12V6a2 2 0 0 1 4 0M7 19.5l-1 2M17 19.5l1 2"/>',
+    door: '<path d="M6 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17M4 21h16M14 12v.01"/>',
+    tree: '<path d="M12 21v-5M6 16h12L12 3z"/>',
+    desk: '<path d="M3 8h18M5 8v12M19 8v12M13 8v6h6"/>',
+    car: '<path d="M5 17h14v-4l-2-5H7l-2 5zM5 17v2M19 17v2M8 13.5v.01M16 13.5v.01"/>',
     drop: '<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>',
     down: '<path d="M6 9l6 6 6-6"/>',
     remote: '<rect x="7" y="2" width="10" height="20" rx="3"/><path d="M12 6v.01M10 10h4M10 13.5h4M10 17h4"/>',
@@ -507,10 +515,10 @@
     ).join('');
   }
 
-  function switchBtn(d, extraKey, code) {
+  function switchBtn(d, extraKey, code, vertical) {
     const on = code ? !!d.status[code] : isOn(d);
     const label = code ? channelName(d, code) : d.name + (isMulti(d) ? ', all outlets' : ' power');
-    return '<button class="switch" role="switch" aria-checked="' + on + '" aria-label="' + esc(label) + '"' +
+    return '<button class="switch' + (vertical ? ' v' : '') + '" role="switch" aria-checked="' + on + '" aria-label="' + esc(label) + '"' +
       ' data-act="toggle" data-id="' + esc(d.id) + '"' + (code ? ' data-code="' + esc(code) + '"' : '') +
       ' data-key="sw-' + esc(d.id) + (code ? '-' + esc(code) : '') + (extraKey || '') + '"' +
       (d.online ? '' : ' disabled') + '><span class="knob"></span></button>';
@@ -522,10 +530,29 @@
     return '<div class="' + cls + '">' +
       '<button class="card-open" data-act="open" data-id="' + esc(d.id) + '" data-key="open-' + esc(d.id) + '" aria-label="' + esc(d.name) + ', ' + esc(statusText(d)) + ', show controls">' +
       '<span class="card-top"><span class="icon-dot"' + (on && d.online && kindOf(d) === 'light' && inColour(d) ? ' style="background:' + colourCss(d) + ';color:#141414"' : '') + '>' + deviceIcon(d) + '</span><span class="card-room">' + esc(d.room) + '</span></span>' +
-      '<span><span class="card-name">' + esc(d.name) + '</span><span class="card-status">' + esc(statusText(d)) + '</span></span>' +
+      '<span class="card-text"><span class="card-name">' + esc(d.name) + '</span><span class="card-status">' + esc(statusText(d)) + '</span></span>' +
       '</button>' +
-      (toggle ? '<div class="card-foot"><span class="state">' + (on ? 'On' : 'Off') + '</span>' + switchBtn(d) + '</div>' : '') +
+      (toggle ? '<div class="card-switch">' + switchBtn(d, '', null, true) + '</div>' : '') +
       '</div>';
+  }
+
+  function roomIcon(name) {
+    const n = String(name).toLowerCase();
+    if (n === 'all') return 'grid';
+    if (/living|lounge|family|sala/.test(n)) return 'sofa';
+    if (/bed|master|guest|kid|nursery/.test(n)) return 'bed';
+    if (/kitchen|dining|pantry/.test(n)) return 'pot';
+    if (/bath|toilet|wc|shower|laundry/.test(n)) return 'bath';
+    if (/hall|entr|foyer|corridor|stair/.test(n)) return 'door';
+    if (/garden|patio|yard|balcon|terrace|outdoor|pool/.test(n)) return 'tree';
+    if (/office|study|work/.test(n)) return 'desk';
+    if (/garage|car|parking/.test(n)) return 'car';
+    return 'home';
+  }
+  function greeting() {
+    if (S.me && !S.me.owner && S.me.name) return 'Hi ' + S.me.name;
+    const h = new Date().getHours();
+    return h < 5 ? 'Good evening' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
   }
 
   function devicesView(selectedId) {
@@ -540,18 +567,23 @@
     const shown = data.devices.filter((d) => S.room === 'All' || (S.room === 'Other' ? !d.room : d.room === S.room));
 
     const homes = data.homes || [];
-    const titleHtml = homes.length > 1
-      ? '<h1 class="title home-pick"><label class="sr-only" for="home-head">Home</label>' +
-        '<select id="home-head" class="title-select" data-act="home" data-key="home-head">' +
+    const homeName = home ? home.name : 'My Home';
+    const homeLine = homes.length > 1
+      ? '<span class="home-pick"><label class="sr-only" for="home-head">Home</label>' +
+        '<select id="home-head" class="home-select" data-act="home" data-key="home-head">' +
         homes.map((h) => '<option value="' + esc(h.id) + '"' + (h.id === data.homeId ? ' selected' : '') + '>' + esc(h.name) + '</option>').join('') +
-        '</select><span class="title-chevron" aria-hidden="true">' + icon('down', 22) + '</span></h1>'
-      : '<h1 class="title">' + esc(home ? home.name : 'My Home') + '</h1>';
-    let html = '<div class="head"><div><p class="sub">' + onCount + (onCount === 1 ? ' device on' : ' devices on') + '</p>' +
-      titleHtml + '</div>' + allOffButton() + '</div>';
+        '</select><span class="title-chevron" aria-hidden="true">' + icon('down', 16) + '</span></span>'
+      : '<span>' + esc(homeName) + '</span>';
+    const initial = (S.me && S.me.name ? S.me.name : 'H').trim().charAt(0).toUpperCase();
+    let html = '<div class="hello">' +
+      '<div class="hello-text"><h1 class="title">' + esc(greeting()) + '</h1>' +
+      '<p class="hello-sub">' + homeLine + '<span class="hello-dot" aria-hidden="true"></span><span>' + onCount + (onCount === 1 ? ' device on' : ' devices on') + '</span></p></div>' +
+      '<button class="avatar" data-act="tab" data-tab="me" data-key="avatar" aria-label="Me">' + (S.me && !S.me.owner ? esc(initial) : icon('me', 22)) + '</button></div>';
     if (S.mode === 'demo') html += '<p class="banner">You are viewing sample devices. Connect your server in Me to control your own.</p>';
     if (rooms.length > 1) {
-      html += '<div class="chips" role="group" aria-label="Rooms">' + rooms.map((r) =>
-        '<button class="chip" data-act="room" data-room="' + esc(r) + '" data-key="room-' + esc(r) + '" aria-pressed="' + (r === S.room) + '">' + esc(r) + '</button>').join('') + '</div>';
+      html += '<div class="room-tiles" role="group" aria-label="Rooms">' + rooms.map((r) =>
+        '<button class="room-tile" data-act="room" data-room="' + esc(r) + '" data-key="room-' + esc(r) + '" aria-pressed="' + (r === S.room) + '">' +
+        '<span class="room-box">' + icon(roomIcon(r), 22) + '</span><span class="room-name">' + esc(r) + '</span></button>').join('') + '</div>';
     }
     if (!data.devices.length) {
       return html + '<div class="empty"><strong>No devices found</strong><p>Link your Tuya app account to your cloud project (see the README), then tap Refresh in Me.</p></div>';
@@ -561,7 +593,10 @@
     if (readings.length) {
       html += '<div class="readings" role="list" aria-label="Readings">' + readings.map((d) => readingTile(d, S.room === 'All')).join('') + '</div>';
     }
-    if (cards.length) html += '<div class="grid">' + cards.map((d) => deviceCard(d, selectedId)).join('') + '</div>';
+    if (cards.length) {
+      html += '<div class="section-head"><h2>Devices</h2><span class="section-count">' + cards.length + '</span>' + allOffButton() + '</div>';
+      html += '<div class="grid">' + cards.map((d) => deviceCard(d, selectedId)).join('') + '</div>';
+    }
     else if (!readings.length) html += '<div class="empty"><strong>Nothing in this room</strong><p>Assign devices to rooms in the Tuya app.</p></div>';
     return html;
   }
@@ -621,6 +656,72 @@
     return '<button class="power-btn" data-act="toggle" data-id="' + esc(d.id) + '" data-key="pwr-' + esc(d.id) + '" aria-pressed="' + on + '" aria-label="' + esc(aria) + '"' + (d.online ? '' : ' disabled') + '>' +
       icon('power', 40) + '<span>' + esc(text) + '</span></button>';
   }
+
+  // Brightness dial: an arc from Low (bottom) to High (top), dragged with a finger or the mouse.
+  const ARC = { cx: 0, cy: 120, r: 104 };
+  function arcPoint(pct) {
+    const a = (90 - clamp(pct, 0, 100) * 1.8) * Math.PI / 180;
+    return { x: ARC.cx + ARC.r * Math.cos(a), y: ARC.cy + ARC.r * Math.sin(a) };
+  }
+  function arcPaths(pct) {
+    const k = arcPoint(pct);
+    return { k, active: 'M ' + ARC.cx + ' ' + (ARC.cy + ARC.r) + ' A ' + ARC.r + ' ' + ARC.r + ' 0 0 0 ' + k.x.toFixed(1) + ' ' + k.y.toFixed(1) };
+  }
+  function arcDial(d, pct, ready) {
+    const p = arcPaths(pct);
+    return '<div class="arc-dial" data-id="' + esc(d.id) + '">' +
+      '<span class="arc-label hi" aria-hidden="true">High</span><span class="arc-label lo" aria-hidden="true">Low</span>' +
+      '<svg viewBox="-6 6 124 228" aria-hidden="true" focusable="false">' +
+      '<path class="arc-track" d="M ' + ARC.cx + ' ' + (ARC.cy - ARC.r) + ' A ' + ARC.r + ' ' + ARC.r + ' 0 0 1 ' + ARC.cx + ' ' + (ARC.cy + ARC.r) + '"/>' +
+      '<path class="arc-fill" d="' + p.active + '"/>' +
+      '<circle class="arc-knob" cx="' + p.k.x.toFixed(1) + '" cy="' + p.k.y.toFixed(1) + '" r="9"/></svg>' +
+      '<div class="arc-value"><span class="big" data-live="bright-' + esc(d.id) + '">' + (ready ? pct + '%' : '…') + '</span><span class="big-label">Brightness</span></div>' +
+      '</div>';
+  }
+  function setArcLive(dial, pct) {
+    const p = arcPaths(pct);
+    dial.querySelector('.arc-fill').setAttribute('d', p.active);
+    const knob = dial.querySelector('.arc-knob');
+    knob.setAttribute('cx', p.k.x.toFixed(1)); knob.setAttribute('cy', p.k.y.toFixed(1));
+    document.querySelectorAll('[data-live="bright-' + CSS.escape(dial.dataset.id) + '"]').forEach((n) => { n.textContent = pct + '%'; });
+    document.querySelectorAll('input[data-act="bright"][data-id="' + CSS.escape(dial.dataset.id) + '"]').forEach((n) => { n.value = pct; });
+  }
+  let arcDrag = null;
+  function arcPctFromEvent(dial, e) {
+    const svg = dial.querySelector('svg'), box = svg.getBoundingClientRect();
+    const vb = svg.viewBox.baseVal;
+    const x = vb.x + ((e.clientX - box.left) / box.width) * vb.width;
+    const y = vb.y + ((e.clientY - box.top) / box.height) * vb.height;
+    const deg = Math.atan2(y - ARC.cy, Math.max(x - ARC.cx, 0.001)) * 180 / Math.PI;
+    return clamp(Math.round((90 - deg) / 1.8), 1, 100);
+  }
+  document.addEventListener('pointerdown', (e) => {
+    const dial = e.target.closest && e.target.closest('.arc-dial svg') && e.target.closest('.arc-dial');
+    if (!dial) return;
+    e.preventDefault();
+    arcDrag = { dial, pct: arcPctFromEvent(dial, e) };
+    S.dragging = true;
+    dial.setPointerCapture && e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId);
+    setArcLive(dial, arcDrag.pct);
+  });
+  document.addEventListener('pointermove', (e) => {
+    if (!arcDrag) return;
+    arcDrag.pct = arcPctFromEvent(arcDrag.dial, e);
+    setArcLive(arcDrag.dial, arcDrag.pct);
+  });
+  function endArc() {
+    if (!arcDrag) return;
+    const { dial, pct } = arcDrag;
+    arcDrag = null; S.dragging = false;
+    const d = findDevice(dial.dataset.id), bc = d && brightCode(d);
+    if (!bc) return;
+    const cmds = [{ code: bc, value: fromPct(pct, lightRange(d, bc)) }];
+    const pc = powerCode(d);
+    if (pc && !d.status[pc]) cmds.unshift({ code: pc, value: true });
+    send(d, cmds, Object.fromEntries(cmds.map((c) => [c.code, c.value])));
+  }
+  document.addEventListener('pointerup', endArc);
+  document.addEventListener('pointercancel', endArc);
 
   function lightModeSeg(d, sfx) {
     const colour = inColour(d);
@@ -792,8 +893,12 @@
       if (colourCode(d)) hero += lightModeSeg(d, sfx);
       if (bc) {
         const pct = toPct(st[bc], lightRange(d, bc));
-        hero += '<div class="stack-center"><span class="big" data-live="bright-' + esc(d.id) + '">' + (specReady(d) ? pct + '%' : '…') + '</span><span class="big-label">Brightness</span></div>' +
-          rangeControl('bright-' + d.id + sfx, 'Brightness', pct, 1, 100, 'Low', 'High', 'bright', d.id);
+        hero += arcDial(d, pct, specReady(d)) +
+          '<div class="range ticks"><div class="row-between"><label class="se-label" for="bright-' + esc(d.id) + sfx + '">Intensity</label>' +
+          '<span class="se-value" data-live="bright-' + esc(d.id) + '">' + pct + '%</span></div>' +
+          '<input id="bright-' + esc(d.id) + sfx + '" type="range" min="1" max="100" value="' + pct + '" data-act="bright" data-id="' + esc(d.id) + '" data-key="bright-' + esc(d.id) + sfx + '">' +
+          '<div class="tick-row" aria-hidden="true">' + '<span></span>'.repeat(7) + '</div>' +
+          '<div class="ends"><span>Off</span><span>100%</span></div></div>';
       } else {
         hero += powerButton(d); heroHasPower = true;
       }
@@ -1195,7 +1300,7 @@
     }
     html += '<h2 class="section-title">About</h2><div class="list">' +
       '<div class="list-row"><span class="label">Adding devices</span><span class="value">Pair them in the Tuya app</span></div>' +
-      '<div class="list-row"><span class="label">Version</span><span class="value">2.1.0</span></div></div>';
+      '<div class="list-row"><span class="label">Version</span><span class="value">2.2.0</span></div></div>';
     return html;
   }
 
@@ -1581,6 +1686,14 @@
     S.dragging = true;
     document.querySelectorAll('[data-live="' + LIVE_PREFIX[el.dataset.act] + CSS.escape(el.dataset.id) + '"]')
       .forEach((n) => { n.textContent = el.value + '%'; });
+    if (el.dataset.act === 'bright') {
+      document.querySelectorAll('.arc-dial[data-id="' + CSS.escape(el.dataset.id) + '"]').forEach((dial) => {
+        const p = arcPaths(Number(el.value));
+        dial.querySelector('.arc-fill').setAttribute('d', p.active);
+        const knob = dial.querySelector('.arc-knob');
+        knob.setAttribute('cx', p.k.x.toFixed(1)); knob.setAttribute('cy', p.k.y.toFixed(1));
+      });
+    }
   });
   document.addEventListener('change', (e) => {
     const el = e.target;
