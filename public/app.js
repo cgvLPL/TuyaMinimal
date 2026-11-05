@@ -30,7 +30,8 @@
     pinError: '',
     pinBusy: false,
     irKeys: {},          // remoteId -> { keys, categoryId } | 'loading' | { error }
-    irSent: {},          // remoteId + key -> true briefly after a button is sent   // deviceId whose icon picker is open
+    irSent: {},
+    editor: null,        // scene being created or edited          // remoteId + key -> true briefly after a button is sent   // deviceId whose icon picker is open
     icons: readIcons(),  // deviceId -> icon key, saved on this device      // { id, code } while an outlet name is being edited
     installPrompt: null
   };
@@ -92,6 +93,7 @@
   function route() {
     const h = location.hash.replace(/^#/, '');
     if (h.startsWith('device/')) return { view: 'device', id: decodeURIComponent(h.slice(7)) };
+    if (h.startsWith('scene/')) return { view: 'scene-edit', id: decodeURIComponent(h.slice(6)) };
     if (h === 'scenes' || h === 'me') return { view: h };
     return { view: 'devices' };
   }
@@ -157,7 +159,7 @@
       }
     } finally {
       S.loading = false;
-      if (!S.dragging && !S.renaming) render();
+      if (!S.dragging && !S.renaming && !(S.editor && route().view === 'scene-edit')) render();
       if (S.refreshAgain) { S.refreshAgain = false; refresh({ silent: true }); }
     }
   }
@@ -167,7 +169,7 @@
   function prefetchLightSpecs() {
     if (!S.data) return;
     for (const d of S.data.devices) {
-      if ((kindOf(d) === 'light' || kindOf(d) === 'multi') && !S.specs[d.id] && d.online) loadSpec(d.id, true);
+      if ((kindOf(d) === 'light' || kindOf(d) === 'multi' || isReadingDevice(d)) && !S.specs[d.id] && d.online) loadSpec(d.id, true);
     }
   }
   async function loadSpec(id, quiet) {
@@ -194,6 +196,7 @@
     camera: ['sp']
   };
   function kindOf(d) {
+    if (d.sensorOnly) return 'sensor';
     if (d.ir) return d.ir.ac ? 'irac' : 'irremote';
     if (isMulti(d) && !brightCode(d)) return 'multi';
     for (const k in KINDS) if (KINDS[k].includes(d.category)) return k;
@@ -279,6 +282,44 @@
     if (t != null) return fmtTemp(t);
     if (h != null) return Math.round(h) + '% humidity';
     return 'Online';
+  }
+
+  // Devices that only report numbers (temperature, humidity, air quality) show as readings, not cards.
+  const STATE_CODES = ['doorcontact_state', 'pir', 'watersensor_state', 'smoke_sensor_status', 'gas_sensor_status'];
+  function readingsOf(d) {
+    return {
+      temp: scaled(d, 'va_temperature', true) ?? scaled(d, 'temp_current', true),
+      hum: scaled(d, 'va_humidity', false) ?? scaled(d, 'humidity_value', false),
+      co2: typeof d.status.co2_value === 'number' ? d.status.co2_value : null,
+      pm25: typeof d.status.pm25_value === 'number' ? d.status.pm25_value : null
+    };
+  }
+  function isReadingDevice(d) {
+    const k = kindOf(d);
+    if (k !== 'sensor' && !(k === 'generic' && !powerCode(d))) return false;
+    if (STATE_CODES.some((c) => c in d.status)) return false;
+    const r = readingsOf(d);
+    return r.temp != null || r.hum != null || r.co2 != null || r.pm25 != null;
+  }
+  function readingTile(d, showRoom) {
+    const r = readingsOf(d);
+    const lowBattery = typeof d.status.battery_percentage === 'number' && d.status.battery_percentage <= 20;
+    let main = '';
+    if (!d.online) {
+      main = '<span class="reading-off">Offline</span>';
+    } else {
+      if (r.temp != null) main += '<span class="reading-temp">' + fmtTemp(r.temp) + '</span>';
+      if (r.hum != null) main += '<span class="reading-hum" aria-label="Humidity ' + Math.round(r.hum) + '%">' + icon('drop', 16) + Math.round(r.hum) + '%</span>';
+    }
+    const extra = [];
+    if (d.online && r.co2 != null) extra.push('CO₂ ' + r.co2 + ' ppm');
+    if (d.online && r.pm25 != null) extra.push('PM2.5 ' + r.pm25 + ' µg/m³');
+    return '<div class="reading" role="listitem">' +
+      '<span class="reading-name">' + esc(d.name) + (showRoom && d.room ? '<span class="reading-room">' + esc(d.room) + '</span>' : '') + '</span>' +
+      '<span class="reading-main">' + main + '</span>' +
+      (extra.length ? '<span class="reading-extra">' + extra.map((x) => '<span>' + x + '</span>').join('') + '</span>' : '') +
+      (lowBattery ? '<span class="reading-warn">Battery low</span>' : '') +
+      '</div>';
   }
 
   function statusText(d) {
@@ -370,6 +411,7 @@
     speaker: '<rect x="6" y="3" width="12" height="18" rx="3"/><circle cx="12" cy="14" r="3"/><path d="M12 7v.01"/>',
     appliance: '<path d="M6 8h11l-1 12H7L6 8zM9 8V5h5v3M17 10h2v5h-2.4"/>',
     router: '<rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 16.5v.01M11 16.5v.01M8.5 9.5a5 5 0 0 1 7 0M6 7a9 9 0 0 1 12 0"/>',
+    drop: '<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>',
     down: '<path d="M6 9l6 6 6-6"/>',
     remote: '<rect x="7" y="2" width="10" height="20" rx="3"/><path d="M12 6v.01M10 10h4M10 13.5h4M10 17h4"/>',
     multi: '<rect x="2" y="8" width="20" height="8" rx="3"/><path d="M7 11v2M12 11v2M17 11v2"/>',
@@ -477,7 +519,14 @@
     if (!data.devices.length) {
       return html + '<div class="empty"><strong>No devices found</strong><p>Link your Tuya app account to your cloud project (see the README), then tap Refresh in Me.</p></div>';
     }
-    return html + '<div class="grid">' + shown.map((d) => deviceCard(d, selectedId)).join('') + '</div>';
+    const readings = shown.filter(isReadingDevice);
+    const cards = shown.filter((d) => !isReadingDevice(d));
+    if (readings.length) {
+      html += '<div class="readings" role="list" aria-label="Readings">' + readings.map((d) => readingTile(d, S.room === 'All')).join('') + '</div>';
+    }
+    if (cards.length) html += '<div class="grid">' + cards.map((d) => deviceCard(d, selectedId)).join('') + '</div>';
+    else if (!readings.length) html += '<div class="empty"><strong>Nothing in this room</strong><p>Assign devices to rooms in the Tuya app.</p></div>';
+    return html;
   }
 
   function loadingView() {
@@ -676,8 +725,7 @@
         '<div class="seg-label">Mode</div><div class="seg" style="--n:5" role="group" aria-label="Mode">' + IR_MODES.map((m, i) =>
           '<button class="chip soft" data-act="irmode" data-v="' + i + '" data-id="' + esc(d.id) + '" data-key="irmode-' + i + sfx + '" aria-pressed="' + (st2.power && st2.mode === i) + '">' + m + '</button>').join('') + '</div>' +
         '<div class="seg-label">Fan</div><div class="seg" style="--n:4" role="group" aria-label="Fan speed">' + IR_WIND.map((w, i) =>
-          '<button class="chip soft" data-act="irwind" data-v="' + i + '" data-id="' + esc(d.id) + '" data-key="irwind-' + i + sfx + '" aria-pressed="' + (st2.power && st2.wind === i) + '">' + w + '</button>').join('') + '</div>' +
-        '<p class="note">Sent through your IR blaster. The app shows the last settings it sent, since the AC can\'t report back.</p>';
+          '<button class="chip soft" data-act="irwind" data-v="' + i + '" data-id="' + esc(d.id) + '" data-key="irwind-' + i + sfx + '" aria-pressed="' + (st2.power && st2.wind === i) + '">' + w + '</button>').join('') + '</div>' ;
     } else if (k === 'irremote') {
       hero += irRemotePad(d, sfx);
     } else if (k === 'multi') {
@@ -716,20 +764,254 @@
   function scenesView(withAutomations) {
     const data = S.data;
     if (!data) return loadingView();
-    let html = '<div class="head"><div><p class="sub">Tap a scene to run it</p><h1 class="title">Scenes</h1></div></div>';
+    let html = '<div class="head"><div><p class="sub">Tap a scene to run it</p><h1 class="title">Scenes</h1></div>' +
+      '<button class="pill-btn" data-act="scene-new" data-key="scene-new">' + icon('plus', 18) + 'New scene</button></div>';
     if (!data.scenes.length) {
-      html += '<div class="empty"><strong>No tap-to-run scenes</strong><p>Create scenes in the Tuya app. They show up here automatically.</p></div>';
+      html += '<div class="empty"><strong>No tap-to-run scenes yet</strong><p>Tap New scene to make one. Scenes you create in the Tuya app show up here too.</p></div>';
     } else {
       html += '<div class="grid">' + data.scenes.map((s) => {
         const state = S.sceneState[s.id];
         const meta = state === 'running' ? 'Running' : state === 'done' ? 'Done' : (s.actions === 1 ? '1 action' : s.actions + ' actions');
-        return '<button class="scene ' + (state || '') + '" data-act="scene" data-id="' + esc(s.id) + '" data-key="scene-' + esc(s.id) + '"' + (state === 'running' ? ' disabled' : '') + '>' +
+        return '<div class="scene-wrap"><button class="scene ' + (state || '') + '" data-act="scene" data-id="' + esc(s.id) + '" data-key="scene-' + esc(s.id) + '"' + (state === 'running' ? ' disabled' : '') + '>' +
           '<span class="icon-dot">' + icon(state === 'done' ? 'check' : 'play', 16) + '</span>' +
-          '<span><span class="name">' + esc(s.name) + '</span><span class="meta">' + meta + '</span></span></button>';
+          '<span><span class="name">' + esc(s.name) + '</span><span class="meta">' + meta + '</span></span></button>' +
+          '<button class="scene-edit edit-btn" data-act="scene-open" data-id="' + esc(s.id) + '" data-key="scene-edit-' + esc(s.id) + '" aria-label="Edit ' + esc(s.name) + '">' + icon('pencil', 16) + '</button></div>';
       }).join('') + '</div>';
     }
     if (withAutomations) html += '<h2 class="section-title">Automations</h2>' + automationsList();
     return html;
+  }
+
+  // ---------- Scene editor ----------
+  const SCENE_KINDS = ['light', 'plug', 'multi', 'climate', 'cover', 'fan', 'generic'];
+  function sceneEligible(d) {
+    const k = kindOf(d);
+    if (!SCENE_KINDS.includes(k)) return false;
+    if (k === 'generic') return !!powerCode(d);
+    if (k === 'cover') return 'control' in d.status || 'percent_control' in d.status;
+    return true;
+  }
+  function defaultProps(d) {
+    const k = kindOf(d), pc = powerCode(d), p = {};
+    if (k === 'multi') { channelCodes(d).forEach((c) => { p[c] = true; }); return p; }
+    if (k === 'cover') { if ('control' in d.status) p.control = 'open'; else p.percent_control = 100; return p; }
+    if (pc) p[pc] = true;
+    return p;
+  }
+  function stepsToItems(steps) {
+    return (steps || []).map((a) => {
+      if (a.executor === 'delay') {
+        const p = a.props || {};
+        return { type: 'delay', minutes: Number(p.hours || 0) * 60 + Number(p.minutes || 0), seconds: Number(p.seconds || 0) };
+      }
+      const d = a.executor === 'dpIssue' ? findDevice(a.entity) : null;
+      if (d && sceneEligible(d)) return { type: 'device', deviceId: d.id, props: Object.assign({}, a.props) };
+      return { type: 'raw', raw: { action_executor: a.executor, entity_id: a.entity || undefined, executor_property: a.props || {} } };
+    });
+  }
+  function openEditor(id) {
+    if (!S.data) return;
+    const sc = id === 'new' ? null : S.data.scenes.find((x) => x.id === id);
+    S.editor = {
+      routeId: id, id: sc ? sc.id : null, name: sc ? sc.name : '',
+      background: sc ? sc.background : ((S.data.scenes.find((x) => x.background) || {}).background || ''),
+      items: sc ? stepsToItems(sc.steps) : [], picking: !sc, saving: false, confirmDelete: false, error: ''
+    };
+    S.editor.items.forEach((it) => { if (it.type === 'device' && !S.specs[it.deviceId]) loadSpec(it.deviceId, true); });
+  }
+
+  function seChips(i, code, options, current) {
+    return '<div class="seg" style="--n:' + options.length + '">' + options.map(([label, val]) => {
+      const pressed = val === 'keep' ? current === undefined : current === val;
+      return '<button class="chip soft" data-act="se-prop" data-i="' + i + '" data-code="' + esc(code) + '" data-val="' + esc(JSON.stringify(val)) + '" data-key="se-' + i + '-' + esc(code) + '-' + esc(String(val)) + '" aria-pressed="' + pressed + '">' + label + '</button>';
+    }).join('') + '</div>';
+  }
+  function seRange(i, code, pct, low, high, label) {
+    const id = 'se-r-' + i + '-' + code;
+    return '<div class="range"><div class="row-between"><label class="se-label" for="' + esc(id) + '">' + label + '</label>' +
+      '<span class="se-value" data-live="se-' + i + '-' + esc(code) + '">' + pct + '%</span></div>' +
+      '<input id="' + esc(id) + '" type="range" min="1" max="100" value="' + pct + '" data-act="se-range" data-i="' + i + '" data-code="' + esc(code) + '" data-key="' + esc(id) + '">' +
+      '<div class="ends"><span>' + low + '</span><span>' + high + '</span></div></div>';
+  }
+  function seTempValue(d, raw) {
+    const sp = specOf(d, 'temp_set');
+    const scale = sp && typeof sp.scale === 'number' ? sp.scale : (Math.abs(raw) >= 60 ? 1 : 0);
+    return raw / Math.pow(10, scale);
+  }
+
+  function deviceActionControls(it, i) {
+    const d = findDevice(it.deviceId), p = it.props, k = kindOf(d), pc = powerCode(d);
+    const OnOff = [['On', true], ['Off', false]];
+    let html = '';
+    if (k === 'multi') {
+      html += channelCodes(d).map((c) => '<div class="se-row"><span class="se-label">' + esc(channelName(d, c)) + '</span>' +
+        seChips(i, c, [['Keep', 'keep'], ['On', true], ['Off', false]], p[c]) + '</div>').join('');
+      return html;
+    }
+    if (k === 'cover') {
+      if ('control' in d.status) return seChips(i, 'control', [['Open', 'open'], ['Stop', 'stop'], ['Close', 'close']], p.control);
+      return seRange(i, 'percent_control', clamp(Number(p.percent_control ?? 100), 1, 100), 'Closed', 'Open', 'Position');
+    }
+    if (pc) html += seChips(i, pc, OnOff, p[pc]);
+    const on = !pc || p[pc] !== false;
+    if (k === 'light' && on) {
+      const bc = brightCode(d), wc = warmCode(d);
+      if (bc) {
+        const r = lightRange(d, bc);
+        html += p[bc] === undefined
+          ? '<button class="chip soft se-add" data-act="se-prop" data-i="' + i + '" data-code="' + esc(bc) + '" data-val="' + fromPct(100, r) + '" data-key="se-' + i + '-addbright">Set brightness</button>'
+          : seRange(i, bc, toPct(p[bc], r), 'Low', 'High', 'Brightness');
+      }
+      if (wc) {
+        const r = lightRange(d, wc, true);
+        const cur = p[wc] === undefined ? 'keep' : toPct(p[wc], r);
+        html += '<div class="seg" style="--n:4" role="group" aria-label="Color temperature">' + [['Keep', 'keep'], ['Warm', 1], ['Neutral', 50], ['Cool', 100]].map(([label, v]) => {
+          const val = v === 'keep' ? 'keep' : fromPct(v, r);
+          const pressed = v === 'keep' ? cur === 'keep' : cur !== 'keep' && Math.abs(cur - v) <= 12;
+          return '<button class="chip soft" data-act="se-prop" data-i="' + i + '" data-code="' + esc(wc) + '" data-val="' + esc(JSON.stringify(val)) + '" data-key="se-' + i + '-warm-' + label + '" aria-pressed="' + pressed + '">' + label + '</button>';
+        }).join('') + '</div>';
+      }
+    }
+    if (k === 'climate' && on && 'temp_set' in d.status) {
+      const raw = p.temp_set ?? d.status.temp_set;
+      html += '<div class="se-row"><span class="se-label">Temperature</span><div class="stepper">' +
+        '<button class="round-btn soft sm" data-act="se-temp" data-i="' + i + '" data-delta="-1" data-key="se-' + i + '-tdown" aria-label="Lower temperature">' + icon('minus', 18) + '</button>' +
+        '<span class="se-value">' + (p.temp_set === undefined ? 'Keep' : fmtTemp(seTempValue(d, raw))) + '</span>' +
+        '<button class="round-btn soft sm" data-act="se-temp" data-i="' + i + '" data-delta="1" data-key="se-' + i + '-tup" aria-label="Raise temperature">' + icon('plus', 18) + '</button></div></div>';
+      if ('mode' in d.status) {
+        const sp = specOf(d, 'mode');
+        const modes = (sp && Array.isArray(sp.range) && sp.range.length) ? sp.range : ['cold', 'hot', 'wind', 'auto'];
+        html += seChips(i, 'mode', [['Keep', 'keep']].concat(modes.slice(0, 4).map((m) => [esc(modeLabel(m)), m])), p.mode);
+      }
+    }
+    if (k === 'fan' && on && typeof d.status.fan_speed_percent === 'number') {
+      html += p.fan_speed_percent === undefined
+        ? '<button class="chip soft se-add" data-act="se-prop" data-i="' + i + '" data-code="fan_speed_percent" data-val="50" data-key="se-' + i + '-addfan">Set fan speed</button>'
+        : seRange(i, 'fan_speed_percent', clamp(Number(p.fan_speed_percent), 1, 100), 'Slow', 'Fast', 'Fan speed');
+    }
+    return html;
+  }
+
+  function sceneItemCard(it, i, count) {
+    const moves = '<div class="se-tools">' +
+      '<button class="edit-btn" data-act="se-move" data-i="' + i + '" data-dir="-1" data-key="se-up-' + i + '" aria-label="Move up"' + (i === 0 ? ' disabled' : '') + '>' + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>' +
+      '<button class="edit-btn" data-act="se-move" data-i="' + i + '" data-dir="1" data-key="se-down-' + i + '" aria-label="Move down"' + (i === count - 1 ? ' disabled' : '') + '>' + icon('down', 16) + '</button>' +
+      '<button class="edit-btn" data-act="se-remove" data-i="' + i + '" data-key="se-rm-' + i + '" aria-label="Remove this action"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>';
+    if (it.type === 'delay') {
+      return '<div class="se-item"><div class="se-head"><span class="icon-dot sm">' + '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>' + '</span><span class="se-title">Wait</span>' + moves + '</div>' +
+        '<div class="se-delay"><label class="field-inline"><span>Minutes</span><input type="number" inputmode="numeric" min="0" max="59" value="' + it.minutes + '" data-act="se-delay" data-i="' + i + '" data-field="minutes" data-key="se-dm-' + i + '"></label>' +
+        '<label class="field-inline"><span>Seconds</span><input type="number" inputmode="numeric" min="0" max="59" value="' + it.seconds + '" data-act="se-delay" data-i="' + i + '" data-field="seconds" data-key="se-ds-' + i + '"></label></div></div>';
+    }
+    if (it.type === 'raw') {
+      const d = it.raw.entity_id ? findDevice(it.raw.entity_id) : null;
+      const what = /^ir/.test(it.raw.action_executor) ? 'IR remote action' : /^rule/.test(it.raw.action_executor) ? 'Automation action' : 'Action';
+      return '<div class="se-item"><div class="se-head"><span class="icon-dot sm">' + (d ? deviceIcon(d, 18) : icon('generic', 18)) + '</span>' +
+        '<span class="se-title">' + esc(d ? d.name : what) + '</span>' + moves + '</div>' +
+        '<p class="note se-note">' + what + ' set up in the Tuya app. It\'s kept as is when you save.</p></div>';
+    }
+    const d = findDevice(it.deviceId);
+    if (!d) {
+      return '<div class="se-item"><div class="se-head"><span class="icon-dot sm">' + icon('generic', 18) + '</span><span class="se-title">Device not found</span>' + moves + '</div>' +
+        '<p class="note se-note">This device isn\'t in the selected home anymore. Remove it to save the scene.</p></div>';
+    }
+    return '<div class="se-item"><div class="se-head"><span class="icon-dot sm">' + deviceIcon(d, 18) + '</span>' +
+      '<span class="se-title">' + esc(d.name) + (d.room ? '<span class="se-room">' + esc(d.room) + '</span>' : '') + '</span>' + moves + '</div>' +
+      '<div class="se-controls">' + deviceActionControls(it, i) + '</div></div>';
+  }
+
+  function sceneEditorView(routeId) {
+    if (!S.data) return loadingView();
+    if (!S.editor || S.editor.routeId !== routeId) openEditor(routeId);
+    const E = S.editor;
+    if (!E || (routeId !== 'new' && !E.id)) {
+      return '<div class="empty"><strong>Scene not found</strong><p>It may have been deleted in the Tuya app.</p></div>';
+    }
+    let html = '<div class="detail-head se-head-top"><button class="round-btn" data-act="se-cancel" data-key="se-back" aria-label="Back to scenes">' + icon('back', 20) + '</button>' +
+      '<div><p class="sub">Tap-to-run scene</p><h1 class="detail-title">' + (E.id ? 'Edit scene' : 'New scene') + '</h1></div></div>';
+    html += '<div class="field"><label for="se-name">Scene name</label><input id="se-name" maxlength="40" autocomplete="off" placeholder="For example, Movie night" value="' + esc(E.name) + '" data-act="se-name" data-key="se-name"></div>';
+    html += '<h2 class="section-title">Actions</h2>';
+    if (!E.items.length && !E.picking) html += '<div class="empty"><strong>No actions yet</strong><p>Add the devices this scene should control.</p></div>';
+    html += '<div class="se-list">' + E.items.map((it, i) => sceneItemCard(it, i, E.items.length)).join('') + '</div>';
+    if (E.picking) {
+      const eligible = S.data.devices.filter(sceneEligible);
+      html += '<div class="list se-picker"><div class="list-row"><span class="label">Choose a device</span>' +
+        '<button class="chip soft" data-act="se-pick-close" data-key="se-pick-close">Close</button></div>' +
+        (eligible.length ? eligible.map((d) => '<button class="list-row" data-act="se-pick" data-id="' + esc(d.id) + '" data-key="se-pick-' + esc(d.id) + '">' +
+          '<span class="channel"><span class="icon-dot sm">' + deviceIcon(d, 18) + '</span><span class="label">' + esc(d.name) + '</span></span><span class="value">' + esc(d.room || '') + '</span></button>').join('')
+          : '<div class="list-row"><span class="meta">No devices here can be used in scenes yet.</span></div>') +
+        '<p class="note se-note">Sensors, cameras and IR remotes can\'t be added here yet. Add IR remote actions in the Tuya app; they\'re kept when you edit the scene here.</p></div>';
+    } else {
+      html += '<div class="se-add-row"><button class="pill-btn" data-act="se-pick-open" data-key="se-pick-open">' + icon('plus', 18) + 'Add device</button>' +
+        '<button class="pill-btn soft" data-act="se-add-delay" data-key="se-add-delay">' + icon('plus', 18) + 'Add wait</button></div>';
+    }
+    if (E.error) html += '<p class="error" role="alert">' + esc(E.error) + '</p>';
+    html += '<div class="se-actions">' +
+      '<button class="btn" data-act="se-save" data-key="se-save"' + (E.saving ? ' disabled' : '') + '>' + (E.saving ? 'Saving…' : 'Save scene') + '</button>' +
+      '<button class="btn ghost" data-act="se-cancel" data-key="se-cancel">Cancel</button></div>';
+    if (E.id) {
+      html += '<div class="list" style="margin-top:20px"><button class="list-row danger" data-act="se-delete" data-key="se-delete"' + (E.saving ? ' disabled' : '') + '>' +
+        '<span class="label">' + (E.confirmDelete ? 'Tap again to delete this scene' : 'Delete scene') + '</span></button></div>';
+    }
+    return html;
+  }
+
+  function editorActions() {
+    const E = S.editor;
+    if (!E.name.trim()) return 'Give the scene a name.';
+    if (!E.items.length) return 'Add at least one action.';
+    if (E.items[E.items.length - 1].type === 'delay') return 'A scene can\'t end with a wait. Add an action after it, or remove the wait.';
+    if (E.items.filter((it) => it.type === 'delay').length > 2) return 'A scene can have at most 2 waits.';
+    const out = [];
+    for (const it of E.items) {
+      if (it.type === 'delay') {
+        const total = (it.minutes || 0) * 60 + (it.seconds || 0);
+        if (total <= 0) return 'Each wait needs at least 1 second.';
+        out.push({ action_executor: 'delay', executor_property: {
+          hours: String(Math.floor(total / 3600)), minutes: String(Math.floor((total % 3600) / 60)), seconds: String(total % 60) } });
+      } else if (it.type === 'raw') {
+        out.push(it.raw);
+      } else {
+        const d = findDevice(it.deviceId);
+        if (!d) return 'Remove the device that\'s no longer in this home.';
+        if (!Object.keys(it.props).length) return 'Choose what ' + d.name + ' should do.';
+        out.push({ action_executor: 'dpIssue', entity_id: d.id, executor_property: it.props });
+      }
+    }
+    return out;
+  }
+
+  async function saveScene() {
+    const E = S.editor;
+    const actions = editorActions();
+    if (typeof actions === 'string') { E.error = actions; render(); return; }
+    E.saving = true; E.error = ''; render();
+    try {
+      await api('scene-edit', { method: 'POST', body: {
+        op: E.id ? 'update' : 'create', homeId: S.data.homeId, sceneId: E.id || undefined,
+        name: E.name.trim(), background: E.background || undefined, actions
+      } });
+      toast(E.id ? 'Scene saved' : 'Scene created');
+      S.editor = null;
+      go('scenes');
+      refresh({ silent: true });
+    } catch (e) {
+      E.saving = false; E.error = 'Couldn\'t save: ' + e.message; render();
+    }
+  }
+
+  async function deleteScene() {
+    const E = S.editor;
+    if (!E.confirmDelete) { E.confirmDelete = true; render(); return; }
+    E.saving = true; render();
+    try {
+      await api('scene-edit', { method: 'POST', body: { op: 'delete', homeId: S.data.homeId, sceneId: E.id } });
+      toast('Scene deleted');
+      S.editor = null;
+      go('scenes');
+      refresh({ silent: true });
+    } catch (e) {
+      E.saving = false; E.confirmDelete = false; E.error = 'Couldn\'t delete: ' + e.message; render();
+    }
   }
 
   function automationsList() {
@@ -782,7 +1064,7 @@
     }
     html += '<h2 class="section-title">About</h2><div class="list">' +
       '<div class="list-row"><span class="label">Adding devices</span><span class="value">Pair them in the Tuya app</span></div>' +
-      '<div class="list-row"><span class="label">Version</span><span class="value">1.5.0</span></div></div>';
+      '<div class="list-row"><span class="label">Version</span><span class="value">1.7.0</span></div></div>';
     return html;
   }
 
@@ -867,7 +1149,7 @@
 
     const r = route();
     const isWide = wide.matches;
-    const activeTab = r.view === 'device' ? 'devices' : r.view;
+    const activeTab = r.view === 'device' ? 'devices' : r.view === 'scene-edit' ? 'scenes' : r.view;
     let mainHtml, panelHtml = null;
 
     if (r.view === 'device' && !isWide) {
@@ -875,12 +1157,15 @@
       if (r.id && S.data && !S.specs[r.id]) loadSpec(r.id, true);
     } else if (activeTab === 'devices') {
       const devices = S.data ? S.data.devices : [];
-      const selId = (r.view === 'device' && r.id) || (devices[0] && devices[0].id);
+      const firstCard = devices.find((d) => !isReadingDevice(d)) || devices[0];
+      const selId = (r.view === 'device' && r.id) || (firstCard && firstCard.id);
       mainHtml = devicesView(isWide ? selId : null);
       if (isWide) {
         panelHtml = S.data ? detailView(findDevice(selId), true) : '';
         if (selId && S.data && !S.specs[selId]) loadSpec(selId, true);
       }
+    } else if (r.view === 'scene-edit') {
+      mainHtml = sceneEditorView(r.id);
     } else if (activeTab === 'scenes') {
       mainHtml = scenesView(!isWide);
       if (isWide) panelHtml = automationsPanel();
@@ -989,6 +1274,44 @@
         delete S.icons[id]; saveIcons(); render();
         break;
       case 'scene': runScene(id); break;
+      case 'scene-new': S.editor = null; go('scene/new'); break;
+      case 'scene-open': S.editor = null; go('scene/' + encodeURIComponent(id)); break;
+      case 'se-cancel': S.editor = null; go('scenes'); break;
+      case 'se-pick-open': S.editor.picking = true; render(); break;
+      case 'se-pick-close': S.editor.picking = false; render(); break;
+      case 'se-pick': {
+        const dev = findDevice(id); if (!dev) break;
+        S.editor.items.push({ type: 'device', deviceId: dev.id, props: defaultProps(dev) });
+        S.editor.picking = false; S.editor.error = '';
+        if (!S.specs[dev.id]) loadSpec(dev.id, true);
+        render(); break;
+      }
+      case 'se-add-delay': S.editor.items.push({ type: 'delay', minutes: 1, seconds: 0 }); S.editor.error = ''; render(); break;
+      case 'se-remove': S.editor.items.splice(Number(el.dataset.i), 1); render(); break;
+      case 'se-move': {
+        const i = Number(el.dataset.i), j = i + Number(el.dataset.dir), items = S.editor.items;
+        if (j >= 0 && j < items.length) { const t = items[i]; items[i] = items[j]; items[j] = t; render(); }
+        break;
+      }
+      case 'se-prop': {
+        const it = S.editor.items[Number(el.dataset.i)];
+        const val = JSON.parse(el.dataset.val);
+        if (val === 'keep') delete it.props[el.dataset.code]; else it.props[el.dataset.code] = val;
+        S.editor.error = ''; render(); break;
+      }
+      case 'se-temp': {
+        const it = S.editor.items[Number(el.dataset.i)], dev = findDevice(it.deviceId);
+        const sp = specOf(dev, 'temp_set');
+        const base = it.props.temp_set ?? dev.status.temp_set;
+        const scale = sp && typeof sp.scale === 'number' ? sp.scale : (Math.abs(base) >= 60 ? 1 : 0);
+        const step = (sp && sp.step) || Math.pow(10, scale);
+        const min = sp && typeof sp.min === 'number' ? sp.min : 16 * Math.pow(10, scale);
+        const max = sp && typeof sp.max === 'number' ? sp.max : 30 * Math.pow(10, scale);
+        it.props.temp_set = it.props.temp_set === undefined ? base : clamp(base + Number(el.dataset.delta) * step, min, max);
+        render(); break;
+      }
+      case 'se-save': saveScene(); break;
+      case 'se-delete': deleteScene(); break;
       case 'auto': toggleAutomation(id); break;
       case 'refresh': toast('Refreshing'); refresh(); break;
       case 'install': install(); break;
@@ -1022,6 +1345,16 @@
   const LIVE_PREFIX = { bright: 'bright-', coverpos: 'cover-', fanspeed: 'fan-' };
   document.addEventListener('input', (e) => {
     const el = e.target;
+    if (el.dataset && el.dataset.act === 'se-name' && S.editor) { S.editor.name = el.value; return; }
+    if (el.dataset && el.dataset.act === 'se-delay' && S.editor) {
+      const it = S.editor.items[Number(el.dataset.i)];
+      if (it) it[el.dataset.field] = clamp(Math.floor(Number(el.value) || 0), 0, 59);
+      return;
+    }
+    if (el.dataset && el.dataset.act === 'se-range') {
+      document.querySelectorAll('[data-live="se-' + el.dataset.i + '-' + CSS.escape(el.dataset.code) + '"]').forEach((n) => { n.textContent = el.value + '%'; });
+      return;
+    }
     if (!el.dataset || !LIVE_PREFIX[el.dataset.act]) return;
     S.dragging = true;
     document.querySelectorAll('[data-live="' + LIVE_PREFIX[el.dataset.act] + CSS.escape(el.dataset.id) + '"]')
@@ -1033,6 +1366,13 @@
     const act = el.dataset.act;
     const d = el.dataset.id ? findDevice(el.dataset.id) : null;
     if (LIVE_PREFIX[act]) S.dragging = false;
+    if (act === 'se-range' && S.editor) {
+      const it = S.editor.items[Number(el.dataset.i)], dev = findDevice(it.deviceId), code = el.dataset.code, pct = Number(el.value);
+      if (code === 'percent_control' || code === 'fan_speed_percent') it.props[code] = pct;
+      else it.props[code] = fromPct(pct, lightRange(dev, code));
+      render(); return;
+    }
+    if (act === 'se-delay' && S.editor) { render(); return; }
     if (act === 'bright' && d) {
       const bc = brightCode(d);
       const value = fromPct(Number(el.value), lightRange(d, bc));
@@ -1213,7 +1553,11 @@
     await S.installPrompt.userChoice.catch(() => null);
     S.installPrompt = null; render();
   }
-  window.addEventListener('hashchange', () => { S.iconPicking = null; S.renaming = null; render(); });
+  window.addEventListener('hashchange', () => {
+    S.iconPicking = null; S.renaming = null;
+    if (route().view !== 'scene-edit') S.editor = null;
+    render();
+  });
   wide.addEventListener('change', render);
   let hiddenAt = 0;
   document.addEventListener('visibilitychange', () => {
@@ -1240,6 +1584,7 @@
         { id: 'dev1', name: 'Ceiling light', category: 'dj', product: 'Smart bulb', online: true, room: 'Living room', status: { switch_led: true, work_mode: 'white', bright_value_v2: 800, temp_value_v2: 0 } },
         { id: 'dev2', name: 'Floor lamp', category: 'dj', product: 'Smart bulb', online: true, room: 'Living room', status: { switch_led: false, work_mode: 'white', bright_value_v2: 450, temp_value_v2: 500 } },
         { id: 'dev9', name: 'Living room climate', category: 'wsdcg', product: 'Temperature and humidity sensor', online: true, room: 'Living room', status: { va_temperature: 215, va_humidity: 48, battery_percentage: 72 } },
+        { id: 'dev13', name: 'Bedroom sensor', category: 'wsdcg', product: 'Temperature and humidity sensor', online: true, room: 'Bedroom', status: { va_temperature: 198, va_humidity: 55, battery_percentage: 15 } },
         { id: 'dev3', name: 'Air conditioner', category: 'kt', product: 'AC controller', online: true, room: 'Bedroom', status: { switch: true, temp_set: 24, temp_current: 26, mode: 'cold' } },
         { id: 'dev7', name: 'Bedroom curtains', category: 'cl', product: 'Curtain motor', online: true, room: 'Bedroom', status: { control: 'stop', percent_control: 60, percent_state: 60 } },
         { id: 'dev8', name: 'Bedside lamp', category: 'dj', product: 'Smart bulb', online: true, room: 'Bedroom', status: { switch_led: false, work_mode: 'white', bright_value_v2: 300, temp_value_v2: 0 } },
@@ -1255,10 +1600,18 @@
         { id: 'bh2', home: 'h2', name: 'Pool pump', category: 'cz', product: 'Smart plug', online: true, room: 'Garden', status: { switch_1: false } }
       ],
       scenes: [
-        { id: 'sc1', name: 'Good morning', actions: 3 },
-        { id: 'sc2', name: 'Movie night', actions: 4 },
-        { id: 'sc3', name: 'Leaving home', actions: 5 },
-        { id: 'sc4', name: 'Bedtime', actions: 3 }
+        { id: 'sc1', name: 'Good morning', steps: [
+          { executor: 'dpIssue', entity: 'dev1', props: { switch_led: true, bright_value_v2: 1000 } },
+          { executor: 'dpIssue', entity: 'dev7', props: { control: 'open' } },
+          { executor: 'dpIssue', entity: 'dev4', props: { switch_1: true } }] },
+        { id: 'sc2', name: 'Movie night', steps: [
+          { executor: 'dpIssue', entity: 'dev1', props: { switch_led: false } },
+          { executor: 'dpIssue', entity: 'dev2', props: { switch_led: true, bright_value_v2: 300, temp_value_v2: 0 } },
+          { executor: 'irIssue', entity: 'ir2', props: { key: 'Power' } }] },
+        { id: 'sc4', name: 'Bedtime', steps: [
+          { executor: 'dpIssue', entity: 'dev8', props: { switch_led: true, bright_value_v2: 100 } },
+          { executor: 'delay', entity: 'delay', props: { hours: '0', minutes: '10', seconds: '0' } },
+          { executor: 'dpIssue', entity: 'dev8', props: { switch_led: false } }] }
       ],
       automations: [
         { id: 'au1', name: 'Porch light at sunset', enabled: true },
@@ -1285,7 +1638,8 @@
         out.homeId = homeId;
         out.devices = out.devices.filter((d) => (d.home || 'h1') === homeId);
         out.rooms = homeId === 'h1' ? db.rooms : ['Patio', 'Garden'];
-        if (homeId !== 'h1') { out.scenes = [{ id: 'sc9', name: 'Arrive', actions: 2 }]; out.automations = []; }
+        if (homeId !== 'h1') { out.scenes = [{ id: 'sc9', name: 'Arrive', steps: [{ executor: 'dpIssue', entity: 'bh1', props: { switch_led: true } }] }]; out.automations = []; }
+        out.scenes.forEach((x) => { x.actions = (x.steps || []).length; });
         out.at = Date.now();
         return out;
       }
@@ -1315,6 +1669,13 @@
       if (path === 'ir') {
         const dev = db.devices.find((x) => x.id === b.remoteId);
         if (b.action === 'ac' && dev) dev.ir.state = { power: b.power === 1, mode: b.mode, temp: b.temp, wind: b.wind };
+        return { ok: true };
+      }
+      if (path === 'scene-edit') {
+        const toSteps = (acts) => acts.map((a) => ({ executor: a.action_executor, entity: a.entity_id || (a.action_executor === 'delay' ? 'delay' : ''), props: a.executor_property || {} }));
+        if (b.op === 'create') db.scenes.push({ id: 'sc' + Date.now(), name: b.name, steps: toSteps(b.actions) });
+        if (b.op === 'update') { const sc = db.scenes.find((x) => x.id === b.sceneId); if (sc) { sc.name = b.name; sc.steps = toSteps(b.actions); } }
+        if (b.op === 'delete') db.scenes = db.scenes.filter((x) => x.id !== b.sceneId);
         return { ok: true };
       }
       if (path === 'rename') {

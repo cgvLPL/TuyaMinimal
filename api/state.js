@@ -35,7 +35,8 @@ function pickDevice(d, roomOf) {
     online: !!d.online,
     status,
     room: roomOf[d.id] || '',
-    ir: d.ir || undefined
+    ir: d.ir || undefined,
+    sensorOnly: d.sensorOnly || undefined
   };
 }
 
@@ -61,7 +62,9 @@ async function expandIrRemotes(list, warnings) {
       return;
     }
     if (!Array.isArray(remotes) || !remotes.length) return; // no remotes yet: keep showing the hub
-    hide.add(hub.id);
+    // Blasters with a built-in thermometer stay, but only as a source of readings.
+    const reads = (hub.status || []).some((x) => ['va_temperature', 'va_humidity', 'temp_current', 'humidity_value'].includes(x.code));
+    if (reads) hub.sensorOnly = true; else hide.add(hub.id);
     await Promise.all(remotes.map(async (r) => {
       const id = String(r.remote_id);
       const known = byId.get(id);
@@ -152,7 +155,16 @@ module.exports = handler(['GET'], async (req) => {
     }
 
     scenes = (scenesRes.value || []).map((s) => ({
-      id: String(s.scene_id), name: s.name, actions: (s.actions || []).length
+      id: String(s.scene_id),
+      name: s.name || s.scene_name,
+      actions: (s.actions || []).length,
+      background: s.background || '',
+      // Full action list, so scenes can be edited in the app.
+      steps: (s.actions || []).map((a) => ({
+        executor: a.action_executor,
+        entity: a.entity_id || '',
+        props: a.executor_property && typeof a.executor_property === 'object' ? a.executor_property : {}
+      }))
     }));
     automations = (autosRes.value || []).map((a) => ({
       id: String(a.automation_id), name: a.name, enabled: !!a.enabled

@@ -10,7 +10,11 @@ so your API secret never reaches the browser.
   and thermostats, curtains, fans, sensors (door, motion, leak, smoke, temperature/humidity)
 - IR blasters: each remote you set up (AC, TV, fan...) appears as its own device; ACs get
   temperature, mode and fan controls, other remotes get their buttons
-- Tap-to-run scenes and on/off switches for automations
+- Readings: temperature/humidity (and CO₂, PM2.5) sensors appear as a strip of readings above
+  your devices instead of as cards, including IR blasters with a built-in thermometer
+- Tap-to-run scenes: run, create, edit and delete them (devices, outlets, brightness, AC settings,
+  curtains, waits); IR remote actions made in the Tuya app are kept when you edit
+- On/off switches for automations
 - Several homes: switch between them from the home name at the top of Devices
 - Custom device icons (saved per browser)
 - Optional PIN unlock per device instead of typing the password (Me → Security)
@@ -33,6 +37,7 @@ api/               Vercel serverless functions (the proxy)
   automation.js    POST /api/automation  enable or disable an automation
   rename.js        POST /api/rename      rename one outlet of a multi-outlet device
   ir.js            GET/POST /api/ir      buttons and commands for IR remotes
+  scene-edit.js    POST /api/scene-edit  create, update or delete a tap-to-run scene
 ```
 
 No dependencies and no build step. Node 18 or newer (Vercel's default is fine).
@@ -111,7 +116,7 @@ No dependencies and no build step. Node 18 or newer (Vercel's default is fine).
 - With a PIN set, the password is stored encrypted on the device (AES-GCM, key derived from the
   PIN with PBKDF2). After 5 wrong PINs it is erased and the password is needed again. A PIN guards
   the app on your phone; the server still only accepts the full APP_PASSWORD.
-- The proxy only exposes the seven endpoints above, validates every ID and command, and never
+- The proxy only exposes the eight endpoints above, validates every ID and command, and never
   forwards device local keys or IP addresses to the browser.
 
 ## Local development
