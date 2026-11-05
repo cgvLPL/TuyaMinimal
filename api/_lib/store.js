@@ -1,50 +1,78 @@
-// Optional shared storage (Upstash Redis, added from Vercel's Storage tab).
-// Used to sync settings across devices and to keep user accounts.
-// Talks to Upstash's REST API with plain fetch, so no packages are needed.
+// Optional shared storage in a Neon Postgres database (added from Vercel's Storage tab).
+// Used to sync settings across devices and to keep user accounts and sign-in sessions.
+// Everything lives in one small key/value table that's created automatically.
 const { TuyaError } = require('./tuya');
 
-const PREFIX = 'tuyahome:';
-function cfg() {
-  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
-  return url && token ? { url: url.replace(/\/$/, ''), token } : null;
-}
-const enabled = () => !!cfg();
+const TABLE = 'tuyahome_kv';
+const url = () => process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.NEON_DATABASE_URL || '';
+const enabled = () => !!url();
 
-async function cmd(args) {
-  const c = cfg();
-  if (!c) throw new TuyaError('Storage is not set up. See the README section "Sync and users".', 'no_storage', 503);
-  let res, json = {};
-  try {
-    res = await fetch(c.url, {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + c.token, 'Content-Type': 'application/json' },
-      body: JSON.stringify(args)
-    });
-    json = await res.json();
-  } catch (e) {
-    throw new TuyaError('Could not reach storage.', 'storage', 502);
+let sqlFn = null, ready = null;
+function client() {
+  if (!enabled()) throw new TuyaError('The database is not set up. See the README section "Sync and users".', 'no_storage', 503);
+  if (!sqlFn) {
+    let neon;
+    try { ({ neon } = require('@neondatabase/serverless')); }
+    catch (e) { throw new TuyaError('The Neon database driver is missing. Make sure package.json lists @neondatabase/serverless, then redeploy.', 'storage', 500); }
+    sqlFn = neon(url());
   }
-  if (!res.ok || json.error) throw new TuyaError('Storage error: ' + (json.error || res.status), 'storage', 502);
-  return json.result;
+  return sqlFn;
+}
+async function q(text, params) {
+  const sql = client();
+  try {
+    return await sql.query(text, params || []);
+  } catch (e) {
+    throw new TuyaError('Database error: ' + (e && e.message ? e.message : 'unknown'), 'storage', 502);
+  }
+}
+async function setup() {
+  if (!ready) {
+    ready = q(`CREATE TABLE IF NOT EXISTS ${TABLE} (key TEXT PRIMARY KEY, value TEXT NOT NULL, expires_at BIGINT)`)
+      .catch((e) => { ready = null; throw e; });
+  }
+  return ready;
+}
+// Expired rows are ignored when read and cleared out now and then.
+async function sweep() {
+  if (Math.random() < 0.05) await q(`DELETE FROM ${TABLE} WHERE expires_at IS NOT NULL AND expires_at <= $1`, [Date.now()]).catch(() => null);
 }
 
 async function getJSON(key, fallback) {
-  const v = await cmd(['GET', PREFIX + key]);
-  if (v == null) return fallback;
-  try { return JSON.parse(v); } catch (e) { return fallback; }
+  await setup();
+  const rows = await q(`SELECT value FROM ${TABLE} WHERE key = $1 AND (expires_at IS NULL OR expires_at > $2)`, [key, Date.now()]);
+  if (!rows.length) return fallback;
+  try { return JSON.parse(rows[0].value); } catch (e) { return fallback; }
 }
 async function setJSON(key, value, ttlSeconds) {
-  const args = ['SET', PREFIX + key, JSON.stringify(value)];
-  if (ttlSeconds) args.push('EX', String(ttlSeconds));
-  await cmd(args);
+  await setup();
+  const expires = ttlSeconds ? Date.now() + ttlSeconds * 1000 : null;
+  await q(`INSERT INTO ${TABLE} (key, value, expires_at) VALUES ($1, $2, $3)
+           ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, expires_at = EXCLUDED.expires_at`,
+    [key, JSON.stringify(value), expires]);
+  await sweep();
 }
-async function del(key) { await cmd(['DEL', PREFIX + key]); }
-async function count(key) { return Number(await cmd(['GET', PREFIX + key])) || 0; }
+async function del(key) {
+  await setup();
+  await q(`DELETE FROM ${TABLE} WHERE key = $1`, [key]);
+}
+async function count(key) {
+  await setup();
+  const rows = await q(`SELECT value FROM ${TABLE} WHERE key = $1 AND (expires_at IS NULL OR expires_at > $2)`, [key, Date.now()]);
+  return rows.length ? Number(rows[0].value) || 0 : 0;
+}
+// Counter that starts again from 1 once its time window has passed.
 async function incr(key, ttlSeconds) {
-  const n = await cmd(['INCR', PREFIX + key]);
-  if (n === 1) await cmd(['EXPIRE', PREFIX + key, String(ttlSeconds)]);
-  return n;
+  await setup();
+  const now = Date.now(), until = now + ttlSeconds * 1000;
+  const rows = await q(`INSERT INTO ${TABLE} (key, value, expires_at) VALUES ($1, '1', $3)
+    ON CONFLICT (key) DO UPDATE SET
+      value = CASE WHEN ${TABLE}.expires_at IS NOT NULL AND ${TABLE}.expires_at <= $2 THEN '1'
+                   ELSE CAST(CAST(${TABLE}.value AS INTEGER) + 1 AS TEXT) END,
+      expires_at = CASE WHEN ${TABLE}.expires_at IS NOT NULL AND ${TABLE}.expires_at <= $2 THEN $3
+                        ELSE ${TABLE}.expires_at END
+    RETURNING value`, [key, now, until]);
+  return rows.length ? Number(rows[0].value) : 1;
 }
 
 module.exports = { enabled, getJSON, setJSON, del, count, incr };

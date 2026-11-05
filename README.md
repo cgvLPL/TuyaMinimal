@@ -46,10 +46,10 @@ api/_routes/       the endpoints (folders starting with _ aren't deployed as sep
   logout.js        end this device's session
   users.js         manage people (admins), change your own password
   settings.js      shared settings such as custom icons
-api/_lib/          Tuya client and signing, sign-in, storage helpers
+api/_lib/          Tuya client and signing, sign-in, Neon database helpers
 ```
 
-No dependencies and no build step. Node 18 or newer (Vercel's default is fine).
+One dependency (the Neon database driver, installed by Vercel) and no build step. Runs on Node 22 (set in package.json).
 
 ## 1. Create a Tuya cloud project
 
@@ -105,14 +105,14 @@ tablet all day. Nothing is polled while the app is in the background.
 
 ## Sync and users (optional)
 
-Without storage, the app works as before: one password (`APP_PASSWORD`) and icons saved per browser.
-Adding free storage unlocks icon sync across devices and separate passwords for other people.
+Without a database, the app works as before: one password (`APP_PASSWORD`) and icons saved per browser.
+Adding a free Neon Postgres database unlocks icon sync across devices and separate passwords for other people.
 
-1. In your Vercel project, open the **Storage** tab and choose **Upstash for Redis** (from the
-   Marketplace). Pick the free plan and connect it to this project.
-2. Vercel adds `KV_REST_API_URL` and `KV_REST_API_TOKEN` to your environment variables
-   automatically (`UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` work too).
-3. Redeploy. In the app, **Me** now shows **People** and **Sync: On**.
+1. In your Vercel project, open the **Storage** tab and choose **Neon** (Serverless Postgres).
+   Pick the free plan and connect it to this project.
+2. Vercel adds `DATABASE_URL` to your environment variables automatically (`POSTGRES_URL` works too).
+3. Redeploy. Vercel installs the Neon driver listed in `package.json`, and the app creates its one
+   table (`tuyahome_kv`) by itself on first use. In the app, **Me** now shows **People** and **Sync: On**.
 
 People:
 - The owner signs in with `APP_PASSWORD` and is always an admin.

@@ -604,6 +604,41 @@
     return html;
   }
 
+  function confirmDialog(opts) {
+    return new Promise((resolve) => {
+      let dlg = document.getElementById('confirm-dialog');
+      if (!dlg) {
+        dlg = document.createElement('dialog');
+        dlg.id = 'confirm-dialog';
+        dlg.className = 'confirm';
+        dlg.setAttribute('aria-labelledby', 'confirm-title');
+        dlg.setAttribute('aria-describedby', 'confirm-body');
+        document.body.appendChild(dlg);
+      }
+      dlg.innerHTML = '<span class="confirm-icon" aria-hidden="true">' + icon('power', 26) + '</span>' +
+        '<h2 id="confirm-title">' + esc(opts.title) + '</h2>' +
+        '<p id="confirm-body">' + esc(opts.body) + '</p>' +
+        '<div class="confirm-actions">' +
+        '<button class="btn soft-btn" value="cancel">Cancel</button>' +
+        '<button class="btn danger-btn" value="ok">' + esc(opts.confirm || 'Confirm') + '</button></div>';
+      let done = false;
+      const finish = (ok) => {
+        if (done) return; done = true;
+        if (dlg.open) dlg.close();
+        resolve(ok);
+      };
+      dlg.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => finish(b.value === 'ok')));
+      dlg.addEventListener('cancel', () => finish(false), { once: true });   // Escape key
+      dlg.addEventListener('click', (e) => { if (e.target === dlg) finish(false); }); // tap outside
+      if (typeof dlg.showModal === 'function') {
+        dlg.showModal();
+        dlg.querySelector('[value="cancel"]').focus();  // safe default for a big action
+      } else {
+        finish(window.confirm(opts.title + '\n\n' + opts.body));
+      }
+    });
+  }
+
   function allOffTargets() {
     if (!S.data) return [];
     return S.data.devices.filter((d) => (S.room === 'All' || (S.room === 'Other' ? !d.room : d.room === S.room)) &&
@@ -627,6 +662,22 @@
       return;
     }
     S.allOffArmed = 0;
+    render();
+    const where = S.room === 'All' || S.room === 'Other' ? '' : ' in ' + S.room;
+    const names = targets.slice(0, 3).map((d) => d.name);
+    const rest = targets.length - names.length;
+    const list = names.length === 1 ? names[0]
+      : names.slice(0, -1).join(', ') + (rest ? ', ' + names[names.length - 1] + ' and ' + rest + ' more' : ' and ' + names[names.length - 1]);
+    confirmDialog({
+      title: S.room === 'All' ? 'Turn off all devices?' : 'Turn off everything' + where + '?',
+      body: 'Are you sure? This turns off ' + targets.length + (targets.length === 1 ? ' device: ' : ' devices: ') + list + '.',
+      confirm: 'Turn off ' + targets.length
+    }).then((ok) => { if (ok) turnOffAll(); });
+  }
+
+  function turnOffAll() {
+    const targets = allOffTargets();
+    if (!targets.length) return;
     targets.forEach((d) => {
       const k = kindOf(d);
       if (k === 'irac') sendIrAc(d, { power: false });
@@ -1294,7 +1345,7 @@
     if (live || S.mode === 'demo') {
       html += '<h2 class="section-title">Sync</h2><div class="list"><div class="list-row"><span class="label">Icons across devices</span><span class="value">' +
         (S.sync ? 'On' : 'Off') + '</span></div></div>' +
-        (S.sync ? '' : '<p class="note" style="text-align:left;margin-top:10px">Connect free Upstash Redis storage in Vercel to sync icons and add users. See "Sync and users" in the README.</p>');
+        (S.sync ? '' : '<p class="note" style="text-align:left;margin-top:10px">Connect a free Neon database in Vercel to sync icons and add users. See "Sync and users" in the README.</p>');
     }
     if (data && data.warnings && data.warnings.length) {
       html += '<h2 class="section-title">Needs attention</h2><div class="list">' + data.warnings.map((w) =>
@@ -1303,7 +1354,7 @@
     }
     html += '<h2 class="section-title">About</h2><div class="list">' +
       '<div class="list-row"><span class="label">Adding devices</span><span class="value">Pair them in the Tuya app</span></div>' +
-      '<div class="list-row"><span class="label">Version</span><span class="value">2.2.0</span></div></div>';
+      '<div class="list-row"><span class="label">Version</span><span class="value">2.4.0</span></div></div>';
     return html;
   }
 
