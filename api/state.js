@@ -1,6 +1,7 @@
 // GET /api/state?homeId=... → homes, rooms, devices, scenes, automations
 const { call, config } = require('./_lib/tuya');
 const { handler, requireId } = require('./_lib/http');
+const store = require('./_lib/store');
 
 const IR_HUBS = ['wnykq', 'hwktwkq'];  // universal IR remote / IR hub categories
 // Categories that are certainly not IR blasters (so we don't probe them).
@@ -56,7 +57,7 @@ async function expandIrRemotes(list, warnings) {
   await Promise.all(hubs.map(async (hub) => {
     let remotes;
     try {
-      remotes = await call('GET', `/v2.0/infrareds/${hub.id}/remotes`);
+      remotes = await cached('remotes:' + hub.id, SLOW, () => call('GET', `/v2.0/infrareds/${hub.id}/remotes`));
     } catch (e) {
       if (sure(hub)) warnings.push('IR remotes for ' + hub.name + ': ' + e.message + '. Authorize the IR Control Hub service in your cloud project.');
       return;
@@ -108,15 +109,28 @@ function attachHubless(list) {
   });
 }
 
+// Rooms, room membership, home membership and IR remote lists rarely change, so a warm server
+// keeps them for a minute. That makes the full refresh much faster.
+const cache = new Map();
+async function cached(key, ttlMs, fn) {
+  const hit = cache.get(key);
+  if (hit && hit.until > Date.now()) return hit.value;
+  const value = await fn();
+  cache.set(key, { value, until: Date.now() + ttlMs });
+  return value;
+}
+const SLOW = 60 * 1000;
+
 async function settle(promise, fallback) {
   try { return { value: await promise }; } catch (e) { return { value: fallback, error: e.message }; }
 }
 
 module.exports = handler(['GET'], async (req) => {
   const { uid } = config();
+  if (req.query && req.query.fresh) cache.clear();
   const [devices, homesRes] = await Promise.all([
     call('GET', `/v1.0/users/${uid}/devices`),
-    settle(call('GET', `/v1.0/users/${uid}/homes`), [])
+    settle(cached('homes', SLOW, () => call('GET', `/v1.0/users/${uid}/homes`)), [])
   ]);
   const homes = (homesRes.value || []).map((h) => ({ id: String(h.home_id), name: h.name }));
   const wanted = req.query && req.query.homeId ? requireId(String(req.query.homeId), 'home') : null;
@@ -130,8 +144,8 @@ module.exports = handler(['GET'], async (req) => {
 
   if (home) {
     const [homeDevsRes, roomsRes, scenesRes, autosRes] = await Promise.all([
-      settle(call('GET', `/v1.0/homes/${home.id}/devices`), null),
-      settle(call('GET', `/v1.0/homes/${home.id}/rooms`), {}),
+      settle(cached('homedevs:' + home.id, SLOW, () => call('GET', `/v1.0/homes/${home.id}/devices`)), null),
+      settle(cached('rooms:' + home.id, SLOW, () => call('GET', `/v1.0/homes/${home.id}/rooms`)), {}),
       settle(call('GET', `/v1.0/homes/${home.id}/scenes`), []),
       settle(call('GET', `/v1.0/homes/${home.id}/automations`), [])
     ]);
@@ -141,7 +155,7 @@ module.exports = handler(['GET'], async (req) => {
     const rawRooms = Array.isArray(roomsRes.value) ? roomsRes.value : (roomsRes.value.rooms || []);
     rooms = rawRooms.map((r) => ({ id: String(r.room_id), name: r.name }));
     const lists = await Promise.all(rooms.map((r) =>
-      settle(call('GET', `/v1.0/homes/${home.id}/rooms/${r.id}/devices`), [])));
+      settle(cached('roomdevs:' + home.id + ':' + r.id, SLOW, () => call('GET', `/v1.0/homes/${home.id}/rooms/${r.id}/devices`)), [])));
     lists.forEach((l, i) => { for (const d of l.value || []) roomOf[d.id || d.dev_id] = rooms[i].name; });
 
     // The user's device list covers every home, so keep only this home's devices.
@@ -174,7 +188,16 @@ module.exports = handler(['GET'], async (req) => {
   const homeDevices = (devices || []).filter((d) => !inHome || inHome.has(d.id));
   const irDevices = await expandIrRemotes(homeDevices, warnings);
 
+  let settings = null;
+  if (store.enabled()) {
+    try { settings = await store.getJSON('settings', { icons: {} }); }
+    catch (e) { warnings.push('Sync: ' + e.message); }
+  }
+
   return {
+    me: req.user,
+    sync: store.enabled(),
+    settings,
     homes,
     homeId: home ? home.id : null,
     rooms: rooms.map((r) => r.name),

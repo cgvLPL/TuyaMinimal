@@ -1,5 +1,5 @@
-const crypto = require('crypto');
 const { TuyaError } = require('./tuya');
+const auth = require('./auth');
 
 function send(res, status, data) {
   res.statusCode = status;
@@ -8,28 +8,26 @@ function send(res, status, data) {
   res.end(JSON.stringify(data));
 }
 
-// Every endpoint requires the APP_PASSWORD you set in Vercel.
-// Without it, anyone who found your URL could control your devices.
-function authorized(req) {
-  const expected = process.env.APP_PASSWORD;
-  if (!expected) {
-    throw new TuyaError('Server is missing APP_PASSWORD.', 'not_configured', 503);
-  }
-  const given = String(req.headers['x-app-key'] || '');
-  const a = crypto.createHash('sha256').update(given).digest();
-  const b = crypto.createHash('sha256').update(expected).digest();
-  return crypto.timingSafeEqual(a, b);
-}
-
-function handler(methods, fn) {
+// opts.public: no sign-in needed (only the login endpoint). opts.admin: admins only.
+function handler(methods, fn, opts) {
+  opts = opts || {};
   return async (req, res) => {
     try {
       if (!methods.includes(req.method)) {
         res.setHeader('Allow', methods.join(', '));
         return send(res, 405, { error: 'Method not allowed.' });
       }
-      if (!authorized(req)) {
-        return send(res, 401, { error: 'Wrong app password.', code: 'unauthorized' });
+      if (!opts.public) {
+        await auth.checkRate(req);
+        const user = await auth.resolve(req);
+        if (!user) {
+          await auth.noteFail(req);
+          return send(res, 401, { error: 'Please sign in again.', code: 'unauthorized' });
+        }
+        if (opts.admin && user.role !== 'admin') {
+          return send(res, 403, { error: 'Only admins can do this.', code: 'forbidden' });
+        }
+        req.user = user;
       }
       const body = typeof req.body === 'string' ? safeJson(req.body) : (req.body || {});
       const data = await fn(req, body);

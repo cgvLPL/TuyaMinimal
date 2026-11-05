@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "A minimal PWA for Tuya smart home devices, with a Vercel proxy for the Tuya Cloud API.",
-  "engines": { "node": ">=18" },
+  "engines": { "node": "22.x" },
   "scripts": {
     "dev": "vercel dev"
   }

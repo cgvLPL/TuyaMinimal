@@ -78,4 +78,4 @@ module.exports = handler(['POST'], async (req, body) => {
     return { ok: true, sceneId };
   }
   throw bad('Unknown operation.');
-});
+}, { admin: true });

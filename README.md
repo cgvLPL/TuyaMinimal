@@ -10,6 +10,9 @@ so your API secret never reaches the browser.
   and thermostats, curtains, fans, sensors (door, motion, leak, smoke, temperature/humidity)
 - IR blasters: each remote you set up (AC, TV, fan...) appears as its own device; ACs get
   temperature, mode and fan controls, other remotes get their buttons
+- RGB color for color bulbs and light strips (color wheel, presets, saturation, brightness)
+- "All off" for the whole home or the selected room
+- People: give family members their own password (admins and members), and sync icons across devices
 - Readings: temperature/humidity (and CO₂, PM2.5) sensors appear as a strip of readings above
   your devices instead of as cards, including IR blasters with a built-in thermometer
 - Tap-to-run scenes: run, create, edit and delete them (devices, outlets, brightness, AC settings,
@@ -37,7 +40,14 @@ api/               Vercel serverless functions (the proxy)
   automation.js    POST /api/automation  enable or disable an automation
   rename.js        POST /api/rename      rename one outlet of a multi-outlet device
   ir.js            GET/POST /api/ir      buttons and commands for IR remotes
-  scene-edit.js    POST /api/scene-edit  create, update or delete a tap-to-run scene
+  scene-edit.js    POST /api/scene-edit  create, update or delete a tap-to-run scene (admins)
+  status.js        GET  /api/status      live device states only (fast, one Tuya request)
+  login.js         POST /api/login       sign in with a password, returns a session
+  logout.js        POST /api/logout      end this device's session
+  users.js         GET/POST /api/users   manage people (admins), change your own password
+  settings.js      GET/POST /api/settings shared settings such as custom icons
+  _lib/store.js    optional Upstash Redis storage
+  _lib/auth.js     passwords, sessions, roles, sign-in rate limiting
 ```
 
 No dependencies and no build step. Node 18 or newer (Vercel's default is fine).
@@ -86,6 +96,35 @@ No dependencies and no build step. Node 18 or newer (Vercel's default is fine).
 - **Optional APK:** paste your Vercel URL into PWABuilder (pwabuilder.com) and download the
   Android package. It wraps the same web app, so updates you deploy show up automatically.
 
+## Live updates
+
+Device states refresh every 4 seconds while the app is open (a light, single request), and after
+you control something the app checks again within a couple of seconds. Rooms, scenes and
+automations refresh once a minute. Change the speed in **Me → Live updates**: Tuya's free plan has
+a monthly allowance of API calls, so pick Normal or Saver if you leave the app open on a wall
+tablet all day. Nothing is polled while the app is in the background.
+
+## Sync and users (optional)
+
+Without storage, the app works as before: one password (`APP_PASSWORD`) and icons saved per browser.
+Adding free storage unlocks icon sync across devices and separate passwords for other people.
+
+1. In your Vercel project, open the **Storage** tab and choose **Upstash for Redis** (from the
+   Marketplace). Pick the free plan and connect it to this project.
+2. Vercel adds `KV_REST_API_URL` and `KV_REST_API_TOKEN` to your environment variables
+   automatically (`UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` work too).
+3. Redeploy. In the app, **Me** now shows **People** and **Sync: On**.
+
+People:
+- The owner signs in with `APP_PASSWORD` and is always an admin.
+- Admins add people in **Me → People → Add a person** with a name, password and role.
+  **Members** control devices, run scenes and switch automations. **Admins** can also create, edit
+  and delete scenes and manage people.
+- Everyone signs in with just their password, so each password must be unique.
+- Signing in gives each device a session, so passwords aren't sent with every request.
+  Removing a person signs them out everywhere straight away. **Me → Sign out** ends a session.
+- After 10 wrong passwords from one network, sign-in pauses for 15 minutes.
+
 ## Troubleshooting
 
 - **"Finish setting up your server"**: an environment variable is missing or `TUYA_REGION`
@@ -116,7 +155,7 @@ No dependencies and no build step. Node 18 or newer (Vercel's default is fine).
 - With a PIN set, the password is stored encrypted on the device (AES-GCM, key derived from the
   PIN with PBKDF2). After 5 wrong PINs it is erased and the password is needed again. A PIN guards
   the app on your phone; the server still only accepts the full APP_PASSWORD.
-- The proxy only exposes the eight endpoints above, validates every ID and command, and never
+- The proxy only exposes the endpoints above, validates every ID and command, and never
   forwards device local keys or IP addresses to the browser.
 
 ## Local development

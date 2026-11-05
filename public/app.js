@@ -31,7 +31,15 @@
     pinBusy: false,
     irKeys: {},          // remoteId -> { keys, categoryId } | 'loading' | { error }
     irSent: {},
-    editor: null,        // scene being created or edited          // remoteId + key -> true briefly after a button is sent   // deviceId whose icon picker is open
+    editor: null,        // scene being created or edited
+    me: null,            // signed-in user { id, name, role, owner }
+    sync: false,         // shared storage set up on the server
+    users: null,         // admin's user list (null = not loaded)
+    userForm: { name: '', password: '', role: 'member', error: '', busy: false, open: false },
+    pwForm: { current: '', password: '', error: '', busy: false, open: false },
+    allOffArmed: 0,      // time the "All off" button was armed
+    pollMs: Number(store.get('pollMs')) || 4000,  // live status interval
+    touched: {},         // deviceId -> time of the last local command (avoid flicker)          // remoteId + key -> true briefly after a button is sent   // deviceId whose icon picker is open
     icons: readIcons(),  // deviceId -> icon key, saved on this device      // { id, code } while an outlet name is being edited
     installPrompt: null
   };
@@ -137,10 +145,16 @@
     S.loading = true;
     if (!S.data) render();
     try {
-      const q = S.homeId ? '?homeId=' + encodeURIComponent(S.homeId) : '';
-      const data = await api('state' + q);
+      const params = [];
+      if (S.homeId) params.push('homeId=' + encodeURIComponent(S.homeId));
+      if (opts.fresh) params.push('fresh=1');
+      const data = await api('state' + (params.length ? '?' + params.join('&') : ''));
+      lastFull = Date.now();
       S.data = data;
       S.gate = null;
+      if (data.me) S.me = data.me;
+      S.sync = !!data.sync;
+      if (data.settings && data.settings.icons) { S.icons = Object.assign({}, data.settings.icons); saveIcons(); }
       if (data.homeId) { S.homeId = data.homeId; store.set('homeId', data.homeId); }
       prefetchLightSpecs();
     } catch (e) {
@@ -150,7 +164,7 @@
         S.gate = 'login';
         S.gateError = hadPin
           ? 'Your app password was changed on the server. Enter the new one, then set up your PIN again.'
-          : 'That password does not match APP_PASSWORD on your server.';
+          : 'Please sign in again.';
         S.key = ''; store.del('appKey');
       } else if (e.code === 'not_configured') {
         S.gate = 'setup'; S.gateError = e.message;
@@ -159,7 +173,8 @@
       }
     } finally {
       S.loading = false;
-      if (!S.dragging && !S.renaming && !(S.editor && route().view === 'scene-edit')) render();
+      const typing = document.activeElement && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName) && document.activeElement.type !== 'range';
+      if (!S.dragging && !S.renaming && !typing && !(S.editor && route().view === 'scene-edit')) render();
       if (S.refreshAgain) { S.refreshAgain = false; refresh({ silent: true }); }
     }
   }
@@ -247,6 +262,23 @@
   }
   function brightCode(d) { return ['bright_value_v2', 'bright_value'].find((c) => typeof d.status[c] === 'number') || null; }
   function warmCode(d) { return ['temp_value_v2', 'temp_value'].find((c) => typeof d.status[c] === 'number') || null; }
+  // RGB colour: Tuya stores it as {h: 0-360, s, v} (0-1000 for *_v2, 0-255 for the older code).
+  function colourCode(d) { return ['colour_data_v2', 'colour_data'].find((c) => c in d.status) || null; }
+  function parseColour(v) {
+    if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { return null; } }
+    return v && typeof v.h === 'number' ? { h: v.h, s: Number(v.s) || 0, v: Number(v.v) || 0 } : null;
+  }
+  function colourMax(code) { return code === 'colour_data_v2' ? { s: 1000, v: 1000, vmin: 10 } : { s: 255, v: 255, vmin: 25 }; }
+  function inColour(d) { return d.status.work_mode === 'colour' && !!colourCode(d); }
+  function currentColour(d) {
+    const code = colourCode(d), m = colourMax(code);
+    return parseColour(d.status[code]) || { h: 30, s: m.s, v: m.v };
+  }
+  function hsvCss(h, sPct) { return 'hsl(' + Math.round(h) + ', ' + Math.round(sPct) + '%, ' + Math.round(50 + (100 - sPct) * 0.4) + '%)'; }
+  function colourCss(d) {
+    const code = colourCode(d), m = colourMax(code), c = currentColour(d);
+    return hsvCss(c.h, (c.s / m.s) * 100);
+  }
   function lightRange(d, code, isWarmth) {
     const v2 = code && code.endsWith('_v2');
     const fallback = isWarmth
@@ -327,6 +359,10 @@
     const k = kindOf(d), on = isOn(d), st = d.status;
     if (k === 'light') {
       if (!on) return 'Off';
+      if (inColour(d)) {
+        const m = colourMax(colourCode(d)), c = currentColour(d);
+        return 'Color, ' + toPct(c.v, { min: m.vmin, max: m.v }) + '%';
+      }
       const bc = brightCode(d);
       return bc && specReady(d) ? toPct(st[bc], lightRange(d, bc)) + '%' : 'On';
     }
@@ -370,11 +406,12 @@
     opts = opts || {};
     const before = Object.assign({}, d.status);
     Object.assign(d.status, patch || {});
+    S.touched[d.id] = Date.now();
     if (!opts.noRender) render();
     try {
       await api('command', { method: 'POST', body: { deviceId: d.id, commands } });
-      clearTimeout(refresh.t);
-      refresh.t = setTimeout(() => refresh({ silent: true }), 2500);
+      S.touched[d.id] = Date.now();
+      statusSoon();
     } catch (e) {
       d.status = opts.revertTo || before;
       render();
@@ -484,7 +521,7 @@
     const cls = ['card', toggle && on && d.online ? 'active' : '', d.online ? '' : 'offline', d.id === selectedId ? 'selected' : ''].join(' ');
     return '<div class="' + cls + '">' +
       '<button class="card-open" data-act="open" data-id="' + esc(d.id) + '" data-key="open-' + esc(d.id) + '" aria-label="' + esc(d.name) + ', ' + esc(statusText(d)) + ', show controls">' +
-      '<span class="card-top"><span class="icon-dot">' + deviceIcon(d) + '</span><span class="card-room">' + esc(d.room) + '</span></span>' +
+      '<span class="card-top"><span class="icon-dot"' + (on && d.online && kindOf(d) === 'light' && inColour(d) ? ' style="background:' + colourCss(d) + ';color:#141414"' : '') + '>' + deviceIcon(d) + '</span><span class="card-room">' + esc(d.room) + '</span></span>' +
       '<span><span class="card-name">' + esc(d.name) + '</span><span class="card-status">' + esc(statusText(d)) + '</span></span>' +
       '</button>' +
       (toggle ? '<div class="card-foot"><span class="state">' + (on ? 'On' : 'Off') + '</span>' + switchBtn(d) + '</div>' : '') +
@@ -510,7 +547,7 @@
         '</select><span class="title-chevron" aria-hidden="true">' + icon('down', 22) + '</span></h1>'
       : '<h1 class="title">' + esc(home ? home.name : 'My Home') + '</h1>';
     let html = '<div class="head"><div><p class="sub">' + onCount + (onCount === 1 ? ' device on' : ' devices on') + '</p>' +
-      titleHtml + '</div></div>';
+      titleHtml + '</div>' + allOffButton() + '</div>';
     if (S.mode === 'demo') html += '<p class="banner">You are viewing sample devices. Connect your server in Me to control your own.</p>';
     if (rooms.length > 1) {
       html += '<div class="chips" role="group" aria-label="Rooms">' + rooms.map((r) =>
@@ -527,6 +564,43 @@
     if (cards.length) html += '<div class="grid">' + cards.map((d) => deviceCard(d, selectedId)).join('') + '</div>';
     else if (!readings.length) html += '<div class="empty"><strong>Nothing in this room</strong><p>Assign devices to rooms in the Tuya app.</p></div>';
     return html;
+  }
+
+  function allOffTargets() {
+    if (!S.data) return [];
+    return S.data.devices.filter((d) => (S.room === 'All' || (S.room === 'Other' ? !d.room : d.room === S.room)) &&
+      d.online && hasToggle(d) && isOn(d) && !isReadingDevice(d));
+  }
+  function allOffButton() {
+    const n = allOffTargets().length;
+    if (!n) return '';
+    const armed = S.allOffArmed && Date.now() - S.allOffArmed < 4000;
+    const where = S.room === 'All' ? '' : ' in ' + S.room;
+    return '<button class="pill-btn' + (armed ? ' armed' : ' soft') + '" data-act="alloff" data-key="alloff" aria-label="' +
+      esc(armed ? 'Confirm: turn off ' + n + ' devices' + where : 'Turn off everything' + where) + '">' + icon('power', 18) +
+      (armed ? 'Turn off ' + n + '?' : 'All off') + '</button>';
+  }
+  function allOff() {
+    const targets = allOffTargets();
+    if (!targets.length) return;
+    if (!(S.allOffArmed && Date.now() - S.allOffArmed < 4000)) {
+      S.allOffArmed = Date.now(); render();
+      setTimeout(() => { if (S.allOffArmed && Date.now() - S.allOffArmed >= 4000) { S.allOffArmed = 0; render(); } }, 4100);
+      return;
+    }
+    S.allOffArmed = 0;
+    targets.forEach((d) => {
+      const k = kindOf(d);
+      if (k === 'irac') sendIrAc(d, { power: false });
+      else if (k === 'multi') {
+        const cmds = channelCodes(d).filter((c) => d.status[c]).map((c) => ({ code: c, value: false }));
+        send(d, cmds, Object.fromEntries(cmds.map((c) => [c.code, false])));
+      } else {
+        const pc = powerCode(d);
+        if (pc) send(d, [{ code: pc, value: false }], { [pc]: false });
+      }
+    });
+    toast('Turned off ' + targets.length + (targets.length === 1 ? ' device' : ' devices'));
   }
 
   function loadingView() {
@@ -548,6 +622,45 @@
       icon('power', 40) + '<span>' + esc(text) + '</span></button>';
   }
 
+  function lightModeSeg(d, sfx) {
+    const colour = inColour(d);
+    return '<div class="seg" style="--n:2" role="group" aria-label="Light mode">' +
+      '<button class="chip soft" data-act="lmode" data-val="white" data-id="' + esc(d.id) + '" data-key="lmode-w' + sfx + '" aria-pressed="' + !colour + '">White</button>' +
+      '<button class="chip soft" data-act="lmode" data-val="colour" data-id="' + esc(d.id) + '" data-key="lmode-c' + sfx + '" aria-pressed="' + colour + '">Color</button></div>';
+  }
+  const SWATCHES = [['Red', 0], ['Orange', 28], ['Yellow', 52], ['Green', 120], ['Cyan', 185], ['Blue', 225], ['Purple', 275], ['Pink', 320]];
+  function colourControls(d, sfx) {
+    const code = colourCode(d), m = colourMax(code), c = currentColour(d);
+    const sPct = Math.round((c.s / m.s) * 100), vPct = toPct(c.v, { min: m.vmin, max: m.v });
+    const id = esc(d.id) + sfx;
+    return '<div class="colour-ctl" data-id="' + esc(d.id) + '">' +
+      '<div class="colour-preview" style="background:' + hsvCss(c.h, sPct) + '" aria-hidden="true"></div>' +
+      '<div class="swatches" role="group" aria-label="Colors">' + SWATCHES.map(([n, h]) =>
+        '<button class="swatch" style="background:' + hsvCss(h, 100) + '" data-act="swatch" data-h="' + h + '" data-id="' + esc(d.id) + '" data-key="sw-' + n + sfx + '" aria-label="' + n + '"></button>').join('') + '</div>' +
+      '<div class="range"><div class="row-between"><label class="se-label" for="hue-' + id + '">Color</label></div>' +
+      '<input id="hue-' + id + '" class="hue-range" type="range" min="0" max="360" value="' + Math.round(c.h) + '" data-act="hue" data-id="' + esc(d.id) + '" data-key="hue-' + id + '"></div>' +
+      '<div class="range"><div class="row-between"><label class="se-label" for="sat-' + id + '">Saturation</label><span class="se-value" data-colour-label="sat">' + sPct + '%</span></div>' +
+      '<input id="sat-' + id + '" type="range" min="0" max="100" value="' + sPct + '" data-act="sat" data-id="' + esc(d.id) + '" data-key="sat-' + id + '"></div>' +
+      '<div class="range"><div class="row-between"><label class="se-label" for="cv-' + id + '">Brightness</label><span class="se-value" data-colour-label="v">' + vPct + '%</span></div>' +
+      '<input id="cv-' + id + '" type="range" min="1" max="100" value="' + vPct + '" data-act="cbright" data-id="' + esc(d.id) + '" data-key="cv-' + id + '"></div>' +
+      '</div>';
+  }
+  function readColourCtl(ctl, d) {
+    const code = colourCode(d), m = colourMax(code);
+    const h = Number(ctl.querySelector('[data-act="hue"]').value);
+    const sPct = Number(ctl.querySelector('[data-act="sat"]').value);
+    const vPct = Number(ctl.querySelector('[data-act="cbright"]').value);
+    return { h, sPct, vPct, value: { h, s: Math.round((sPct / 100) * m.s), v: Math.round(m.vmin + (clamp(vPct, 1, 100) / 100) * (m.v - m.vmin)) } };
+  }
+  function sendColour(d, value) {
+    const code = colourCode(d), cmds = [];
+    const pc = powerCode(d);
+    if (pc && !d.status[pc]) cmds.push({ code: pc, value: true });
+    if (d.status.work_mode !== 'colour') cmds.push({ code: 'work_mode', value: 'colour' });
+    cmds.push({ code, value });
+    send(d, cmds, Object.fromEntries(cmds.map((c) => [c.code, c.value])));
+  }
+
   function iconSection(d, sfx) {
     const open = S.iconPicking === d.id;
     const current = iconKeyOf(d);
@@ -565,7 +678,7 @@
         '<div class="icon-actions">' +
         (S.icons[d.id] ? '<button class="chip soft" data-act="icon-reset" data-id="' + esc(d.id) + '" data-key="icon-reset' + sfx + '">Use default</button>' : '') +
         '<button class="chip soft" data-act="icon-open" data-id="' + esc(d.id) + '" data-key="icon-done' + sfx + '">Done</button></div>' +
-        '<p class="note icon-note">Icons are saved in this browser, so set them once on each phone or tablet you use.</p>' +
+        '<p class="note icon-note">' + (S.sync ? 'Icons sync to everyone who uses this app.' : 'Icons are saved in this browser. Set up sync (see Me) to share them across devices.') + '</p>' +
         '</div>';
     }
     return html + '</div>';
@@ -672,8 +785,11 @@
 
     if (!d.online) {
       hero = '<div class="stack-center"><span class="big mid">Offline</span><span class="big-label">Check its power and Wi-Fi. Controls return when it reconnects.</span></div>';
+    } else if (k === 'light' && inColour(d)) {
+      hero += lightModeSeg(d, sfx) + colourControls(d, sfx);
     } else if (k === 'light') {
       const bc = brightCode(d), wc = warmCode(d);
+      if (colourCode(d)) hero += lightModeSeg(d, sfx);
       if (bc) {
         const pct = toPct(st[bc], lightRange(d, bc));
         hero += '<div class="stack-center"><span class="big" data-live="bright-' + esc(d.id) + '">' + (specReady(d) ? pct + '%' : '…') + '</span><span class="big-label">Brightness</span></div>' +
@@ -765,7 +881,7 @@
     const data = S.data;
     if (!data) return loadingView();
     let html = '<div class="head"><div><p class="sub">Tap a scene to run it</p><h1 class="title">Scenes</h1></div>' +
-      '<button class="pill-btn" data-act="scene-new" data-key="scene-new">' + icon('plus', 18) + 'New scene</button></div>';
+      (canEdit() ? '<button class="pill-btn" data-act="scene-new" data-key="scene-new">' + icon('plus', 18) + 'New scene</button>' : '') + '</div>';
     if (!data.scenes.length) {
       html += '<div class="empty"><strong>No tap-to-run scenes yet</strong><p>Tap New scene to make one. Scenes you create in the Tuya app show up here too.</p></div>';
     } else {
@@ -775,12 +891,14 @@
         return '<div class="scene-wrap"><button class="scene ' + (state || '') + '" data-act="scene" data-id="' + esc(s.id) + '" data-key="scene-' + esc(s.id) + '"' + (state === 'running' ? ' disabled' : '') + '>' +
           '<span class="icon-dot">' + icon(state === 'done' ? 'check' : 'play', 16) + '</span>' +
           '<span><span class="name">' + esc(s.name) + '</span><span class="meta">' + meta + '</span></span></button>' +
-          '<button class="scene-edit edit-btn" data-act="scene-open" data-id="' + esc(s.id) + '" data-key="scene-edit-' + esc(s.id) + '" aria-label="Edit ' + esc(s.name) + '">' + icon('pencil', 16) + '</button></div>';
+          (!canEdit() ? '' : '<button class="scene-edit edit-btn" data-act="scene-open" data-id="' + esc(s.id) + '" data-key="scene-edit-' + esc(s.id) + '" aria-label="Edit ' + esc(s.name) + '">' + icon('pencil', 16) + '</button>') + '</div>';
       }).join('') + '</div>';
     }
     if (withAutomations) html += '<h2 class="section-title">Automations</h2>' + automationsList();
     return html;
   }
+
+  const canEdit = () => S.mode === 'demo' || !S.me || S.me.role === 'admin';
 
   // ---------- Scene editor ----------
   const SCENE_KINDS = ['light', 'plug', 'multi', 'climate', 'cover', 'fan', 'generic'];
@@ -1034,12 +1152,16 @@
     const data = S.data;
     const live = S.mode === 'live';
     const updated = data && data.at ? new Date(data.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
-    let html = '<div class="head"><div><p class="sub">' + (live ? 'Connected to Tuya Cloud' : 'Sample devices') + '</p><h1 class="title">Me</h1></div></div>';
+    const who = S.me ? 'Signed in as ' + S.me.name + (S.me.role === 'admin' ? ' (admin)' : '') : (live ? 'Connected to Tuya Cloud' : 'Sample devices');
+    let html = '<div class="head"><div><p class="sub">' + esc(who) + '</p><h1 class="title">Me</h1></div></div>';
     html += '<div class="list">';
     if (data && data.homes && data.homes.length > 1) {
       html += '<div class="list-row"><label class="label" for="home-select">Home</label><select id="home-select" data-act="home" data-key="home-select">' +
         data.homes.map((h) => '<option value="' + esc(h.id) + '"' + (h.id === data.homeId ? ' selected' : '') + '>' + esc(h.name) + '</option>').join('') + '</select></div>';
     }
+    html += '<div class="list-row"><label class="label" for="poll-select">Live updates</label><select id="poll-select" data-act="poll" data-key="poll-select">' +
+      [[2000, 'Fastest (2 s)'], [4000, 'Fast (4 s)'], [10000, 'Normal (10 s)'], [30000, 'Saver (30 s)']].map(([ms, label]) =>
+        '<option value="' + ms + '"' + (S.pollMs === ms ? ' selected' : '') + '>' + label + '</option>').join('') + '</select></div>';
     html += '<button class="list-row" data-act="refresh" data-key="refresh"><span class="label">Refresh now</span><span class="value">' + (updated ? 'Updated ' + updated : '') + '</span></button>';
     if (S.installPrompt) html += '<button class="list-row" data-act="install" data-key="install"><span class="label">Install app</span>' + icon('chevron', 16) + '</button>';
     if (!live) html += '<button class="list-row" data-act="live" data-key="live"><span class="label">Connect my server</span>' + icon('chevron', 16) + '</button>';
@@ -1053,9 +1175,18 @@
             '<button class="list-row" data-act="pin-off" data-key="pin-off"><span class="label">Turn off PIN</span><span class="value">Opens without unlocking</span></button>'
           : '<button class="list-row" data-act="pin-setup" data-key="pin-setup"><span class="label">Unlock with a PIN</span><span class="value">Off</span></button>';
       }
-      html += '<button class="list-row danger" data-act="lock" data-key="lock"><span class="label">Lock app</span><span class="value">' +
-        (hasPin ? 'Asks for your PIN' : 'Asks for the password again') + '</span></button></div>';
+      if (S.me && !S.me.owner && S.sync) html += pwFormView();
+      html += '<button class="list-row" data-act="lock" data-key="lock"><span class="label">Lock app</span><span class="value">' +
+        (hasPin ? 'Asks for your PIN' : 'Asks for the password again') + '</span></button>' +
+        '<button class="list-row danger" data-act="signout" data-key="signout"><span class="label">Sign out</span><span class="value">On this device</span></button></div>';
       if (hasPin) html += '<p class="note" style="text-align:left;margin-top:10px">Home also locks itself after 5 minutes in the background. After ' + PIN_TRIES + ' wrong PINs it asks for your password instead.</p>';
+    }
+    const showAdmin = S.mode === 'demo' || (live && (!S.me || S.me.role === 'admin'));
+    if (showAdmin) html += usersSection();
+    if (live || S.mode === 'demo') {
+      html += '<h2 class="section-title">Sync</h2><div class="list"><div class="list-row"><span class="label">Icons across devices</span><span class="value">' +
+        (S.sync ? 'On' : 'Off') + '</span></div></div>' +
+        (S.sync ? '' : '<p class="note" style="text-align:left;margin-top:10px">Connect free Upstash Redis storage in Vercel to sync icons and add users. See "Sync and users" in the README.</p>');
     }
     if (data && data.warnings && data.warnings.length) {
       html += '<h2 class="section-title">Needs attention</h2><div class="list">' + data.warnings.map((w) =>
@@ -1064,8 +1195,62 @@
     }
     html += '<h2 class="section-title">About</h2><div class="list">' +
       '<div class="list-row"><span class="label">Adding devices</span><span class="value">Pair them in the Tuya app</span></div>' +
-      '<div class="list-row"><span class="label">Version</span><span class="value">1.7.0</span></div></div>';
+      '<div class="list-row"><span class="label">Version</span><span class="value">2.1.0</span></div></div>';
     return html;
+  }
+
+  function usersSection() {
+    let html = '<h2 class="section-title">People</h2>';
+    if (!S.sync) {
+      return html + '<div class="list"><div class="list-row"><span class="label">Owner</span><span class="value">Uses APP_PASSWORD</span></div></div>' +
+        '<p class="note" style="text-align:left;margin-top:10px">To give others their own password, set up storage first (README, "Sync and users").</p>';
+    }
+    if (S.users === null) { loadUsers(); return html + '<p class="note" style="text-align:left">Loading…</p>'; }
+    if (S.users === 'loading') return html + '<p class="note" style="text-align:left">Loading…</p>';
+    if (S.users && S.users.error) return html + '<p class="note" style="text-align:left">' + esc(S.users.error) + '</p>';
+    html += '<div class="list"><div class="list-row"><span class="channel"><span class="label">Owner</span></span><span class="value">Admin, uses APP_PASSWORD</span></div>';
+    html += S.users.map((u) => {
+      const armed = S.userDelete === u.id;
+      return '<div class="list-row user-row"><span class="label">' + esc(u.name) + '</span><span class="user-actions">' +
+        '<label class="sr-only" for="role-' + esc(u.id) + '">Role for ' + esc(u.name) + '</label>' +
+        '<select id="role-' + esc(u.id) + '" data-act="user-role" data-id="' + esc(u.id) + '" data-key="role-' + esc(u.id) + '">' +
+        ['member', 'admin'].map((r) => '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' + (r === 'admin' ? 'Admin' : 'Member') + '</option>').join('') + '</select>' +
+        '<button class="chip soft' + (armed ? ' danger-chip' : '') + '" data-act="user-del" data-id="' + esc(u.id) + '" data-key="udel-' + esc(u.id) + '">' + (armed ? 'Confirm' : 'Remove') + '</button></span></div>';
+    }).join('');
+    const F = S.userForm;
+    if (F.open) {
+      html += '<form class="user-form" data-act="user-add" novalidate>' +
+        '<div class="field"><label for="uf-name">Name</label><input id="uf-name" maxlength="30" autocomplete="off" value="' + esc(F.name) + '" data-act="uf" data-field="name" data-key="uf-name"></div>' +
+        '<div class="field"><label for="uf-pw">Password (at least 8 characters)</label><input id="uf-pw" type="password" autocomplete="new-password" value="' + esc(F.password) + '" data-act="uf" data-field="password" data-key="uf-pw"></div>' +
+        '<div class="field"><label for="uf-role">Role</label><select id="uf-role" data-act="uf" data-field="role" data-key="uf-role">' +
+        '<option value="member"' + (F.role === 'member' ? ' selected' : '') + '>Member: control devices and run scenes</option>' +
+        '<option value="admin"' + (F.role === 'admin' ? ' selected' : '') + '>Admin: also edit scenes and manage people</option></select></div>' +
+        (F.error ? '<p class="error" role="alert">' + esc(F.error) + '</p>' : '') +
+        '<div class="pin-actions"><button type="button" class="btn ghost" data-act="user-form-close" data-key="uf-cancel">Cancel</button>' +
+        '<button type="submit" class="btn" data-key="uf-save"' + (F.busy ? ' disabled' : '') + '>' + (F.busy ? 'Adding…' : 'Add person') + '</button></div></form>';
+    } else {
+      html += '<button class="list-row" data-act="user-form-open" data-key="uf-open"><span class="label">Add a person</span>' + icon('plus', 16) + '</button>';
+    }
+    html += '</div><p class="note" style="text-align:left;margin-top:10px">Each person signs in with their own password. Removing someone signs them out everywhere.</p>';
+    return html;
+  }
+
+  function pwFormView() {
+    const F = S.pwForm;
+    if (!F.open) return '<button class="list-row" data-act="pw-open" data-key="pw-open"><span class="label">Change my password</span>' + icon('chevron', 16) + '</button>';
+    return '<form class="user-form" data-act="pw-save" novalidate>' +
+      '<div class="field"><label for="pf-cur">Current password</label><input id="pf-cur" type="password" autocomplete="current-password" value="' + esc(F.current) + '" data-act="pf" data-field="current" data-key="pf-cur"></div>' +
+      '<div class="field"><label for="pf-new">New password (at least 8 characters)</label><input id="pf-new" type="password" autocomplete="new-password" value="' + esc(F.password) + '" data-act="pf" data-field="password" data-key="pf-new"></div>' +
+      (F.error ? '<p class="error" role="alert">' + esc(F.error) + '</p>' : '') +
+      '<div class="pin-actions"><button type="button" class="btn ghost" data-act="pw-close" data-key="pf-cancel">Cancel</button>' +
+      '<button type="submit" class="btn" data-key="pf-save"' + (F.busy ? ' disabled' : '') + '>' + (F.busy ? 'Saving…' : 'Save') + '</button></div></form>';
+  }
+
+  async function loadUsers() {
+    S.users = 'loading';
+    try { S.users = (await api('users')).users || []; }
+    catch (e) { S.users = { error: e.message }; }
+    render();
   }
 
   function keypad() {
@@ -1107,14 +1292,14 @@
     const setup = S.gate === 'setup';
     return '<div class="gate"><form class="gate-box" data-act="unlock" novalidate>' +
       '<span class="gate-mark">' + icon('home', 30) + '</span>' +
-      '<h1 class="title">' + (setup ? 'Finish setting up your server' : 'Unlock Home') + '</h1>' +
+      '<h1 class="title">' + (setup ? 'Finish setting up your server' : 'Sign in to Home') + '</h1>' +
       (setup
         ? '<p>' + esc(S.gateError) + ' Add the environment variables listed in the README to your Vercel project, redeploy, then try again.</p>' +
           '<button class="btn" type="button" data-act="retry" data-key="retry">Try again</button>'
-        : '<p>Enter the app password you set as APP_PASSWORD in Vercel.</p>' +
-          '<div class="field"><label for="pw">App password</label><input id="pw" name="pw" type="password" autocomplete="current-password" required data-key="pw"></div>' +
-          (S.gateError ? '<p class="error" role="alert">' + esc(S.gateError) + '</p>' : '') +
-          '<button class="btn" type="submit" data-key="unlock">Unlock</button>') +
+        : '<p>Enter your password. The owner uses APP_PASSWORD from Vercel; others use the password an admin gave them.</p>' +
+          '<div class="field"><label for="pw">Password</label><input id="pw" name="pw" type="password" autocomplete="current-password" required data-key="pw"></div>' +
+          (S.gateError ? '<p class="' + (S.gateError === 'Signing in…' ? 'note' : 'error') + '" role="alert">' + esc(S.gateError) + '</p>' : '') +
+          '<button class="btn" type="submit" data-key="unlock">Sign in</button>') +
       '<button class="btn ghost" type="button" data-act="demo" data-key="demo">Preview with sample devices</button>' +
       '</form></div>';
   }
@@ -1206,7 +1391,7 @@
 
     switch (act) {
       case 'tab': go(el.dataset.tab); break;
-      case 'room': S.room = el.dataset.room; render(); break;
+      case 'room': S.room = el.dataset.room; S.allOffArmed = 0; render(); break;
       case 'open': go('device/' + encodeURIComponent(id)); break;
       case 'back': go('devices'); break;
       case 'toggle': {
@@ -1248,6 +1433,22 @@
         sendSoon(d, 'temp_set', clamp(d.status.temp_set + Number(el.dataset.delta) * step, min, max));
         break;
       }
+      case 'lmode': {
+        if (!d) break;
+        if (el.dataset.val === 'colour') sendColour(d, currentColour(d));
+        else {
+          const cmds = [{ code: 'work_mode', value: 'white' }], pc = powerCode(d);
+          if (pc && !d.status[pc]) cmds.unshift({ code: pc, value: true });
+          send(d, cmds, Object.fromEntries(cmds.map((c) => [c.code, c.value])));
+        }
+        break;
+      }
+      case 'swatch': {
+        if (!d) break;
+        const m = colourMax(colourCode(d)), c = currentColour(d);
+        sendColour(d, { h: Number(el.dataset.h), s: m.s, v: c.v || m.v });
+        break;
+      }
       case 'irtemp':
         if (d && d.ir) sendIrAc(d, { power: true, temp: clamp((d.ir.state ? d.ir.state.temp : 24) + Number(el.dataset.delta), 16, 30) });
         break;
@@ -1268,10 +1469,10 @@
         render();
         break;
       case 'icon-set':
-        S.icons[id] = el.dataset.icon; saveIcons(); render();
+        S.icons[id] = el.dataset.icon; saveIcons(); render(); syncIcon(id, el.dataset.icon);
         break;
       case 'icon-reset':
-        delete S.icons[id]; saveIcons(); render();
+        delete S.icons[id]; saveIcons(); render(); syncIcon(id, null);
         break;
       case 'scene': runScene(id); break;
       case 'scene-new': S.editor = null; go('scene/new'); break;
@@ -1313,9 +1514,18 @@
       case 'se-save': saveScene(); break;
       case 'se-delete': deleteScene(); break;
       case 'auto': toggleAutomation(id); break;
-      case 'refresh': toast('Refreshing'); refresh(); break;
+      case 'refresh': toast('Refreshing'); refresh({ fresh: true }); break;
       case 'install': install(); break;
       case 'lock': lockApp(); break;
+      case 'signout': signOut(); break;
+      case 'user-form-open': S.userForm = { name: '', password: '', role: 'member', error: '', busy: false, open: true }; render(); focusFirst('uf-name'); break;
+      case 'user-form-close': S.userForm.open = false; render(); break;
+      case 'user-del':
+        if (S.userDelete !== id) { S.userDelete = id; render(); setTimeout(() => { if (S.userDelete === id) { S.userDelete = null; render(); } }, 4000); break; }
+        S.userDelete = null; userOp({ op: 'delete', id }, 'Removed'); break;
+      case 'pw-open': S.pwForm = { current: '', password: '', error: '', busy: false, open: true }; render(); focusFirst('pf-cur'); break;
+      case 'pw-close': S.pwForm.open = false; render(); break;
+      case 'alloff': allOff(); break;
       case 'pin-setup':
         S.gate = 'pin-new'; S.pinStage = 'enter'; S.pinEntry = ''; S.pinFirst = ''; S.pinError = ''; render(); break;
       case 'pin-off':
@@ -1346,9 +1556,21 @@
   document.addEventListener('input', (e) => {
     const el = e.target;
     if (el.dataset && el.dataset.act === 'se-name' && S.editor) { S.editor.name = el.value; return; }
+    if (el.dataset && el.dataset.act === 'uf') { S.userForm[el.dataset.field] = el.value; return; }
+    if (el.dataset && el.dataset.act === 'pf') { S.pwForm[el.dataset.field] = el.value; return; }
     if (el.dataset && el.dataset.act === 'se-delay' && S.editor) {
       const it = S.editor.items[Number(el.dataset.i)];
       if (it) it[el.dataset.field] = clamp(Math.floor(Number(el.value) || 0), 0, 59);
+      return;
+    }
+    if (el.dataset && ['hue', 'sat', 'cbright'].includes(el.dataset.act)) {
+      const ctl = el.closest('.colour-ctl'), d = findDevice(el.dataset.id);
+      if (!ctl || !d) return;
+      S.dragging = true;
+      const r = readColourCtl(ctl, d);
+      ctl.querySelector('.colour-preview').style.background = hsvCss(r.h, r.sPct);
+      ctl.querySelector('[data-colour-label="sat"]').textContent = r.sPct + '%';
+      ctl.querySelector('[data-colour-label="v"]').textContent = r.vPct + '%';
       return;
     }
     if (el.dataset && el.dataset.act === 'se-range') {
@@ -1366,6 +1588,12 @@
     const act = el.dataset.act;
     const d = el.dataset.id ? findDevice(el.dataset.id) : null;
     if (LIVE_PREFIX[act]) S.dragging = false;
+    if (['hue', 'sat', 'cbright'].includes(act)) {
+      S.dragging = false;
+      const ctl = el.closest('.colour-ctl'), d = findDevice(el.dataset.id);
+      if (ctl && d) sendColour(d, readColourCtl(ctl, d).value);
+      return;
+    }
     if (act === 'se-range' && S.editor) {
       const it = S.editor.items[Number(el.dataset.i)], dev = findDevice(it.deviceId), code = el.dataset.code, pct = Number(el.value);
       if (code === 'percent_control' || code === 'fan_speed_percent') it.props[code] = pct;
@@ -1373,6 +1601,9 @@
       render(); return;
     }
     if (act === 'se-delay' && S.editor) { render(); return; }
+    if (act === 'uf') { S.userForm[el.dataset.field] = el.value; return; }
+    if (act === 'poll') { S.pollMs = Number(el.value) || 4000; store.set('pollMs', String(S.pollMs)); schedulePoll(); toast('Live updates every ' + S.pollMs / 1000 + ' s'); return; }
+    if (act === 'user-role') { userOp({ op: 'role', id: el.dataset.id, role: el.value }, 'Role updated'); return; }
     if (act === 'bright' && d) {
       const bc = brightCode(d);
       const value = fromPct(Number(el.value), lightRange(d, bc));
@@ -1403,15 +1634,77 @@
       renameChannel(d, form.dataset.code, name.slice(0, 40));
       return;
     }
+    if (form.dataset.act === 'user-add') { e.preventDefault(); addUser(); return; }
+    if (form.dataset.act === 'pw-save') { e.preventDefault(); changePassword(); return; }
     if (form.dataset.act !== 'unlock') return;
     e.preventDefault();
     const pw = form.elements.pw ? form.elements.pw.value : '';
-    if (!pw) { S.gateError = 'Enter your app password.'; render(); return; }
-    S.key = pw; store.set('appKey', pw);
+    if (!pw) { S.gateError = 'Enter your password.'; render(); return; }
+    S.gateError = 'Signing in…'; render();
+    let token = pw;
+    try {
+      const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw }) });
+      const j = await res.json().catch(() => ({}));
+      if (res.ok && j.token) { token = j.token; S.me = j.user || null; S.sync = !!j.sync; }
+      else if (res.status === 401 || res.status === 429) { S.gateError = j.error || 'That password isn\'t right.'; render(); return; }
+      else if (res.status === 503 && j.code === 'not_configured') { S.gate = 'setup'; S.gateError = j.error; render(); return; }
+      // Any other answer (e.g. an older server without /api/login): fall back to the password itself.
+    } catch (err) {
+      S.gateError = navigator.onLine ? 'Could not reach your server.' : 'You are offline.'; render(); return;
+    }
+    S.key = token; store.set('appKey', token);
     S.mode = 'live'; store.set('mode', 'live');
     S.gateError = ''; S.gate = null; S.data = null;
     await refresh();
   });
+
+  function focusFirst(key) {
+    const el = document.querySelector('[data-key="' + key + '"]');
+    if (el) el.focus();
+  }
+
+  async function userOp(body, okMsg) {
+    try {
+      const r = await api('users', { method: 'POST', body });
+      if (r.users) S.users = r.users;
+      toast(okMsg);
+    } catch (e) { toast(e.message); }
+    render();
+  }
+
+  async function addUser() {
+    const F = S.userForm;
+    if (!F.name.trim()) { F.error = 'Enter a name.'; render(); return; }
+    if (F.password.length < 8) { F.error = 'Passwords need at least 8 characters.'; render(); return; }
+    F.busy = true; F.error = ''; render();
+    try {
+      const r = await api('users', { method: 'POST', body: { op: 'create', name: F.name.trim(), password: F.password, role: F.role } });
+      S.users = r.users || S.users;
+      S.userForm = { name: '', password: '', role: 'member', error: '', busy: false, open: false };
+      toast('Added. Give them their password to sign in.');
+    } catch (e) { F.busy = false; F.error = e.message; }
+    render();
+  }
+
+  async function changePassword() {
+    const F = S.pwForm;
+    if (F.password.length < 8) { F.error = 'Passwords need at least 8 characters.'; render(); return; }
+    F.busy = true; F.error = ''; render();
+    try {
+      await api('users', { method: 'POST', body: { op: 'password', current: F.current, password: F.password } });
+      S.pwForm = { current: '', password: '', error: '', busy: false, open: false };
+      toast('Password changed');
+    } catch (e) { F.busy = false; F.error = e.message; }
+    render();
+  }
+
+  async function signOut() {
+    if (S.mode === 'live') { try { await api('logout', { method: 'POST' }); } catch (e) { /* signing out locally anyway */ } }
+    wipeVault(); store.del('appKey');
+    S.key = ''; S.me = null; S.users = null; S.data = null; S.specs = {};
+    S.gate = 'login'; S.gateError = '';
+    render();
+  }
 
   function lockApp() {
     S.data = null; S.specs = {}; S.renaming = null; S.iconPicking = null;
@@ -1493,6 +1786,12 @@
     else if (e.key === 'Enter' && S.gate === 'pin-new') { e.preventDefault(); pinNext(); }
   });
 
+  async function syncIcon(id, key) {
+    if (!S.sync) return;
+    try { await api('settings', { method: 'POST', body: { icons: { [id]: key } } }); }
+    catch (e) { toast('Icon saved on this device only: ' + e.message); }
+  }
+
   function focusRenameInput() {
     const input = Array.from(document.querySelectorAll('.rename input')).find((n) => n.offsetParent !== null);
     if (input) { input.focus(); input.select(); }
@@ -1565,9 +1864,51 @@
     if (S.mode === 'live' && !S.gate && readVault() && hiddenAt && Date.now() - hiddenAt > AUTO_LOCK_MS) { lockApp(); return; }
     if (!S.gate) refresh({ silent: true });
   });
-  setInterval(() => {
-    if (document.visibilityState === 'visible' && !S.dragging && !S.gate) refresh({ silent: true });
-  }, 15000);
+  // Two speeds of updates: a light status poll every few seconds (just device states, one request),
+  // and a full refresh (rooms, scenes, automations...) once a minute.
+  const FULL_MS = 60000;
+  let lastFull = 0, statusBusy = false, pollTimer = null;
+  async function pollStatus() {
+    if (statusBusy || S.loading || !S.data || S.gate || document.visibilityState !== 'visible') return;
+    const ids = S.data.devices.filter((d) => !d.ir || d.ir.hub === null || d.sensorOnly).map((d) => d.id);
+    if (!ids.length) return;
+    statusBusy = true;
+    try {
+      const r = await api('status?ids=' + encodeURIComponent(ids.join(',')));
+      let changed = false;
+      const now = Date.now();
+      for (const d of S.data.devices) {
+        const fresh = r.devices && r.devices[d.id];
+        if (!fresh) continue;
+        if (now - (S.touched[d.id] || 0) < 1500) continue; // let a just-sent command land first
+        if (d.ir && d.ir.ac) { if (d.online !== fresh.online) { d.online = fresh.online; changed = true; } continue; }
+        if (d.online !== fresh.online || JSON.stringify(d.status) !== JSON.stringify(fresh.status)) {
+          d.online = fresh.online; d.status = fresh.status; changed = true;
+        }
+      }
+      if (changed) S.data.at = r.at;
+      const typing = document.activeElement && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName) && document.activeElement.type !== 'range';
+      if (changed && !S.dragging && !S.renaming && !typing && !(S.editor && route().view === 'scene-edit')) render();
+    } catch (e) {
+      if (e.code === 'unauthorized') refresh({ silent: true });
+    } finally {
+      statusBusy = false;
+    }
+  }
+  function statusSoon() {
+    clearTimeout(statusSoon.a); clearTimeout(statusSoon.b);
+    statusSoon.a = setTimeout(pollStatus, 1600);
+    statusSoon.b = setTimeout(pollStatus, 4000);
+  }
+  function schedulePoll() {
+    clearInterval(pollTimer);
+    pollTimer = setInterval(() => {
+      if (document.visibilityState !== 'visible' || S.gate || S.dragging) return;
+      if (Date.now() - lastFull > FULL_MS) refresh({ silent: true });
+      else pollStatus();
+    }, S.pollMs);
+  }
+  schedulePoll();
   window.addEventListener('online', () => { if (!S.gate) refresh({ silent: true }); });
 
   if ('serviceWorker' in navigator) {
@@ -1582,6 +1923,7 @@
       rooms: ['Living room', 'Bedroom', 'Kitchen', 'Hallway'],
       devices: [
         { id: 'dev1', name: 'Ceiling light', category: 'dj', product: 'Smart bulb', online: true, room: 'Living room', status: { switch_led: true, work_mode: 'white', bright_value_v2: 800, temp_value_v2: 0 } },
+        { id: 'dev14', name: 'Light strip', category: 'dd', product: 'RGB light strip', online: true, room: 'Living room', status: { switch_led: true, work_mode: 'colour', bright_value_v2: 800, temp_value_v2: 0, colour_data_v2: { h: 275, s: 900, v: 800 } } },
         { id: 'dev2', name: 'Floor lamp', category: 'dj', product: 'Smart bulb', online: true, room: 'Living room', status: { switch_led: false, work_mode: 'white', bright_value_v2: 450, temp_value_v2: 500 } },
         { id: 'dev9', name: 'Living room climate', category: 'wsdcg', product: 'Temperature and humidity sensor', online: true, room: 'Living room', status: { va_temperature: 215, va_humidity: 48, battery_percentage: 72 } },
         { id: 'dev13', name: 'Bedroom sensor', category: 'wsdcg', product: 'Temperature and humidity sensor', online: true, room: 'Bedroom', status: { va_temperature: 198, va_humidity: 55, battery_percentage: 15 } },
@@ -1627,6 +1969,8 @@
       cl: { percent_control: { min: 0, max: 100, scale: 0, step: 1 } }
     };
     const names = { dev12: { switch_1: 'Monitor', switch_2: 'Laptop charger' } };
+    const demoIcons = {};
+    let demoUsers = [{ id: 'u1', name: 'Sam', role: 'member', owner: false }];
     const clone = (x) => JSON.parse(JSON.stringify(x));
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     async function handle(path, opts) {
@@ -1640,6 +1984,9 @@
         out.rooms = homeId === 'h1' ? db.rooms : ['Patio', 'Garden'];
         if (homeId !== 'h1') { out.scenes = [{ id: 'sc9', name: 'Arrive', steps: [{ executor: 'dpIssue', entity: 'bh1', props: { switch_led: true } }] }]; out.automations = []; }
         out.scenes.forEach((x) => { x.actions = (x.steps || []).length; });
+        out.me = { id: 'owner', name: 'Owner', role: 'admin', owner: true };
+        out.sync = true;
+        out.settings = { icons: Object.assign({}, demoIcons) };
         out.at = Date.now();
         return out;
       }
@@ -1670,6 +2017,23 @@
         const dev = db.devices.find((x) => x.id === b.remoteId);
         if (b.action === 'ac' && dev) dev.ir.state = { power: b.power === 1, mode: b.mode, temp: b.temp, wind: b.wind };
         return { ok: true };
+      }
+      if (path.startsWith('status')) {
+        const out = {};
+        db.devices.forEach((x) => { out[x.id] = { online: x.online, status: clone(x.status) }; });
+        return { at: Date.now(), devices: out };
+      }
+      if (path === 'settings') { Object.entries((b.icons) || {}).forEach(([k, v]) => { if (v === null) delete demoIcons[k]; else demoIcons[k] = v; }); return { icons: demoIcons }; }
+      if (path === 'logout') return { ok: true };
+      if (path === 'users') {
+        if (!opts || !opts.method || opts.method === 'GET') return { users: clone(demoUsers) };
+        if (b.op === 'create') {
+          if (demoUsers.some((u) => u.name.toLowerCase() === String(b.name).toLowerCase())) { const e = new Error('That name is taken.'); throw e; }
+          demoUsers.push({ id: 'u' + Date.now(), name: b.name, role: b.role, owner: false });
+        }
+        if (b.op === 'role') demoUsers.forEach((u) => { if (u.id === b.id) u.role = b.role; });
+        if (b.op === 'delete') demoUsers = demoUsers.filter((u) => u.id !== b.id);
+        return { users: clone(demoUsers) };
       }
       if (path === 'scene-edit') {
         const toSteps = (acts) => acts.map((a) => ({ executor: a.action_executor, entity: a.entity_id || (a.action_executor === 'delay' ? 'delay' : ''), props: a.executor_property || {} }));
