@@ -1,6 +1,6 @@
 // Service worker: caches the app shell so Home opens instantly and offline.
 // Device data (/api/*) is never cached: it always comes live from your server.
-const CACHE = 'home-shell-v44';
+const CACHE = 'home-shell-v46';
 const SHELL = ['/', '/index.html', '/app.css', '/app.js', '/manifest.webmanifest',
   '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png', '/backgrounds/aura.jpg'];
 
@@ -20,7 +20,7 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  if (url.origin === location.origin && url.pathname.startsWith('/api/')) return;
+  if (url.origin === location.origin && (url.pathname.startsWith('/api/') || url.pathname === '/version.json')) return;
 
   // Pages: network first, fall back to the cached shell when offline.
   if (req.mode === 'navigate') {

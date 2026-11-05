@@ -2,6 +2,11 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.25.0
+
+- Timers: on a device's screen, choose Turn off (or on) in 15 min, 30 min, 1 hour or 2 hours. Upcoming timers show with a Cancel button.
+- Sensor history: tap a temperature or humidity reading for charts of the last 24 hours or 7 days, with low, average and high.
+
 ## 2.24.0
 
 - Five more backgrounds: Ember, Tide, Mist, Halftone and Dusk.

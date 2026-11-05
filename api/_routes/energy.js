@@ -9,6 +9,7 @@ const { call } = require('../_lib/tuya');
 const { handler, requireId } = require('../_lib/http');
 const { cached, SLOW } = require('../_lib/cache');
 const access = require('../_lib/access');
+const { reportLogs } = require('../_lib/logs');
 
 const DAY = 86400000;
 const pad = (n) => String(n).padStart(2, '0');
@@ -36,20 +37,6 @@ async function specFor(deviceId) {
     }
     return out;
   });
-}
-
-// Pages through report logs for one code (query keys kept in alphabetical order for signing).
-async function reportLogs(deviceId, code, start, end) {
-  const logs = [];
-  let key = '';
-  for (let page = 0; page < 30; page++) {
-    const q = 'codes=' + code + '&end_time=' + end + (key ? '&last_row_key=' + encodeURIComponent(key) : '') + '&size=100&start_time=' + start;
-    const r = await call('GET', `/v2.0/cloud/thing/${deviceId}/report-logs?${q}`);
-    for (const l of (r && r.logs) || []) logs.push({ t: Number(l.event_time), v: num(l.value) });
-    if (!r || !r.has_more || !r.last_row_key) break;
-    key = r.last_row_key;
-  }
-  return logs.filter((l) => l.v != null && Number.isFinite(l.t)).sort((a, b) => a.t - b.t);
 }
 
 function emptyDays(first) { return Array.from({ length: 7 }, (_, i) => ({ day: addDays(first, i), kwh: 0 })); }

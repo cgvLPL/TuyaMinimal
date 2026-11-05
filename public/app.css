@@ -1362,3 +1362,25 @@ html[data-bg] .detail-head .round-btn::after, html[data-bg] dialog.confirm::afte
 }
 .bg-name { font-size: 13px; font-weight: 600; }
 @media (min-width: 900px) { .bg-grid { grid-template-columns: repeat(4, minmax(0, 160px)); } }
+
+/* ---------- Timers ---------- */
+.timer-add { flex-direction: column; align-items: stretch; gap: 10px; }
+.timer-add .seg .chip { height: 40px; font-size: 13px; }
+.timer-list .se-title { font-size: 15px; font-weight: 700; }
+
+/* ---------- Readings open their history ---------- */
+button.reading { border: 0; text-align: left; color: var(--text); font: inherit; cursor: pointer; }
+button.reading:active { transform: scale(0.98); }
+
+/* ---------- Sensor history ---------- */
+.hist-range { margin-bottom: 14px; }
+.hist-card { padding: 14px 16px 12px; margin-bottom: 12px; display: block; }
+.hist-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+.hist-now { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
+.hist-chart { width: 100%; height: 120px; display: block; overflow: visible; }
+.hist-line { fill: none; stroke: var(--text); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.hist-area { fill: var(--text); opacity: 0.07; }
+.hist-dot { fill: var(--text); stroke: var(--content, var(--surface)); stroke-width: 2; }
+.hist-axis { display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: var(--muted); margin-top: 4px; }
+.hist-stats { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 0.5px solid var(--line); font-size: 12px; color: var(--muted); }
+.hist-stats b { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }

@@ -62,9 +62,11 @@ api/_routes/       the endpoints (folders starting with _ aren't deployed as sep
   energy.js        daily kWh for plugs that measure power: Tuya statistics, else the device's
                    energy report log, else an estimate from its wattage log
   irspec.js        which IR remote commands can be used in scenes and automations
+  timer.js         one-off device timers ("turn off in 30 min") via Tuya cloud schedules
+  history.js       sensor history charts from the device's report log
   activity.js      the activity log: who did what (needs the database)
   weather.js       current weather at the home's location (Open-Meteo, cached 10 minutes)
-api/_lib/          Tuya client and signing, sign-in, home access checks, scene/automation validation, Neon helpers
+api/_lib/          report-log paging, Tuya client and signing, sign-in, home access checks, scene/automation validation, Neon helpers
 ```
 
 One dependency (the Neon database driver, installed by Vercel) and no build step. Runs on Node 22 (set in package.json).
@@ -152,6 +154,11 @@ See `CHANGELOG.md` (also in the app under Me → About → Version) for what cha
 
 After you deploy a new version, the installed app downloads it in the background and reloads itself
 once, at a quiet moment (never while you're typing, dragging a slider or editing a scene).
+
+## Checking what's deployed
+
+Open `https://your-project.vercel.app/version.json` to see which version Vercel is serving.
+It should match the newest entry in `CHANGELOG.md`.
 
 ## Troubleshooting
 

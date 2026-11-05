@@ -5,6 +5,13 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.25.0",
+      "items": [
+        "Timers: on a device's screen, choose Turn off (or on) in 15 min, 30 min, 1 hour or 2 hours. Upcoming timers show with a Cancel button.",
+        "Sensor history: tap a temperature or humidity reading for charts of the last 24 hours or 7 days, with low, average and high."
+      ]
+    },
+    {
       "v": "2.24.0",
       "items": [
         "Five more backgrounds: Ember, Tide, Mist, Halftone and Dusk.",
@@ -320,6 +327,9 @@
     weather: null,
     showDistance: store.get('showDistance') === '1',  // "You're 12 km from home" (location stays on this phone)
     myPos: null,
+    timers: {},          // deviceId -> { list, at } | 'loading' | { error }
+    history: null,       // { id, hours, data, loading, error }
+    histHours: 24,
     bg: store.get('bg') || 'system',  // optional background: 'system' or 'aura'
     activity: null,      // { homeId, entries, more, loading, error }
     energy: {},          // deviceId -> { at, available, today, week, days, total } | 'loading'       // { homeId, at, available, temp, code, isDay, unit } for the greeting
@@ -394,6 +404,7 @@
     if (h === 'changelog') return { view: 'changelog' };
     if (h === 'activity') return { view: 'activity' };
     if (h === 'backgrounds') return { view: 'backgrounds' };
+    if (h.startsWith('history/')) return { view: 'history', id: decodeURIComponent(h.slice(8)) };
     if (h === 'scenes' || h === 'me') return { view: h };
     return { view: 'devices' };
   }
@@ -643,12 +654,157 @@
     const extra = [];
     if (d.online && r.co2 != null) extra.push('CO₂ ' + r.co2 + ' ppm');
     if (d.online && r.pm25 != null) extra.push('PM2.5 ' + r.pm25 + ' µg/m³');
-    return '<div class="reading' + (lowBattery ? ' low' : '') + '" role="listitem"' + (lowBattery ? ' title="Battery low"' : '') + '>' +
+    return '<button class="reading' + (lowBattery ? ' low' : '') + '" data-act="open-history" data-id="' + esc(d.id) + '" data-key="reading-' + esc(d.id) + '" aria-label="' + esc(d.name + ', show history') + '"' + (lowBattery ? ' title="Battery low"' : '') + '>' +
       '<span class="reading-name">' + esc(d.name) + (showRoom && d.room ? '<span class="reading-room">' + esc(d.room) + '</span>' : '') + '</span>' +
       '<span class="reading-main">' + main + '</span>' +
       (extra.length ? '<span class="reading-extra">' + extra.map((x) => '<span>' + x + '</span>').join('') + '</span>' : '') +
       (lowBattery ? '<span class="reading-warn">Battery low</span>' : '') +
-      '</div>';
+      '</button>';
+  }
+
+  // ---------- Timers ("turn off in 30 min") ----------
+  const TIMER_CHOICES = [[15, '15 min'], [30, '30 min'], [60, '1 hour'], [120, '2 hours']];
+  const pad2 = (n) => String(n).padStart(2, '0');
+  function timerTarget(d) {
+    if (d.ir || !hasToggle(d)) return null;
+    const on = isOn(d);
+    const codes = kindOf(d) === 'multi' ? channelCodes(d) : [powerCode(d)];
+    return { power: !on, functions: codes.map((c) => ({ code: c, value: !on })) };
+  }
+  async function loadTimers(d, force) {
+    const t = S.timers[d.id];
+    if (t === 'loading' || (!force && t && Date.now() - t.at < 60000)) return;
+    S.timers[d.id] = 'loading';
+    try { S.timers[d.id] = { list: (await api('timer?deviceId=' + encodeURIComponent(d.id))).timers || [], at: Date.now() }; }
+    catch (e) { S.timers[d.id] = { error: e.message, at: Date.now(), list: [] }; }
+    if (!S.dragging) render();
+  }
+  function timerWhen(t) {
+    // One-off timers: date YYYYMMDD + time HH:MM, in the device's local time as set by this phone.
+    if (!/^\d{8}$/.test(t.date || '') || t.date === '00000000') return null;
+    const at = new Date(+t.date.slice(0, 4), +t.date.slice(4, 6) - 1, +t.date.slice(6, 8), +t.time.slice(0, 2), +t.time.slice(3, 5));
+    return at.getTime();
+  }
+  function timerSection(d) {
+    const target = timerTarget(d);
+    if (!target) return '';
+    if (!S.timers[d.id]) loadTimers(d);
+    const T = S.timers[d.id];
+    const now = Date.now();
+    const upcoming = T && T.list ? T.list.filter((t) => (t.loops || '0000000') === '0000000' && (timerWhen(t) || 0) > now - 60000)
+      .sort((a, b) => timerWhen(a) - timerWhen(b)) : [];
+    const repeating = T && T.list ? T.list.filter((t) => t.loops && t.loops !== '0000000').length : 0;
+    let html = '<h2 class="section-title">Timer</h2><div class="list timer-list">';
+    upcoming.forEach((t) => {
+      const on = (t.functions || []).some((f) => f.value === true);
+      const mins = Math.max(1, Math.round((timerWhen(t) - now) / 60000));
+      const left = mins >= 60 ? Math.floor(mins / 60) + ' h ' + (mins % 60 ? (mins % 60) + ' min' : '') : mins + ' min';
+      html += '<div class="list-row"><span class="channel"><span class="icon-dot sm">' + icon('clock', 18) + '</span>' +
+        '<span class="se-title">Turns ' + (on ? 'on' : 'off') + ' at ' + esc(t.time) + '<span class="se-room">in ' + left + '</span></span></span>' +
+        '<button class="user-remove" data-act="timer-del" data-id="' + esc(d.id) + '" data-t="' + esc(t.id) + '" data-key="timer-del-' + esc(t.id) + '">Cancel</button></div>';
+    });
+    html += '<div class="list-row timer-add"><span class="se-label">Turn ' + (target.power ? 'on' : 'off') + ' in</span>' +
+      '<div class="seg" style="--n:4">' + TIMER_CHOICES.map(([m, label]) =>
+        '<button class="chip soft" data-act="timer-add" data-id="' + esc(d.id) + '" data-m="' + m + '" data-key="timer-' + m + '">' + label + '</button>').join('') + '</div></div>';
+    if (T && T.error) html += '<div class="list-row"><span class="meta">Timers aren\'t available: ' + esc(T.error) + '</span></div>';
+    if (repeating) html += '<div class="list-row"><span class="meta">' + repeating + (repeating === 1 ? ' repeating schedule' : ' repeating schedules') + ' from the Tuya app also run on this device.</span></div>';
+    return html + '</div>';
+  }
+  async function addTimer(d, minutes) {
+    const target = timerTarget(d);
+    if (!target) return;
+    const at = new Date(Date.now() + minutes * 60000);
+    if (at.getSeconds() > 0) at.setMinutes(at.getMinutes() + 1);
+    at.setSeconds(0, 0);
+    const body = {
+      op: 'add', deviceId: d.id, homeId: S.data && S.data.homeId, name: d.name,
+      time: pad2(at.getHours()) + ':' + pad2(at.getMinutes()),
+      date: at.getFullYear() + pad2(at.getMonth() + 1) + pad2(at.getDate()),
+      timezone: timeZone(), power: target.power, functions: target.functions
+    };
+    try {
+      await api('timer', { method: 'POST', body });
+      toast((target.power ? 'Turns on' : 'Turns off') + ' at ' + body.time);
+      await loadTimers(d, true);
+    } catch (e) { toast('Timer not set: ' + e.message); }
+  }
+  async function deleteTimer(d, timerId) {
+    try {
+      await api('timer', { method: 'POST', body: { op: 'delete', deviceId: d.id, timerId, homeId: S.data && S.data.homeId, name: d.name } });
+      toast('Timer cancelled');
+      await loadTimers(d, true);
+    } catch (e) { toast('Couldn\'t cancel: ' + e.message); }
+  }
+
+  // ---------- Sensor history ----------
+  const HIST_CODES = [['va_temperature', 'Temperature', 'temp'], ['temp_current', 'Temperature', 'temp'], ['va_humidity', 'Humidity', 'hum'],
+    ['humidity_value', 'Humidity', 'hum'], ['co2_value', 'CO₂', 'co2'], ['pm25_value', 'PM2.5', 'pm25']];
+  async function loadHistory(d) {
+    const codes = HIST_CODES.filter(([c]) => typeof d.status[c] === 'number').map(([c]) => c).slice(0, 3);
+    S.history = { id: d.id, hours: S.histHours, loading: true };
+    render();
+    try {
+      const r = await api('history?deviceId=' + encodeURIComponent(d.id) + '&codes=' + codes.join(',') + '&hours=' + S.histHours);
+      if (S.history && S.history.id === d.id) S.history = { id: d.id, hours: S.histHours, data: r };
+    } catch (e) {
+      if (S.history && S.history.id === d.id) S.history = { id: d.id, hours: S.histHours, error: e.message };
+    }
+    render();
+  }
+  function historyValue(d, code, raw, scale) {
+    if (scale != null) return raw / Math.pow(10, scale);
+    const sp = specOf(d, code);
+    if (sp && typeof sp.scale === 'number') return raw / Math.pow(10, sp.scale);
+    return /temp/.test(code) && Math.abs(raw) >= 60 ? raw / 10 : raw;
+  }
+  function chartSvg(points, unit, hours) {
+    const W = 320, H = 120, P = 6;
+    const vs = points.map((p) => p[1]);
+    let min = Math.min(...vs), max = Math.max(...vs);
+    if (max - min < 1) { min -= 0.5; max += 0.5; }
+    const t0 = points[0][0], t1 = points[points.length - 1][0], span = Math.max(1, t1 - t0);
+    const x = (t) => P + ((t - t0) / span) * (W - 2 * P);
+    const y = (v) => P + (1 - (v - min) / (max - min)) * (H - 2 * P);
+    const line = points.map((p, i) => (i ? 'L' : 'M') + x(p[0]).toFixed(1) + ' ' + y(p[1]).toFixed(1)).join(' ');
+    const area = line + ' L' + x(t1).toFixed(1) + ' ' + (H - P) + ' L' + x(t0).toFixed(1) + ' ' + (H - P) + ' Z';
+    const fmt = (t) => {
+      const dd = new Date(t);
+      return hours > 24 ? dd.toLocaleDateString([], { weekday: 'short' }) : dd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
+    return '<svg class="hist-chart" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' +
+      '<path class="hist-area" d="' + area + '"/><path class="hist-line" d="' + line + '" vector-effect="non-scaling-stroke"/>' +
+      '<circle class="hist-dot" cx="' + x(t1).toFixed(1) + '" cy="' + y(points[points.length - 1][1]).toFixed(1) + '" r="3.5" vector-effect="non-scaling-stroke"/></svg>' +
+      '<div class="hist-axis"><span>' + fmt(t0) + '</span><span>Now</span></div>';
+  }
+  function historyView(id) {
+    const d = findDevice(id);
+    let html = '<div class="detail-head se-head-top"><button class="round-btn" data-act="tab" data-tab="devices" data-key="hist-back" aria-label="Back to devices">' + icon('back', 20) + '</button>' +
+      '<div><p class="sub">' + esc(d ? (d.room || 'History') : 'History') + '</p><h1 class="detail-title">' + esc(d ? d.name : 'Sensor') + '</h1></div></div>';
+    if (!d) return html + '<div class="empty"><strong>Sensor not found</strong></div>';
+    html += '<div class="seg hist-range" style="--n:2" role="group" aria-label="Time range">' +
+      [[24, 'Last 24 hours'], [168, 'Last 7 days']].map(([h, l]) =>
+        '<button class="chip soft" data-act="hist-range" data-h="' + h + '" data-id="' + esc(d.id) + '" data-key="hist-' + h + '" aria-pressed="' + (S.histHours === h) + '">' + l + '</button>').join('') + '</div>';
+    const H = S.history;
+    if (!H || H.id !== d.id || H.hours !== S.histHours) { if (!H || !H.loading) loadHistory(d); return html + '<p class="note" style="text-align:left">Loading…</p>'; }
+    if (H.loading) return html + '<p class="note" style="text-align:left">Loading…</p>';
+    if (H.error) return html + '<div class="empty"><strong>Couldn\'t load history</strong><p>' + esc(H.error) + '</p></div>';
+    const series = (H.data && H.data.series) || {};
+    const shown = HIST_CODES.filter(([c]) => series[c] && series[c].points && series[c].points.length > 1);
+    if (!shown.length) {
+      return html + '<div class="empty"><strong>No history yet</strong><p>Tuya hasn\'t stored readings from this sensor for this period.' +
+        ((H.data && H.data.reasons && H.data.reasons.length) ? ' ' + esc(H.data.reasons.join('. ')) : '') + '</p></div>';
+    }
+    shown.forEach(([code, label, kind]) => {
+      const sc = series[code].scale;
+      const pts = series[code].points.map(([t, v]) => [t, historyValue(d, code, v, sc)]);
+      const vs = pts.map((p) => p[1]);
+      const unit = kind === 'temp' ? '°' : kind === 'hum' ? '%' : kind === 'co2' ? ' ppm' : ' µg/m³';
+      const f = (v) => (kind === 'temp' ? Math.round(v * 10) / 10 : Math.round(v)) + unit;
+      html += '<section class="hist-card list"><div class="hist-head"><span class="se-label">' + label + '</span><span class="hist-now">' + f(vs[vs.length - 1]) + '</span></div>' +
+        chartSvg(pts, unit, H.hours) +
+        '<div class="hist-stats"><span>Low <b>' + f(Math.min(...vs)) + '</b></span><span>Average <b>' + f(vs.reduce((a, b) => a + b, 0) / vs.length) + '</b></span><span>High <b>' + f(Math.max(...vs)) + '</b></span></div></section>';
+    });
+    return html;
   }
 
   // ---------- Energy (plugs that measure power) ----------
@@ -859,6 +1015,7 @@
     plant: '<path d="M7 14h10l-1.5 7h-7zM12 14V9M12 9c0-3-2-5-5-5 0 3 2 5 5 5zM12 11c0-2.5 2-4 4.5-4 0 2.5-2 4-4.5 4z"/>',
     petbowl: '<path d="M3 15h18l-2 5H5zM8 15a4 4 0 0 1 8 0"/><circle cx="9" cy="6" r="1.2"/><circle cx="15" cy="6" r="1.2"/><circle cx="12" cy="4.5" r="1.2"/>',
     pin: '<path d="M12 21s-7-6.1-7-11.5a7 7 0 0 1 14 0C19 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     drop: '<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>',
     down: '<path d="M6 9l6 6 6-6"/>',
     remote: '<rect x="7" y="2" width="10" height="20" rx="3"/><path d="M12 6v.01M10 10h4M10 13.5h4M10 17h4"/>',
@@ -1093,7 +1250,7 @@
     const readings = shown.filter(isReadingDevice);
     const cards = shown.filter((d) => !isReadingDevice(d));
     if (readings.length) {
-      html += '<div class="readings" role="list" aria-label="Readings">' + readings.map((d) => readingTile(d, S.room === 'All')).join('') + '</div>';
+      html += '<div class="readings" role="group" aria-label="Readings">' + readings.map((d) => readingTile(d, S.room === 'All')).join('') + '</div>';
     }
     if (cards.length) {
       html += '<div class="section-head"><h2>Devices</h2><span class="section-count">' + cards.length + '</span>' + allOffButton() + '</div>';
@@ -1619,6 +1776,7 @@
       '<div><p class="sub">' + esc((d.room || 'No room') + (d.ir && d.ir.brand ? ', ' + d.ir.brand : '')) + '</p><h2 class="detail-title">' + esc(d.name) + '</h2></div></div>' +
       '<div class="hero">' + hero + '</div>' +
       '<div class="list">' + rows.join('') + '</div>' +
+      (d.online ? timerSection(d) : '') +
       (d.online ? energySection(d) : '') +
       '</div>';
   }
@@ -2388,7 +2546,7 @@
 
   // Gentle page transitions: deeper screens slide in from the right, going back slides from the left,
   // switching tabs fades. Skipped after a swipe-back (it already animated) and for reduced motion.
-  const DEPTH = { devices: 1, scenes: 1, me: 1, device: 2, 'scene-edit': 2, 'auto-edit': 2, icons: 2, changelog: 2, activity: 2, backgrounds: 2 };
+  const DEPTH = { devices: 1, scenes: 1, me: 1, device: 2, 'scene-edit': 2, 'auto-edit': 2, icons: 2, changelog: 2, activity: 2, backgrounds: 2, history: 2 };
   let skipAnim = false;
   function animateRoute(from, to, isWide) {
     if (skipAnim) { skipAnim = false; return; }
@@ -2424,10 +2582,12 @@
 
     const r = route();
     const isWide = wide.matches;
-    const activeTab = r.view === 'device' ? 'devices' : (r.view === 'scene-edit' || r.view === 'auto-edit') ? 'scenes' : (r.view === 'icons' || r.view === 'changelog' || r.view === 'activity' || r.view === 'backgrounds') ? 'me' : r.view;
+    const activeTab = (r.view === 'device' || r.view === 'history') ? 'devices' : (r.view === 'scene-edit' || r.view === 'auto-edit') ? 'scenes' : (r.view === 'icons' || r.view === 'changelog' || r.view === 'activity' || r.view === 'backgrounds') ? 'me' : r.view;
     let mainHtml, panelHtml = null;
 
-    if (r.view === 'device' && !isWide) {
+    if (r.view === 'history') {
+      mainHtml = historyView(r.id);
+    } else if (r.view === 'device' && !isWide) {
       mainHtml = detailView(findDevice(r.id), false);
       if (r.id && S.data && !S.specs[r.id]) loadSpec(r.id, true);
     } else if (activeTab === 'devices') {
@@ -2451,6 +2611,7 @@
       mainHtml = activityView();
     } else if (r.view === 'backgrounds') {
       mainHtml = backgroundsView();
+
     } else if (activeTab === 'scenes') {
       mainHtml = scenesView(!isWide);
       if (isWide) panelHtml = automationsPanel();
@@ -2688,6 +2849,10 @@
       case 'pw-close': S.pwForm.open = false; render(); break;
       case 'alloff': allOff(); break;
       case 'act-more': loadActivity(true); break;
+      case 'open-history': S.history = null; go('history/' + encodeURIComponent(id)); break;
+      case 'hist-range': S.histHours = Number(el.dataset.h) === 168 ? 168 : 24; S.history = null; render(); break;
+      case 'timer-add': if (d) addTimer(d, Number(el.dataset.m)); break;
+      case 'timer-del': if (d) deleteTimer(d, el.dataset.t); break;
       case 'bg-set':
         S.bg = BACKGROUNDS.some(([v]) => v === el.dataset.v) ? el.dataset.v : 'system';
         store.set('bg', S.bg); applyBackground(); render();
@@ -2971,7 +3136,7 @@
   }
 
   // ---------- Swipe back from the left edge (phones) ----------
-  const BACK = { device: 'devices', 'scene-edit': 'scenes', 'auto-edit': 'scenes', icons: 'me', changelog: 'me', activity: 'me', backgrounds: 'me' };
+  const BACK = { device: 'devices', 'scene-edit': 'scenes', 'auto-edit': 'scenes', icons: 'me', changelog: 'me', activity: 'me', backgrounds: 'me', history: 'devices' };
   let edge = null;
   const standalone = () => window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
   document.addEventListener('touchstart', (e) => {
@@ -3314,6 +3479,7 @@
     };
     const names = { dev12: { switch_1: 'Monitor', switch_2: 'Laptop charger' } };
     const demoIcons = {};
+    const demoTimers = {};
     const demoAct = [
       { at: Date.now() - 5 * 60000, who: 'Sam', text: 'turned off Kettle plug', home: true },
       { at: Date.now() - 52 * 60000, who: 'Owner', text: 'ran the scene "Movie night"', home: true },
@@ -3381,6 +3547,26 @@
       if (path.startsWith('weather')) {
         const f = /unit=f/.test(path);
         return { available: true, temp: f ? 75 : 24, code: 2, isDay: true, unit: f ? '°F' : '°C', place: 'Demo', lat: 51.5074, lon: -0.1278 };
+      }
+      if (path.startsWith('history')) {
+        const hours = /hours=168/.test(path) ? 168 : 24, end = Date.now(), start = end - hours * 3600000;
+        const mk = (base, amp, noise) => Array.from({ length: 96 }, (_, i) => {
+          const t = start + (i + 0.5) * (end - start) / 96;
+          const day = Math.sin(((new Date(t).getHours() + new Date(t).getMinutes() / 60) - 9) / 24 * 2 * Math.PI);
+          return [Math.round(t), base + amp * day + (Math.sin(i * 1.7) * noise)];
+        });
+        const series = {};
+        if (/va_temperature/.test(path)) series.va_temperature = { scale: 1, points: mk(205, 25, 1) };
+        if (/va_humidity/.test(path)) series.va_humidity = { scale: 0, points: mk(52, -8, 0.4) };
+        return { hours, start, end, series, reasons: [] };
+      }
+      if (path.startsWith('timer')) {
+        const id = decodeURIComponent((path.match(/deviceId=([^&]+)/) || [])[1] || b.deviceId || '');
+        demoTimers[id] = demoTimers[id] || [];
+        if (path.startsWith('timer?')) return { timers: clone(demoTimers[id]) };
+        if (b.op === 'add') demoTimers[id].push({ id: 't' + Date.now(), name: 'Home', time: b.time, date: b.date, loops: '0000000', functions: b.functions });
+        if (b.op === 'delete') demoTimers[id] = demoTimers[id].filter((t) => t.id !== b.timerId);
+        return { ok: true };
       }
       if (path.startsWith('irspec')) {
         const ac = /ir1/.test(path);
