@@ -563,3 +563,140 @@ dialog.confirm p { margin: 0 0 22px; font-size: 15px; color: var(--muted); line-
 .wx-placeholder { width: 140px; height: 18px; border-radius: 9px; background: var(--chip); }
 .wx-missing { font-size: 13px; font-weight: 500; color: var(--muted); min-height: 0; }
 .hello-sub { margin-top: 4px; font-size: 14px; }
+
+/* =========================================================
+   Liquid glass theme: soft colourful backdrop, translucent
+   blurred surfaces with bright edges, floating tab bar.
+   ========================================================= */
+:root {
+  --glass: rgba(255, 255, 255, 0.58);
+  --glass-strong: rgba(255, 255, 255, 0.78);
+  --glass-edge-hi: rgba(255, 255, 255, 0.95);
+  --glass-edge-lo: rgba(255, 255, 255, 0.25);
+  --glass-shadow: 0 10px 30px rgba(30, 34, 60, 0.10), 0 1px 2px rgba(30, 34, 60, 0.06);
+  --glass-ink: rgba(22, 22, 28, 0.86);
+  --blur: blur(22px) saturate(180%);
+  --chip: rgba(255, 255, 255, 0.55);
+  --track-off: rgba(120, 120, 135, 0.28);
+  --bg: #F3F4F8;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --glass: rgba(38, 38, 46, 0.52);
+    --glass-strong: rgba(44, 44, 54, 0.78);
+    --glass-edge-hi: rgba(255, 255, 255, 0.30);
+    --glass-edge-lo: rgba(255, 255, 255, 0.04);
+    --glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.4);
+    --glass-ink: rgba(242, 242, 247, 0.92);
+    --chip: rgba(255, 255, 255, 0.10);
+    --track-off: rgba(255, 255, 255, 0.18);
+    --bg: #07070C;
+  }
+}
+
+/* The colourful backdrop the glass sits on */
+body {
+  background:
+    radial-gradient(1100px 620px at 8% -8%, rgba(160, 186, 255, 0.55), transparent 60%),
+    radial-gradient(900px 600px at 105% 6%, rgba(255, 190, 214, 0.50), transparent 58%),
+    radial-gradient(1000px 760px at 50% 115%, rgba(176, 234, 214, 0.50), transparent 62%),
+    var(--bg);
+  background-attachment: fixed;
+}
+@media (prefers-color-scheme: dark) {
+  body {
+    background:
+      radial-gradient(1100px 620px at 8% -8%, rgba(70, 92, 210, 0.38), transparent 60%),
+      radial-gradient(900px 600px at 105% 6%, rgba(190, 70, 140, 0.30), transparent 58%),
+      radial-gradient(1000px 760px at 50% 115%, rgba(40, 150, 120, 0.28), transparent 62%),
+      var(--bg);
+    background-attachment: fixed;
+  }
+}
+
+/* Glass material */
+.card, .list, .hero, .empty, .reading, .se-item, .scene, .banner, .skeleton, .room-box,
+.pill-btn.soft, .round-btn, .avatar, .head-icon, .tabbar, .rail, dialog.confirm,
+.field input, .field select, .section-count, .icon-pick, .user-form {
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  box-shadow: var(--glass-shadow);
+}
+.card, .list, .hero, .empty, .reading, .se-item, .scene, .banner, .room-box,
+.pill-btn.soft, .round-btn, .avatar { position: relative; }
+.tabbar { position: fixed; }
+/* Bright, light-catching rim */
+.card::before, .list::before, .hero::before, .empty::before, .reading::before, .se-item::before,
+.scene::before, .banner::before, .room-box::before, .tabbar::before, .rail::before,
+dialog.confirm::before, .pill-btn.soft::before, .round-btn::before, .avatar::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none;
+  background: linear-gradient(140deg, var(--glass-edge-hi), var(--glass-edge-lo) 38%, var(--glass-edge-lo) 62%, var(--glass-edge-hi));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+}
+.card > *:not(.card-switch), .scene > * { position: relative; }
+
+/* Active things become tinted glass instead of flat black */
+.card.active, .scene.running, .scene.done, .room-tile[aria-pressed="true"] .room-box,
+.tab[aria-current="page"] .pill, .chip[aria-pressed="true"], .chip.soft[aria-pressed="true"],
+.pill-btn:not(.soft):not(.armed), .btn:not(.ghost):not(.soft-btn):not(.danger-btn) {
+  background: var(--glass-ink);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+}
+.card.active { box-shadow: 0 14px 34px rgba(20, 20, 40, 0.28); }
+.card.selected { box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.7), 0 0 0 5px var(--ink), var(--glass-shadow); }
+.room-tile[aria-pressed="true"] .room-box::before { opacity: .5; }
+
+/* Soft controls read as frosted wells */
+.chip, .chip.soft, .round-btn.soft, .icon-dot, .mini-dot, .icon-choice, .field-inline input, .user-actions select {
+  background: var(--chip);
+}
+.chip:not(.soft) { background: var(--glass); -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); box-shadow: var(--glass-shadow); }
+.card.active .icon-dot { background: rgba(255, 255, 255, 0.14); }
+
+/* Floating glass tab bar (phone) */
+.main { padding-bottom: calc(var(--safe-bottom) + 128px); }
+.tabbar {
+  left: 14px; right: 14px; bottom: calc(var(--safe-bottom) + 12px);
+  border-radius: 32px; padding: 6px 10px;
+  background: var(--glass-strong);
+}
+.tab { min-height: 58px; }
+.toast { bottom: calc(var(--safe-bottom) + 112px); border-radius: 22px; background: var(--glass-ink);
+  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); }
+
+/* Floating glass rail (tablet) */
+@media (min-width: 900px) {
+  .app { padding: 14px 0 14px 14px; }
+  .rail { border-radius: 30px; background: var(--glass-strong); height: calc(100dvh - 28px); }
+  .panel { background: transparent; }
+  .toast { bottom: 32px; }
+}
+
+/* Bigger, softer corners */
+.card { border-radius: 28px; }
+.list, .hero, .se-item, .reading { border-radius: 26px; }
+.room-box { border-radius: 20px; }
+.avatar { border-radius: 50%; color: var(--text); }
+dialog.confirm { border-radius: 32px; background: var(--glass-strong); }
+dialog.confirm::backdrop { background: rgba(10, 10, 20, 0.25); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+
+/* Switches: iOS-style capsule with a glossy knob */
+.switch { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25); }
+.switch .knob { box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.9); }
+
+/* Lists sit on glass, so their dividers stay subtle */
+.list-row + .list-row { border-top-color: rgba(120, 120, 140, 0.16); }
+
+/* Fallbacks: no blur support, or the person prefers less transparency */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root { --glass: rgba(255, 255, 255, 0.92); --glass-strong: rgba(255, 255, 255, 0.96); }
+  @media (prefers-color-scheme: dark) { :root { --glass: rgba(34, 34, 40, 0.94); --glass-strong: rgba(40, 40, 48, 0.97); } }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root { --glass: var(--surface); --glass-strong: var(--surface); --glass-ink: var(--ink); }
+  body { background: var(--bg); }
+}
+.arc-track { stroke: var(--track-off); }

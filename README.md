@@ -14,7 +14,7 @@ so your API secret never reaches the browser.
 - "All off" for the whole home or the selected room
 - People: give family members their own password (admins and members), and sync icons across devices
 - Greeting with the current weather at your home (from the home's address in the Tuya app,
-  via the free Open-Meteo service; switch °C/°F in Me)
+  via the free Open-Meteo service; Celsius by default, switchable in Me)
 - Readings: temperature/humidity (and CO₂, PM2.5) sensors appear as a strip of readings above
   your devices instead of as cards, including IR blasters with a built-in thermometer
 - Tap-to-run scenes: run, create, edit and delete them (devices, outlets, brightness, AC settings,

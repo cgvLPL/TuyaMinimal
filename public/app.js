@@ -41,7 +41,7 @@
     pollMs: Number(store.get('pollMs')) || 4000,  // live status interval
     touched: {},
     weather: null,       // { homeId, at, available, temp, code, isDay, unit } for the greeting
-    tempUnit: store.get('tempUnit') || (/[-_]US$/i.test((navigator.language || '')) ? 'f' : 'c'),         // deviceId -> time of the last local command (avoid flicker)          // remoteId + key -> true briefly after a button is sent   // deviceId whose icon picker is open
+    tempUnit: store.get('tempUnit') || 'c',  // Celsius unless changed in Me         // deviceId -> time of the last local command (avoid flicker)          // remoteId + key -> true briefly after a button is sent   // deviceId whose icon picker is open
     icons: readIcons(),  // deviceId -> icon key, saved on this device      // { id, code } while an outlet name is being edited
     installPrompt: null
   };
@@ -1407,7 +1407,7 @@
     }
     html += '<h2 class="section-title">About</h2><div class="list">' +
       '<div class="list-row"><span class="label">Adding devices</span><span class="value">Pair them in the Tuya app</span></div>' +
-      '<div class="list-row"><span class="label">Version</span><span class="value">2.6.0</span></div></div>';
+      '<div class="list-row"><span class="label">Version</span><span class="value">2.7.0</span></div></div>';
     return html;
   }
 
