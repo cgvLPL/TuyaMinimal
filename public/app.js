@@ -1,0 +1,819 @@
+/* Home: a minimal PWA for Tuya devices. No framework, no build step. */
+(function () {
+  'use strict';
+
+  // ---------- Storage (guarded: private mode can throw) ----------
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } },
+    del(k) { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } }
+  };
+
+  // ---------- State ----------
+  const S = {
+    mode: new URLSearchParams(location.search).has('demo') ? 'demo' : (store.get('mode') || 'live'),
+    key: store.get('appKey') || '',
+    homeId: store.get('homeId') || '',
+    data: null,
+    loading: false,
+    gate: null,          // null | 'login' | 'setup'
+    gateError: '',
+    room: 'All',
+    specs: {},           // deviceId -> { codes, writable } | 'loading'
+    sceneState: {},      // sceneId -> 'running' | 'done'
+    dragging: false,
+    installPrompt: null
+  };
+  if (S.mode === 'demo') store.set('mode', 'demo');
+
+  const wide = window.matchMedia('(min-width: 900px)');
+
+  // ---------- Helpers ----------
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const $ = (sel, root) => (root || document).querySelector(sel);
+
+  function toast(msg) {
+    const el = $('#toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toast.t);
+    toast.t = setTimeout(() => el.classList.remove('show'), 2600);
+  }
+
+  // ---------- Routing (#devices, #scenes, #me, #device/<id>) ----------
+  function route() {
+    const h = location.hash.replace(/^#/, '');
+    if (h.startsWith('device/')) return { view: 'device', id: decodeURIComponent(h.slice(7)) };
+    if (h === 'scenes' || h === 'me') return { view: h };
+    return { view: 'devices' };
+  }
+  function go(hash) {
+    if (location.hash === '#' + hash) render(); else location.hash = hash;
+  }
+
+  // ---------- API ----------
+  async function api(path, opts) {
+    opts = opts || {};
+    if (S.mode === 'demo') return Demo.handle(path, opts);
+    const headers = { 'x-app-key': S.key };
+    if (opts.body) headers['Content-Type'] = 'application/json';
+    let res;
+    try {
+      res = await fetch('/api/' + path, {
+        method: opts.method || 'GET',
+        headers,
+        body: opts.body ? JSON.stringify(opts.body) : undefined
+      });
+    } catch (e) {
+      const err = new Error(navigator.onLine ? 'Could not reach your server.' : 'You are offline.');
+      err.code = 'network';
+      throw err;
+    }
+    let json = {};
+    try { json = await res.json(); } catch (e) { /* non-JSON */ }
+    if (!res.ok) {
+      const err = new Error(json.error || 'Request failed (HTTP ' + res.status + ').');
+      err.code = json.code || (res.status === 401 ? 'unauthorized' : 'error');
+      err.status = res.status;
+      throw err;
+    }
+    return json;
+  }
+
+  async function refresh(opts) {
+    opts = opts || {};
+    if (S.mode === 'live' && !S.key) { S.gate = 'login'; render(); return; }
+    if (S.loading) return;
+    S.loading = true;
+    if (!S.data) render();
+    try {
+      const q = S.homeId ? '?homeId=' + encodeURIComponent(S.homeId) : '';
+      const data = await api('state' + q);
+      S.data = data;
+      S.gate = null;
+      if (data.homeId) { S.homeId = data.homeId; store.set('homeId', data.homeId); }
+      prefetchLightSpecs();
+    } catch (e) {
+      if (e.code === 'unauthorized') {
+        S.gate = 'login'; S.gateError = 'That password does not match APP_PASSWORD on your server.';
+        S.key = ''; store.del('appKey');
+      } else if (e.code === 'not_configured') {
+        S.gate = 'setup'; S.gateError = e.message;
+      } else if (!opts.silent) {
+        toast(e.message);
+      }
+    } finally {
+      S.loading = false;
+      if (!S.dragging) render();
+    }
+  }
+
+  // Lights need their spec to convert brightness into a percentage.
+  function prefetchLightSpecs() {
+    if (!S.data) return;
+    for (const d of S.data.devices) {
+      if (kindOf(d) === 'light' && !S.specs[d.id] && d.online) loadSpec(d.id, true);
+    }
+  }
+  async function loadSpec(id, quiet) {
+    if (S.specs[id]) return S.specs[id];
+    S.specs[id] = 'loading';
+    try {
+      S.specs[id] = await api('spec?deviceId=' + encodeURIComponent(id));
+    } catch (e) {
+      S.specs[id] = { codes: {}, writable: null, failed: true };
+      if (!quiet) toast('Could not load controls: ' + e.message);
+    }
+    if (!S.dragging) render();
+    return S.specs[id];
+  }
+
+  // ---------- Device model ----------
+  const KINDS = {
+    light: ['dj', 'dd', 'fwd', 'xdd', 'dc', 'tgq', 'gyd', 'tyndj', 'fsd', 'sxd'],
+    plug: ['kg', 'cz', 'pc', 'tdq', 'dlq', 'qjdcz'],
+    climate: ['kt', 'wk', 'qn', 'ktkzq', 'wkf', 'rs'],
+    cover: ['cl', 'clkg', 'mc'],
+    fan: ['fs', 'fskg'],
+    sensor: ['wsdcg', 'mcs', 'pir', 'ywbj', 'rqbj', 'sj', 'cobj', 'hps', 'ldcg', 'zd', 'co2bj', 'pm25', 'wnykq', 'jqbj'],
+    camera: ['sp']
+  };
+  function kindOf(d) {
+    for (const k in KINDS) if (KINDS[k].includes(d.category)) return k;
+    return 'generic';
+  }
+  function powerCode(d) {
+    const st = d.status;
+    const known = ['switch_led', 'switch', 'switch_1', 'fan_switch', 'switch_on'];
+    return known.find((c) => typeof st[c] === 'boolean') ||
+      Object.keys(st).find((c) => /^switch/.test(c) && typeof st[c] === 'boolean') || null;
+  }
+  function specReady(d) { const s = S.specs[d.id]; return !!s && s !== 'loading'; }
+  function specOf(d, code) {
+    const s = S.specs[d.id];
+    return (s && s !== 'loading' && s.codes && s.codes[code]) || null;
+  }
+  // Converts a raw integer using the spec's scale; falls back to a sensible guess
+  // (Tuya often sends 245 to mean 24.5 degrees).
+  function scaled(d, code, guessDivide) {
+    const v = d.status[code];
+    if (typeof v !== 'number') return null;
+    const sp = specOf(d, code);
+    if (sp && typeof sp.scale === 'number') return v / Math.pow(10, sp.scale);
+    return guessDivide && Math.abs(v) >= 60 ? v / 10 : v;
+  }
+  function rangeOf(d, code, fallback) {
+    const sp = specOf(d, code);
+    if (sp && typeof sp.min === 'number' && typeof sp.max === 'number') {
+      return { min: sp.min, max: sp.max, step: sp.step || 1 };
+    }
+    return fallback;
+  }
+  function brightCode(d) { return ['bright_value_v2', 'bright_value'].find((c) => typeof d.status[c] === 'number') || null; }
+  function warmCode(d) { return ['temp_value_v2', 'temp_value'].find((c) => typeof d.status[c] === 'number') || null; }
+  function lightRange(d, code, isWarmth) {
+    const v2 = code && code.endsWith('_v2');
+    const fallback = isWarmth
+      ? { min: 0, max: v2 ? 1000 : 255, step: 1 }
+      : { min: v2 ? 10 : 25, max: v2 ? 1000 : 255, step: 1 };
+    return rangeOf(d, code, fallback);
+  }
+  function toPct(v, r) { return clamp(Math.round(((v - r.min) / (r.max - r.min)) * 100), 1, 100); }
+  function fromPct(p, r) {
+    const raw = r.min + (clamp(p, 1, 100) / 100) * (r.max - r.min);
+    return clamp(Math.round(raw / r.step) * r.step, r.min, r.max);
+  }
+  const MODE_LABELS = { cold: 'Cool', cool: 'Cool', hot: 'Heat', heat: 'Heat', wind: 'Fan', fan: 'Fan', auto: 'Auto', wet: 'Dry', dehumidification: 'Dry', eco: 'Eco', manual: 'Manual', smart: 'Smart', sleep: 'Sleep' };
+  const modeLabel = (m) => MODE_LABELS[m] || (String(m).charAt(0).toUpperCase() + String(m).slice(1));
+  const fmtTemp = (t) => (t == null ? '–' : (Math.round(t * 10) / 10) + '°');
+
+  function isOn(d) { const p = powerCode(d); return p ? !!d.status[p] : false; }
+
+  function sensorReading(d) {
+    const st = d.status;
+    if (typeof st.doorcontact_state === 'boolean') return st.doorcontact_state ? 'Open' : 'Closed';
+    if ('pir' in st) return st.pir === 'pir' ? 'Motion detected' : 'No motion';
+    if ('watersensor_state' in st) return st.watersensor_state === 'alarm' ? 'Leak detected' : 'Dry';
+    if ('smoke_sensor_status' in st) return st.smoke_sensor_status === 'alarm' ? 'Smoke detected' : 'Clear';
+    if ('gas_sensor_status' in st) return st.gas_sensor_status === 'alarm' ? 'Gas detected' : 'Clear';
+    const t = scaled(d, 'va_temperature', true) ?? scaled(d, 'temp_current', true);
+    const h = scaled(d, 'va_humidity', false) ?? scaled(d, 'humidity_value', false);
+    if (t != null && h != null) return fmtTemp(t) + ' and ' + Math.round(h) + '%';
+    if (t != null) return fmtTemp(t);
+    if (h != null) return Math.round(h) + '% humidity';
+    return 'Online';
+  }
+
+  function statusText(d) {
+    if (!d.online) return 'Offline';
+    const k = kindOf(d), on = isOn(d), st = d.status;
+    if (k === 'light') {
+      if (!on) return 'Off';
+      const bc = brightCode(d);
+      return bc && specReady(d) ? toPct(st[bc], lightRange(d, bc)) + '%' : 'On';
+    }
+    if (k === 'climate') {
+      if (powerCode(d) && !on) return 'Off';
+      const set = scaled(d, 'temp_set', true);
+      const m = st.mode ? modeLabel(st.mode) : 'Set';
+      return set != null ? m + ' to ' + fmtTemp(set) : 'On';
+    }
+    if (k === 'cover') {
+      const p = st.percent_state ?? st.percent_control;
+      return typeof p === 'number' ? p + '% open' : 'Ready';
+    }
+    if (k === 'sensor') return sensorReading(d);
+    if (k === 'camera') return 'Online';
+    const p = powerCode(d);
+    return p ? (on ? 'On' : 'Off') : 'Online';
+  }
+  const hasToggle = (d) => !!powerCode(d) && kindOf(d) !== 'sensor' && kindOf(d) !== 'camera';
+
+  // ---------- Commands ----------
+  const pendingSend = {};
+  async function send(d, commands, patch, opts) {
+    opts = opts || {};
+    const before = Object.assign({}, d.status);
+    Object.assign(d.status, patch || {});
+    if (!opts.noRender) render();
+    try {
+      await api('command', { method: 'POST', body: { deviceId: d.id, commands } });
+      clearTimeout(refresh.t);
+      refresh.t = setTimeout(() => refresh({ silent: true }), 2500);
+    } catch (e) {
+      d.status = opts.revertTo || before;
+      render();
+      toast(d.name + ': ' + e.message);
+    }
+  }
+  // Debounced send for +/- taps, so five quick taps become one command.
+  function sendSoon(d, code, value) {
+    const key = d.id + code;
+    if (!pendingSend[key]) pendingSend[key] = { before: Object.assign({}, d.status) };
+    d.status[code] = value;
+    render();
+    clearTimeout(pendingSend[key].t);
+    pendingSend[key].t = setTimeout(() => {
+      const revertTo = pendingSend[key].before;
+      delete pendingSend[key];
+      send(d, [{ code, value: d.status[code] }], null, { noRender: true, revertTo });
+    }, 600);
+  }
+
+  function findDevice(id) { return S.data && S.data.devices.find((x) => x.id === id); }
+
+  // ---------- Icons (inline stroke SVG) ----------
+  const P = {
+    light: '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V17h5v-1.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/>',
+    plug: '<path d="M9 2v6M15 2v6M6 8h12v3a6 6 0 0 1-12 0V8zM12 17v5"/>',
+    climate: '<rect x="2" y="4" width="20" height="9" rx="2"/><path d="M6 9h12M8 17v3M12 17v4M16 17v3"/>',
+    cover: '<path d="M3 3h18M5 3v18M19 3v18M5 21c2-5 2-11 0-18M19 21c-2-5-2-11 0-18"/>',
+    fan: '<circle cx="12" cy="12" r="2"/><path d="M12 10c0-4 1-7 4-7s2 5-2 7M14 12c4 0 7 1 7 4s-5 2-7-2M12 14c0 4-1 7-4 7s-2-5 2-7M10 12c-4 0-7-1-7-4s5-2 7 2"/>',
+    sensor: '<path d="M6 3h9v18H6zM15 7l4 1v9l-4 1M11 12h.01"/>',
+    thermo: '<path d="M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0z"/>',
+    camera: '<path d="M3 7h12v10H3zM15 10l6-3v10l-6-3"/>',
+    generic: '<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 12h6"/>',
+    grid: '<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>',
+    scenes: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"/>',
+    me: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>',
+    home: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/>',
+    back: '<path d="M15 5l-7 7 7 7"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    minus: '<path d="M5 12h14"/>',
+    power: '<path d="M12 3v8M6.3 7.3a8 8 0 1 0 11.4 0"/>',
+    chevron: '<path d="M9 5l7 7-7 7"/>',
+    play: '<path d="M7 5l12 7-12 7z" fill="currentColor" stroke="none"/>',
+    check: '<path d="M5 12l5 5 9-10"/>'
+  };
+  const icon = (name, size) => '<svg width="' + (size || 22) + '" height="' + (size || 22) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + P[name] + '</svg>';
+  function deviceIcon(d) {
+    const k = kindOf(d);
+    if (k === 'sensor' && !('doorcontact_state' in d.status) && ('va_temperature' in d.status || 'temp_current' in d.status)) return icon('thermo');
+    return icon(P[k] ? k : 'generic');
+  }
+
+  // ---------- Views ----------
+  function tabs(active) {
+    const items = [['devices', 'Devices', 'grid'], ['scenes', 'Scenes', 'scenes'], ['me', 'Me', 'me']];
+    return items.map(([id, label, ic]) =>
+      '<button class="tab" data-act="tab" data-tab="' + id + '" data-key="tab-' + id + '"' +
+      (active === id ? ' aria-current="page"' : '') + '><span class="pill">' + icon(ic) + '</span><span>' + label + '</span></button>'
+    ).join('');
+  }
+
+  function switchBtn(d, extraKey) {
+    const on = isOn(d);
+    return '<button class="switch" role="switch" aria-checked="' + on + '" aria-label="' + esc(d.name) + ' power"' +
+      ' data-act="toggle" data-id="' + esc(d.id) + '" data-key="sw-' + esc(d.id) + (extraKey || '') + '"' +
+      (d.online ? '' : ' disabled') + '><span class="knob"></span></button>';
+  }
+
+  function deviceCard(d, selectedId) {
+    const on = isOn(d), toggle = hasToggle(d);
+    const cls = ['card', toggle && on && d.online ? 'active' : '', d.online ? '' : 'offline', d.id === selectedId ? 'selected' : ''].join(' ');
+    return '<div class="' + cls + '">' +
+      '<button class="card-open" data-act="open" data-id="' + esc(d.id) + '" data-key="open-' + esc(d.id) + '" aria-label="' + esc(d.name) + ', ' + esc(statusText(d)) + ', show controls">' +
+      '<span class="card-top"><span class="icon-dot">' + deviceIcon(d) + '</span><span class="card-room">' + esc(d.room) + '</span></span>' +
+      '<span><span class="card-name">' + esc(d.name) + '</span><span class="card-status">' + esc(statusText(d)) + '</span></span>' +
+      '</button>' +
+      (toggle ? '<div class="card-foot"><span class="state">' + (on ? 'On' : 'Off') + '</span>' + switchBtn(d) + '</div>' : '') +
+      '</div>';
+  }
+
+  function devicesView(selectedId) {
+    const data = S.data;
+    if (!data) return loadingView();
+    const home = (data.homes || []).find((h) => h.id === data.homeId);
+    const onCount = data.devices.filter((d) => hasToggle(d) && isOn(d) && d.online).length;
+    const roomsWithDevices = (data.rooms || []).filter((r) => data.devices.some((d) => d.room === r));
+    const hasOther = roomsWithDevices.length > 0 && data.devices.some((d) => !d.room);
+    const rooms = ['All'].concat(roomsWithDevices, hasOther ? ['Other'] : []);
+    if (!rooms.includes(S.room)) S.room = 'All';
+    const shown = data.devices.filter((d) => S.room === 'All' || (S.room === 'Other' ? !d.room : d.room === S.room));
+
+    let html = '<div class="head"><div><p class="sub">' + onCount + (onCount === 1 ? ' device on' : ' devices on') + '</p>' +
+      '<h1 class="title">' + esc(home ? home.name : 'My Home') + '</h1></div></div>';
+    if (S.mode === 'demo') html += '<p class="banner">You are viewing sample devices. Connect your server in Me to control your own.</p>';
+    if (rooms.length > 1) {
+      html += '<div class="chips" role="group" aria-label="Rooms">' + rooms.map((r) =>
+        '<button class="chip" data-act="room" data-room="' + esc(r) + '" data-key="room-' + esc(r) + '" aria-pressed="' + (r === S.room) + '">' + esc(r) + '</button>').join('') + '</div>';
+    }
+    if (!data.devices.length) {
+      return html + '<div class="empty"><strong>No devices found</strong><p>Link your Tuya app account to your cloud project (see the README), then tap Refresh in Me.</p></div>';
+    }
+    return html + '<div class="grid">' + shown.map((d) => deviceCard(d, selectedId)).join('') + '</div>';
+  }
+
+  function loadingView() {
+    return '<div class="head"><div><p class="sub">Loading</p><h1 class="title">My Home</h1></div></div>' +
+      '<div class="grid" aria-hidden="true">' + '<div class="skeleton"></div>'.repeat(4) + '</div>';
+  }
+
+  function rangeControl(id, label, value, min, max, endLow, endHigh, act, dataId) {
+    return '<div class="range"><label class="sr-only" for="' + esc(id) + '">' + label + '</label>' +
+      '<input id="' + esc(id) + '" type="range" min="' + min + '" max="' + max + '" value="' + value + '" data-act="' + act + '" data-id="' + esc(dataId) + '" data-key="' + esc(id) + '">' +
+      '<div class="ends"><span>' + endLow + '</span><span>' + endHigh + '</span></div></div>';
+  }
+
+  function powerButton(d) {
+    const on = isOn(d);
+    return '<button class="power-btn" data-act="toggle" data-id="' + esc(d.id) + '" data-key="pwr-' + esc(d.id) + '" aria-pressed="' + on + '" aria-label="' + esc(d.name) + ' power"' + (d.online ? '' : ' disabled') + '>' +
+      icon('power', 40) + '<span>' + (on ? 'On' : 'Off') + '</span></button>';
+  }
+
+  function detailView(d, inPanel) {
+    if (!d) return '<div class="empty"><strong>Pick a device</strong><p>Its controls appear here.</p></div>';
+    const k = kindOf(d), st = d.status;
+    const sfx = inPanel ? '-p' : '-d';
+    const dis = d.online ? '' : ' disabled';
+    let hero = '';
+    let heroHasPower = false;
+
+    if (!d.online) {
+      hero = '<div class="stack-center"><span class="big mid">Offline</span><span class="big-label">Check its power and Wi-Fi. Controls return when it reconnects.</span></div>';
+    } else if (k === 'light') {
+      const bc = brightCode(d), wc = warmCode(d);
+      if (bc) {
+        const pct = toPct(st[bc], lightRange(d, bc));
+        hero += '<div class="stack-center"><span class="big" data-live="bright-' + esc(d.id) + '">' + (specReady(d) ? pct + '%' : '…') + '</span><span class="big-label">Brightness</span></div>' +
+          rangeControl('bright-' + d.id + sfx, 'Brightness', pct, 1, 100, 'Low', 'High', 'bright', d.id);
+      } else {
+        hero += powerButton(d); heroHasPower = true;
+      }
+      if (wc) {
+        const pct = toPct(st[wc], lightRange(d, wc, true));
+        const presets = [['Warm', 1], ['Neutral', 50], ['Cool', 100]];
+        hero += '<div class="seg" style="--n:3" role="group" aria-label="Color temperature">' + presets.map(([n, p]) =>
+          '<button class="chip soft" data-act="warmth" data-id="' + esc(d.id) + '" data-pct="' + p + '" data-key="warm-' + n + sfx + '" aria-pressed="' + (Math.abs(pct - p) <= 12) + '">' + n + '</button>').join('') + '</div>';
+      }
+    } else if (k === 'climate' && 'temp_set' in st) {
+      const set = scaled(d, 'temp_set', true);
+      const cur = scaled(d, 'temp_current', true);
+      hero += '<div class="row-between">' +
+        '<button class="round-btn soft" data-act="temp" data-delta="-1" data-id="' + esc(d.id) + '" data-key="tdown' + sfx + '" aria-label="Lower temperature">' + icon('minus') + '</button>' +
+        '<div class="stack-center"><span class="big">' + fmtTemp(set) + '</span><span class="big-label">' + (cur != null ? 'Room is ' + fmtTemp(cur) : 'Target temperature') + '</span></div>' +
+        '<button class="round-btn soft" data-act="temp" data-delta="1" data-id="' + esc(d.id) + '" data-key="tup' + sfx + '" aria-label="Raise temperature">' + icon('plus') + '</button></div>';
+      if ('mode' in st) {
+        const sp = specOf(d, 'mode');
+        const modes = (sp && Array.isArray(sp.range) && sp.range.length) ? sp.range : ['cold', 'hot', 'wind', 'auto'];
+        hero += '<div class="seg" style="--n:' + Math.min(4, modes.length) + '" role="group" aria-label="Mode">' + modes.map((m) =>
+          '<button class="chip soft" data-act="mode" data-id="' + esc(d.id) + '" data-val="' + esc(m) + '" data-key="mode-' + esc(m) + sfx + '" aria-pressed="' + (st.mode === m) + '">' + esc(modeLabel(m)) + '</button>').join('') + '</div>';
+      }
+    } else if (k === 'cover') {
+      const p = st.percent_control ?? st.percent_state;
+      hero += '<div class="stack-center"><span class="big" data-live="cover-' + esc(d.id) + '">' + (typeof p === 'number' ? p + '%' : '–') + '</span><span class="big-label">Open</span></div>';
+      if ('percent_control' in st) hero += rangeControl('cover-' + d.id + sfx, 'Position', p || 0, 0, 100, 'Closed', 'Open', 'coverpos', d.id);
+      if ('control' in st) {
+        hero += '<div class="seg" style="--n:3" role="group" aria-label="Move">' + [['open', 'Open'], ['stop', 'Stop'], ['close', 'Close']].map(([v, n]) =>
+          '<button class="chip soft" data-act="cover" data-id="' + esc(d.id) + '" data-val="' + v + '" data-key="cov-' + v + sfx + '">' + n + '</button>').join('') + '</div>';
+      }
+    } else if (k === 'fan' && typeof st.fan_speed_percent === 'number') {
+      hero += '<div class="stack-center"><span class="big" data-live="fan-' + esc(d.id) + '">' + st.fan_speed_percent + '%</span><span class="big-label">Fan speed</span></div>' +
+        rangeControl('fan-' + d.id + sfx, 'Fan speed', st.fan_speed_percent, 1, 100, 'Slow', 'Fast', 'fanspeed', d.id);
+    } else if (k === 'sensor') {
+      hero += '<div class="stack-center"><span class="big mid">' + esc(sensorReading(d)) + '</span><span class="big-label">Current reading</span></div>';
+    } else if (k === 'camera') {
+      hero += '<div class="stack-center"><span class="icon-dot" style="width:72px;height:72px;border-radius:36px">' + icon('camera', 32) + '</span>' +
+        '<p class="note">Live video is not available in this app yet. Open the camera in the Tuya app to watch.</p></div>';
+    } else if (powerCode(d)) {
+      hero += powerButton(d); heroHasPower = true;
+    } else {
+      hero += '<div class="stack-center"><span class="big mid">Online</span><span class="big-label">This app does not have controls for this device type yet.</span></div>';
+    }
+
+    const rows = [];
+    if (hasToggle(d) && !heroHasPower) {
+      rows.push('<div class="list-row"><span class="label">Power</span>' + switchBtn(d, sfx) + '</div>');
+    }
+    if (k === 'sensor') {
+      const tt = scaled(d, 'va_temperature', true), hh = scaled(d, 'va_humidity', false);
+      if (tt != null) rows.push('<div class="list-row"><span class="label">Temperature</span><span class="value">' + fmtTemp(tt) + '</span></div>');
+      if (hh != null) rows.push('<div class="list-row"><span class="label">Humidity</span><span class="value">' + Math.round(hh) + '%</span></div>');
+    }
+    if (typeof st.battery_percentage === 'number') rows.push('<div class="list-row"><span class="label">Battery</span><span class="value">' + st.battery_percentage + '%</span></div>');
+    rows.push('<div class="list-row"><span class="label">Model</span><span class="value">' + esc(d.product || d.category) + '</span></div>');
+
+    return '<div class="detail">' +
+      '<div class="detail-head">' +
+      (inPanel ? '' : '<button class="round-btn" data-act="back" data-key="back" aria-label="Back to devices">' + icon('back', 20) + '</button>') +
+      '<div><p class="sub">' + esc(d.room || 'No room') + '</p><h2 class="detail-title">' + esc(d.name) + '</h2></div></div>' +
+      '<div class="hero">' + hero + '</div>' +
+      '<div class="list">' + rows.join('') + '</div>' +
+      '</div>';
+  }
+
+  function scenesView(withAutomations) {
+    const data = S.data;
+    if (!data) return loadingView();
+    let html = '<div class="head"><div><p class="sub">Tap a scene to run it</p><h1 class="title">Scenes</h1></div></div>';
+    if (!data.scenes.length) {
+      html += '<div class="empty"><strong>No tap-to-run scenes</strong><p>Create scenes in the Tuya app. They show up here automatically.</p></div>';
+    } else {
+      html += '<div class="grid">' + data.scenes.map((s) => {
+        const state = S.sceneState[s.id];
+        const meta = state === 'running' ? 'Running' : state === 'done' ? 'Done' : (s.actions === 1 ? '1 action' : s.actions + ' actions');
+        return '<button class="scene ' + (state || '') + '" data-act="scene" data-id="' + esc(s.id) + '" data-key="scene-' + esc(s.id) + '"' + (state === 'running' ? ' disabled' : '') + '>' +
+          '<span class="icon-dot">' + icon(state === 'done' ? 'check' : 'play', 16) + '</span>' +
+          '<span><span class="name">' + esc(s.name) + '</span><span class="meta">' + meta + '</span></span></button>';
+      }).join('') + '</div>';
+    }
+    if (withAutomations) html += '<h2 class="section-title">Automations</h2>' + automationsList();
+    return html;
+  }
+
+  function automationsList() {
+    const a = S.data ? S.data.automations : [];
+    if (!a.length) return '<div class="empty"><strong>No automations</strong><p>Automations you create in the Tuya app appear here, where you can switch them on or off.</p></div>';
+    return '<div class="list">' + a.map((x) =>
+      '<div class="list-row"><span class="label">' + esc(x.name) + '</span>' +
+      '<button class="switch" role="switch" aria-checked="' + x.enabled + '" aria-label="' + esc(x.name) + '" data-act="auto" data-id="' + esc(x.id) + '" data-key="auto-' + esc(x.id) + '"><span class="knob"></span></button></div>'
+    ).join('') + '</div>';
+  }
+
+  function automationsPanel() {
+    const a = S.data ? S.data.automations : [];
+    const active = a.filter((x) => x.enabled).length;
+    return '<div class="detail"><div class="detail-head"><div><p class="sub">' +
+      active + ' of ' + a.length + ' on</p><h2 class="detail-title">Automations</h2></div></div>' + automationsList() + '</div>';
+  }
+
+  function meView() {
+    const data = S.data;
+    const live = S.mode === 'live';
+    const updated = data && data.at ? new Date(data.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
+    let html = '<div class="head"><div><p class="sub">' + (live ? 'Connected to Tuya Cloud' : 'Sample devices') + '</p><h1 class="title">Me</h1></div></div>';
+    html += '<div class="list">';
+    if (data && data.homes && data.homes.length > 1) {
+      html += '<div class="list-row"><label class="label" for="home-select">Home</label><select id="home-select" data-act="home" data-key="home-select">' +
+        data.homes.map((h) => '<option value="' + esc(h.id) + '"' + (h.id === data.homeId ? ' selected' : '') + '>' + esc(h.name) + '</option>').join('') + '</select></div>';
+    }
+    html += '<button class="list-row" data-act="refresh" data-key="refresh"><span class="label">Refresh now</span><span class="value">' + (updated ? 'Updated ' + updated : '') + '</span></button>';
+    if (S.installPrompt) html += '<button class="list-row" data-act="install" data-key="install"><span class="label">Install app</span>' + icon('chevron', 16) + '</button>';
+    html += live
+      ? '<button class="list-row danger" data-act="lock" data-key="lock"><span class="label">Lock app</span><span class="value">Asks for the password again</span></button>'
+      : '<button class="list-row" data-act="live" data-key="live"><span class="label">Connect my server</span>' + icon('chevron', 16) + '</button>';
+    html += '</div>';
+    if (data && data.warnings && data.warnings.length) {
+      html += '<h2 class="section-title">Needs attention</h2><div class="list">' + data.warnings.map((w) =>
+        '<div class="list-row"><span class="meta">' + esc(w) + '</span></div>').join('') + '</div>' +
+        '<p class="note" style="text-align:left;margin-top:10px">A permission error usually means a service is not yet authorized in your Tuya cloud project. The README explains how to add it.</p>';
+    }
+    html += '<h2 class="section-title">About</h2><div class="list">' +
+      '<div class="list-row"><span class="label">Adding devices</span><span class="value">Pair them in the Tuya app</span></div>' +
+      '<div class="list-row"><span class="label">Version</span><span class="value">1.0.0</span></div></div>';
+    return html;
+  }
+
+  function gateView() {
+    const setup = S.gate === 'setup';
+    return '<div class="gate"><form class="gate-box" data-act="unlock" novalidate>' +
+      '<span class="gate-mark">' + icon('home', 30) + '</span>' +
+      '<h1 class="title">' + (setup ? 'Finish setting up your server' : 'Unlock Home') + '</h1>' +
+      (setup
+        ? '<p>' + esc(S.gateError) + ' Add the environment variables listed in the README to your Vercel project, redeploy, then try again.</p>' +
+          '<button class="btn" type="button" data-act="retry" data-key="retry">Try again</button>'
+        : '<p>Enter the app password you set as APP_PASSWORD in Vercel.</p>' +
+          '<div class="field"><label for="pw">App password</label><input id="pw" name="pw" type="password" autocomplete="current-password" required data-key="pw"></div>' +
+          (S.gateError ? '<p class="error" role="alert">' + esc(S.gateError) + '</p>' : '') +
+          '<button class="btn" type="submit" data-key="unlock">Unlock</button>') +
+      '<button class="btn ghost" type="button" data-act="demo" data-key="demo">Preview with sample devices</button>' +
+      '</form></div>';
+  }
+
+  // ---------- Render ----------
+  let shell = null;
+  let lastRouteKey = '';
+  let lastTab = '';
+  function buildShell() {
+    const app = $('#app');
+    app.innerHTML = '<nav class="rail" aria-label="Main"></nav><main class="main" id="main"></main><aside class="panel" aria-label="Details"></aside><nav class="tabbar" aria-label="Main"></nav>';
+    shell = { app, rail: $('.rail', app), main: $('.main', app), panel: $('.panel', app), tabbar: $('.tabbar', app) };
+  }
+
+  function render() {
+    const app = $('#app');
+    const focusKey = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.key : null;
+
+    if (S.gate) {
+      shell = null;
+      app.className = '';
+      app.innerHTML = gateView();
+      const pw = $('#pw');
+      if (pw && (!focusKey || focusKey === 'pw')) pw.focus();
+      return;
+    }
+    if (!shell) buildShell();
+
+    const r = route();
+    const isWide = wide.matches;
+    const activeTab = r.view === 'device' ? 'devices' : r.view;
+    let mainHtml, panelHtml = null;
+
+    if (r.view === 'device' && !isWide) {
+      mainHtml = detailView(findDevice(r.id), false);
+      if (r.id && S.data && !S.specs[r.id]) loadSpec(r.id, true);
+    } else if (activeTab === 'devices') {
+      const devices = S.data ? S.data.devices : [];
+      const selId = (r.view === 'device' && r.id) || (devices[0] && devices[0].id);
+      mainHtml = devicesView(isWide ? selId : null);
+      if (isWide) {
+        panelHtml = S.data ? detailView(findDevice(selId), true) : '';
+        if (selId && S.data && !S.specs[selId]) loadSpec(selId, true);
+      }
+    } else if (activeTab === 'scenes') {
+      mainHtml = scenesView(!isWide);
+      if (isWide) panelHtml = automationsPanel();
+    } else {
+      mainHtml = meView();
+    }
+
+    const mainTop = shell.main.scrollTop, panelTop = shell.panel.scrollTop;
+    shell.app.className = 'app' + (panelHtml == null ? ' no-panel' : '');
+    shell.rail.innerHTML = '<span class="mark" aria-hidden="true">' + icon('home') + '</span>' + tabs(activeTab);
+    shell.tabbar.innerHTML = tabs(activeTab);
+    shell.main.innerHTML = mainHtml;
+    shell.panel.innerHTML = panelHtml || '';
+    shell.main.scrollTop = mainTop;
+    shell.panel.scrollTop = panelTop;
+
+    const routeKey = r.view + ':' + (r.id || '');
+    if (routeKey !== lastRouteKey) {
+      if (!isWide || activeTab !== lastTab) { window.scrollTo(0, 0); shell.main.scrollTop = 0; }
+      shell.panel.scrollTop = 0;
+      lastRouteKey = routeKey;
+      lastTab = activeTab;
+    }
+
+    if (focusKey) {
+      const target = Array.from(document.querySelectorAll('[data-key="' + CSS.escape(focusKey) + '"]:not([disabled])'))
+        .find((n) => n.offsetParent !== null);
+      if (target) target.focus({ preventScroll: true });
+    }
+  }
+
+  // ---------- Events ----------
+  document.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-act]');
+    if (!el || el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'FORM') return;
+    const act = el.dataset.act, id = el.dataset.id;
+    const d = id ? findDevice(id) : null;
+
+    switch (act) {
+      case 'tab': go(el.dataset.tab); break;
+      case 'room': S.room = el.dataset.room; render(); break;
+      case 'open': go('device/' + encodeURIComponent(id)); break;
+      case 'back': go('devices'); break;
+      case 'toggle': {
+        if (!d) return;
+        const pc = powerCode(d);
+        if (pc) send(d, [{ code: pc, value: !d.status[pc] }], { [pc]: !d.status[pc] });
+        break;
+      }
+      case 'warmth': {
+        if (!d) return;
+        const wc = warmCode(d); if (!wc) return;
+        const value = fromPct(Number(el.dataset.pct), lightRange(d, wc, true));
+        const cmds = [{ code: wc, value }];
+        if ('work_mode' in d.status && d.status.work_mode !== 'white') cmds.unshift({ code: 'work_mode', value: 'white' });
+        const pc = powerCode(d);
+        if (pc && !d.status[pc]) cmds.unshift({ code: pc, value: true });
+        send(d, cmds, Object.fromEntries(cmds.map((c) => [c.code, c.value])));
+        break;
+      }
+      case 'temp': {
+        if (!d) return;
+        const sp = specOf(d, 'temp_set');
+        const scale = sp && typeof sp.scale === 'number' ? sp.scale : (Math.abs(d.status.temp_set) >= 60 ? 1 : 0);
+        const step = (sp && sp.step) || Math.pow(10, scale);
+        const min = sp && typeof sp.min === 'number' ? sp.min : 16 * Math.pow(10, scale);
+        const max = sp && typeof sp.max === 'number' ? sp.max : 30 * Math.pow(10, scale);
+        sendSoon(d, 'temp_set', clamp(d.status.temp_set + Number(el.dataset.delta) * step, min, max));
+        break;
+      }
+      case 'mode': if (d) send(d, [{ code: 'mode', value: el.dataset.val }], { mode: el.dataset.val }); break;
+      case 'cover': if (d) send(d, [{ code: 'control', value: el.dataset.val }], { control: el.dataset.val }); break;
+      case 'scene': runScene(id); break;
+      case 'auto': toggleAutomation(id); break;
+      case 'refresh': toast('Refreshing'); refresh(); break;
+      case 'install': install(); break;
+      case 'lock':
+        S.key = ''; store.del('appKey'); S.data = null; S.specs = {}; S.gate = 'login'; S.gateError = ''; render(); break;
+      case 'demo':
+        S.mode = 'demo'; store.set('mode', 'demo'); S.gate = null; S.data = null; S.specs = {}; refresh(); break;
+      case 'live':
+        S.mode = 'live'; store.set('mode', 'live'); S.data = null; S.specs = {}; S.gateError = '';
+        if (location.search.includes('demo')) history.replaceState(null, '', location.pathname + location.hash);
+        if (S.key) { S.gate = null; refresh(); } else { S.gate = 'login'; render(); }
+        break;
+      case 'retry': S.gate = null; refresh(); break;
+    }
+  });
+
+  // Sliders: update the big number live while dragging, send once on release.
+  const LIVE_PREFIX = { bright: 'bright-', coverpos: 'cover-', fanspeed: 'fan-' };
+  document.addEventListener('input', (e) => {
+    const el = e.target;
+    if (!el.dataset || !LIVE_PREFIX[el.dataset.act]) return;
+    S.dragging = true;
+    document.querySelectorAll('[data-live="' + LIVE_PREFIX[el.dataset.act] + CSS.escape(el.dataset.id) + '"]')
+      .forEach((n) => { n.textContent = el.value + '%'; });
+  });
+  document.addEventListener('change', (e) => {
+    const el = e.target;
+    if (!el.dataset) return;
+    const act = el.dataset.act;
+    const d = el.dataset.id ? findDevice(el.dataset.id) : null;
+    if (LIVE_PREFIX[act]) S.dragging = false;
+    if (act === 'bright' && d) {
+      const bc = brightCode(d);
+      const value = fromPct(Number(el.value), lightRange(d, bc));
+      const cmds = [{ code: bc, value }];
+      const pc = powerCode(d);
+      if (pc && !d.status[pc]) cmds.unshift({ code: pc, value: true });
+      send(d, cmds, Object.fromEntries(cmds.map((c) => [c.code, c.value])));
+    } else if (act === 'coverpos' && d) {
+      send(d, [{ code: 'percent_control', value: Number(el.value) }], { percent_control: Number(el.value) });
+    } else if (act === 'fanspeed' && d) {
+      send(d, [{ code: 'fan_speed_percent', value: Number(el.value) }], { fan_speed_percent: Number(el.value) });
+    } else if (act === 'home') {
+      S.homeId = el.value; store.set('homeId', el.value); S.room = 'All'; refresh();
+    }
+  });
+
+  document.addEventListener('submit', async (e) => {
+    const form = e.target;
+    if (form.dataset.act !== 'unlock') return;
+    e.preventDefault();
+    const pw = form.elements.pw ? form.elements.pw.value : '';
+    if (!pw) { S.gateError = 'Enter your app password.'; render(); return; }
+    S.key = pw; store.set('appKey', pw);
+    S.mode = 'live'; store.set('mode', 'live');
+    S.gateError = ''; S.gate = null; S.data = null;
+    await refresh();
+  });
+
+  async function runScene(id) {
+    if (!S.data) return;
+    S.sceneState[id] = 'running'; render();
+    try {
+      await api('scene', { method: 'POST', body: { homeId: S.data.homeId, sceneId: id } });
+      S.sceneState[id] = 'done'; render();
+      setTimeout(() => { delete S.sceneState[id]; render(); refresh({ silent: true }); }, 1600);
+    } catch (e) {
+      delete S.sceneState[id]; render();
+      toast('Scene did not run: ' + e.message);
+    }
+  }
+
+  async function toggleAutomation(id) {
+    const a = S.data && S.data.automations.find((x) => x.id === id);
+    if (!a) return;
+    a.enabled = !a.enabled; render();
+    try {
+      await api('automation', { method: 'POST', body: { homeId: S.data.homeId, automationId: id, enabled: a.enabled } });
+    } catch (e) {
+      a.enabled = !a.enabled; render();
+      toast(a.name + ': ' + e.message);
+    }
+  }
+
+  // ---------- Install + lifecycle ----------
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault(); S.installPrompt = e;
+    if (!S.gate && route().view === 'me') render();
+  });
+  async function install() {
+    if (!S.installPrompt) return;
+    S.installPrompt.prompt();
+    await S.installPrompt.userChoice.catch(() => null);
+    S.installPrompt = null; render();
+  }
+  window.addEventListener('hashchange', render);
+  wide.addEventListener('change', render);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && !S.gate) refresh({ silent: true });
+  });
+  setInterval(() => {
+    if (document.visibilityState === 'visible' && !S.dragging && !S.gate) refresh({ silent: true });
+  }, 15000);
+  window.addEventListener('online', () => { if (!S.gate) refresh({ silent: true }); });
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => null); });
+  }
+
+  // ---------- Demo backend (sample data, no server needed) ----------
+  const Demo = (function () {
+    const db = {
+      homes: [{ id: 'h1', name: 'My Home' }],
+      homeId: 'h1',
+      rooms: ['Living room', 'Bedroom', 'Kitchen', 'Hallway'],
+      devices: [
+        { id: 'dev1', name: 'Ceiling light', category: 'dj', product: 'Smart bulb', online: true, room: 'Living room', status: { switch_led: true, work_mode: 'white', bright_value_v2: 800, temp_value_v2: 0 } },
+        { id: 'dev2', name: 'Floor lamp', category: 'dj', product: 'Smart bulb', online: true, room: 'Living room', status: { switch_led: false, work_mode: 'white', bright_value_v2: 450, temp_value_v2: 500 } },
+        { id: 'dev9', name: 'Living room climate', category: 'wsdcg', product: 'Temperature and humidity sensor', online: true, room: 'Living room', status: { va_temperature: 215, va_humidity: 48, battery_percentage: 72 } },
+        { id: 'dev3', name: 'Air conditioner', category: 'kt', product: 'AC controller', online: true, room: 'Bedroom', status: { switch: true, temp_set: 24, temp_current: 26, mode: 'cold' } },
+        { id: 'dev7', name: 'Bedroom curtains', category: 'cl', product: 'Curtain motor', online: true, room: 'Bedroom', status: { control: 'stop', percent_control: 60, percent_state: 60 } },
+        { id: 'dev8', name: 'Bedside lamp', category: 'dj', product: 'Smart bulb', online: true, room: 'Bedroom', status: { switch_led: false, work_mode: 'white', bright_value_v2: 300, temp_value_v2: 0 } },
+        { id: 'dev4', name: 'Kettle plug', category: 'cz', product: 'Smart plug', online: true, room: 'Kitchen', status: { switch_1: false } },
+        { id: 'dev5', name: 'Front door', category: 'mcs', product: 'Door sensor', online: true, room: 'Hallway', status: { doorcontact_state: false, battery_percentage: 86 } },
+        { id: 'dev6', name: 'Porch camera', category: 'sp', product: 'Outdoor camera', online: true, room: 'Hallway', status: {} },
+        { id: 'dev10', name: 'Garage plug', category: 'cz', product: 'Smart plug', online: false, room: '', status: { switch_1: false } }
+      ],
+      scenes: [
+        { id: 'sc1', name: 'Good morning', actions: 3 },
+        { id: 'sc2', name: 'Movie night', actions: 4 },
+        { id: 'sc3', name: 'Leaving home', actions: 5 },
+        { id: 'sc4', name: 'Bedtime', actions: 3 }
+      ],
+      automations: [
+        { id: 'au1', name: 'Porch light at sunset', enabled: true },
+        { id: 'au2', name: 'Hall light when the door opens', enabled: true },
+        { id: 'au3', name: 'AC off when everyone leaves', enabled: false }
+      ],
+      warnings: []
+    };
+    const specs = {
+      dj: { bright_value_v2: { min: 10, max: 1000, scale: 0, step: 1 }, temp_value_v2: { min: 0, max: 1000, scale: 0, step: 1 } },
+      kt: { temp_set: { min: 16, max: 30, scale: 0, step: 1 }, temp_current: { scale: 0 }, mode: { range: ['cold', 'hot', 'wind', 'auto'] } },
+      wsdcg: { va_temperature: { scale: 1 }, va_humidity: { scale: 0 } },
+      cl: { percent_control: { min: 0, max: 100, scale: 0, step: 1 } }
+    };
+    const clone = (x) => JSON.parse(JSON.stringify(x));
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    async function handle(path, opts) {
+      await wait(200);
+      if (path.startsWith('state')) return Object.assign(clone(db), { at: Date.now() });
+      if (path.startsWith('spec')) {
+        const id = decodeURIComponent(path.split('deviceId=')[1] || '');
+        const dev = db.devices.find((x) => x.id === id);
+        return { deviceId: id, codes: clone(specs[dev && dev.category] || {}), writable: null };
+      }
+      const b = (opts && opts.body) || {};
+      if (path === 'command') {
+        const dev = db.devices.find((x) => x.id === b.deviceId);
+        if (!dev || !dev.online) { const e = new Error('Device is offline.'); e.code = 'offline'; throw e; }
+        for (const c of b.commands) dev.status[c.code] = c.value;
+        if (dev.status.control === 'open') dev.status.percent_control = 100;
+        if (dev.status.control === 'close') dev.status.percent_control = 0;
+        if ('percent_control' in dev.status) dev.status.percent_state = dev.status.percent_control;
+        return { ok: true };
+      }
+      if (path === 'scene') { await wait(600); return { ok: true }; }
+      if (path === 'automation') {
+        const a = db.automations.find((x) => x.id === b.automationId);
+        if (a) a.enabled = !!b.enabled;
+        return { ok: true };
+      }
+      return { ok: true };
+    }
+    return { handle };
+  })();
+
+  // ---------- Start ----------
+  if (S.mode === 'live' && !S.key) S.gate = 'login';
+  render();
+  if (!S.gate) refresh();
+})();
