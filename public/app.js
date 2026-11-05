@@ -2,6 +2,213 @@
 (function () {
   'use strict';
 
+  // Shown in Me > About > Version, newest first. Add an entry with every release.
+  const CHANGELOG = [
+    {
+      "v": "2.16.0",
+      "items": [
+        "What's new: this changelog, under Me > About > Version. After an update, a message offers to show what changed."
+      ]
+    },
+    {
+      "v": "2.15.1",
+      "items": [
+        "IR air conditioners and other IR remotes show their brand (for example Bedroom, Daikin)."
+      ]
+    },
+    {
+      "v": "2.15.0",
+      "items": [
+        "Updates install themselves: the app reloads once at a quiet moment instead of needing to be reopened.",
+        "Live updates no longer pause after touching a slider without moving it.",
+        "No more zooming in on iPhone when tapping menus and fields.",
+        "No double-tap zoom or text selection when tapping cards and switches.",
+        "Swipe back only runs in the installed app, so it no longer clashes with Safari's own back swipe.",
+        "Faster switches and live updates when people and sync are set up."
+      ]
+    },
+    {
+      "v": "2.14.2",
+      "items": [
+        "The greeting no longer slips under the iPhone status bar blur."
+      ]
+    },
+    {
+      "v": "2.14.1",
+      "items": [
+        "Energy history works for many more plugs: it falls back to the plug's energy reports, or estimates from its wattage.",
+        "If history still isn't available, the Energy section explains why and offers Try again."
+      ]
+    },
+    {
+      "v": "2.14.0",
+      "items": [
+        "Switches pulse gently until Tuya confirms a command.",
+        "Offline devices show a clear red Offline tag.",
+        "Swipe from the left edge to go back (installed app on phones).",
+        "Gentle slide and fade transitions between screens."
+      ]
+    },
+    {
+      "v": "2.13.1",
+      "items": [
+        "The first row of device cards no longer looks cut off under the header.",
+        "The device count next to Devices is easier to read in dark mode."
+      ]
+    },
+    {
+      "v": "2.13.0",
+      "items": [
+        "Pull down to refresh on any page.",
+        "Energy for plugs that measure power: live watts on the card, plus volts, amps and a 7-day chart on the plug's screen."
+      ]
+    },
+    {
+      "v": "2.12.0",
+      "items": [
+        "A more compact top section on phones: weather beside the greeting, smaller room tiles and readings."
+      ]
+    },
+    {
+      "v": "2.11.0",
+      "items": [
+        "The bottom navigation shows icons only."
+      ]
+    },
+    {
+      "v": "2.10.0",
+      "items": [
+        "The top of the Devices page stays put; only the device cards scroll."
+      ]
+    },
+    {
+      "v": "2.9.0",
+      "items": [
+        "All off is a simple power button.",
+        "Device icons moved to Me > Device icons."
+      ]
+    },
+    {
+      "v": "2.8.0",
+      "items": [
+        "Create, edit and delete automations: times, device triggers and sensor thresholds, then devices, waits or scenes."
+      ]
+    },
+    {
+      "v": "2.7.0",
+      "items": [
+        "A Liquid Glass look: frosted surfaces, a colourful backdrop and a floating tab bar."
+      ]
+    },
+    {
+      "v": "2.6.1",
+      "items": [
+        "Weather shows in Celsius by default."
+      ]
+    },
+    {
+      "v": "2.6.0",
+      "items": [
+        "The greeting says Hi with your name, plus the current weather at your home."
+      ]
+    },
+    {
+      "v": "2.5.0",
+      "items": [
+        "Admins can limit a member to one home."
+      ]
+    },
+    {
+      "v": "2.4.0",
+      "items": [
+        "Sync and people now use a Neon database."
+      ]
+    },
+    {
+      "v": "2.3.1",
+      "items": [
+        "Fits Vercel's free plan: all server endpoints run through one function."
+      ]
+    },
+    {
+      "v": "2.3.0",
+      "items": [
+        "All off asks for confirmation before turning everything off."
+      ]
+    },
+    {
+      "v": "2.2.0",
+      "items": [
+        "A new design: greeting header, room tiles, picture-style cards and a brightness dial."
+      ]
+    },
+    {
+      "v": "2.1.0",
+      "items": [
+        "Device states update about every 4 seconds, with a speed setting in Me."
+      ]
+    },
+    {
+      "v": "2.0.0",
+      "items": [
+        "Colour control for RGB lights.",
+        "All off for a room or the whole home.",
+        "People: separate passwords for family members, with admin and member roles.",
+        "Icons sync across devices."
+      ]
+    },
+    {
+      "v": "1.7.0",
+      "items": [
+        "Temperature and humidity sensors show as readings above your devices."
+      ]
+    },
+    {
+      "v": "1.6.0",
+      "items": [
+        "Create, edit and delete tap-to-run scenes."
+      ]
+    },
+    {
+      "v": "1.5.0",
+      "items": [
+        "More reliable IR air conditioner control, with a fallback when the IR blaster can't be found."
+      ]
+    },
+    {
+      "v": "1.4.0",
+      "items": [
+        "IR blasters: each remote you set up (AC, TV...) appears as its own device."
+      ]
+    },
+    {
+      "v": "1.3.0",
+      "items": [
+        "Unlock the app with a PIN instead of the password."
+      ]
+    },
+    {
+      "v": "1.2.0",
+      "items": [
+        "Switching homes shows only that home's devices.",
+        "Choose a custom icon for any device."
+      ]
+    },
+    {
+      "v": "1.1.0",
+      "items": [
+        "Multi-outlet devices: control each outlet or all at once, and rename outlets."
+      ]
+    },
+    {
+      "v": "1.0.0",
+      "items": [
+        "First version: devices, rooms, scenes, automation switches, phone and tablet layouts, demo mode."
+      ]
+    }
+  ];
+  const APP_VERSION = CHANGELOG[0].v;
+
   // ---------- Storage (guarded: private mode can throw) ----------
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
@@ -93,12 +300,15 @@
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
   const $ = (sel, root) => (root || document).querySelector(sel);
 
-  function toast(msg) {
+  function toast(msg, action, ms) {
     const el = $('#toast');
     el.textContent = msg;
+    el.onclick = action || null;
+    el.classList.toggle('actionable', !!action);
+    el.setAttribute('role', action ? 'button' : 'status');
     el.classList.add('show');
     clearTimeout(toast.t);
-    toast.t = setTimeout(() => el.classList.remove('show'), 2600);
+    toast.t = setTimeout(() => { el.classList.remove('show', 'actionable'); el.onclick = null; }, ms || 2600);
   }
 
   // ---------- Routing (#devices, #scenes, #me, #device/<id>) ----------
@@ -108,6 +318,7 @@
     if (h.startsWith('scene/')) return { view: 'scene-edit', id: decodeURIComponent(h.slice(6)) };
     if (h.startsWith('auto/')) return { view: 'auto-edit', id: decodeURIComponent(h.slice(5)) };
     if (h === 'icons') return { view: 'icons' };
+    if (h === 'changelog') return { view: 'changelog' };
     if (h === 'scenes' || h === 'me') return { view: h };
     return { view: 'devices' };
   }
@@ -955,6 +1166,15 @@
     send(d, cmds, Object.fromEntries(cmds.map((c) => [c.code, c.value])));
   }
 
+  function changelogView() {
+    let html = '<div class="detail-head se-head-top"><button class="round-btn" data-act="tab" data-tab="me" data-key="cl-back" aria-label="Back to Me">' + icon('back', 20) + '</button>' +
+      '<div><p class="sub">Version ' + APP_VERSION + '</p><h1 class="detail-title">What\'s new</h1></div></div>';
+    html += CHANGELOG.map((c, i) =>
+      '<section class="cl-entry"><h2 class="cl-version">' + esc(c.v) + (i === 0 ? '<span class="cl-badge">Current</span>' : '') + '</h2>' +
+      '<ul class="cl-list">' + c.items.map((t) => '<li>' + esc(t) + '</li>').join('') + '</ul></section>').join('');
+    return html;
+  }
+
   function iconsView() {
     const devices = S.data ? S.data.devices : [];
     let html = '<div class="detail-head se-head-top"><button class="round-btn" data-act="tab" data-tab="me" data-key="icons-back" aria-label="Back to Me">' + icon('back', 20) + '</button>' +
@@ -1752,7 +1972,7 @@
     }
     html += '<h2 class="section-title">About</h2><div class="list">' +
       '<div class="list-row"><span class="label">Adding devices</span><span class="value">Pair them in the Tuya app</span></div>' +
-      '<div class="list-row"><span class="label">Version</span><span class="value">2.15.1</span></div></div>';
+      '<button class="list-row" data-act="tab" data-tab="changelog" data-key="changelog-open"><span class="label">Version</span><span class="value icon-value">' + APP_VERSION + ', what\'s new' + icon('chevron', 16) + '</span></button></div>';
     return html;
   }
 
@@ -1889,7 +2109,7 @@
 
   // Gentle page transitions: deeper screens slide in from the right, going back slides from the left,
   // switching tabs fades. Skipped after a swipe-back (it already animated) and for reduced motion.
-  const DEPTH = { devices: 1, scenes: 1, me: 1, device: 2, 'scene-edit': 2, 'auto-edit': 2, icons: 2 };
+  const DEPTH = { devices: 1, scenes: 1, me: 1, device: 2, 'scene-edit': 2, 'auto-edit': 2, icons: 2, changelog: 2 };
   let skipAnim = false;
   function animateRoute(from, to, isWide) {
     if (skipAnim) { skipAnim = false; return; }
@@ -1925,7 +2145,7 @@
 
     const r = route();
     const isWide = wide.matches;
-    const activeTab = r.view === 'device' ? 'devices' : (r.view === 'scene-edit' || r.view === 'auto-edit') ? 'scenes' : r.view === 'icons' ? 'me' : r.view;
+    const activeTab = r.view === 'device' ? 'devices' : (r.view === 'scene-edit' || r.view === 'auto-edit') ? 'scenes' : (r.view === 'icons' || r.view === 'changelog') ? 'me' : r.view;
     let mainHtml, panelHtml = null;
 
     if (r.view === 'device' && !isWide) {
@@ -1946,6 +2166,8 @@
       mainHtml = sceneEditorView(r.id, 'auto');
     } else if (r.view === 'icons') {
       mainHtml = iconsView();
+    } else if (r.view === 'changelog') {
+      mainHtml = changelogView();
     } else if (activeTab === 'scenes') {
       mainHtml = scenesView(!isWide);
       if (isWide) panelHtml = automationsPanel();
@@ -2437,7 +2659,7 @@
   }
 
   // ---------- Swipe back from the left edge (phones) ----------
-  const BACK = { device: 'devices', 'scene-edit': 'scenes', 'auto-edit': 'scenes', icons: 'me' };
+  const BACK = { device: 'devices', 'scene-edit': 'scenes', 'auto-edit': 'scenes', icons: 'me', changelog: 'me' };
   let edge = null;
   const standalone = () => window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
   document.addEventListener('touchstart', (e) => {
@@ -2882,6 +3104,15 @@
       return { ok: true };
     }
     return { handle };
+  })();
+
+  // After an update, offer to show what changed (once per version).
+  (function announceUpdate() {
+    const seen = store.get('seenVersion');
+    store.set('seenVersion', APP_VERSION);
+    if (seen && seen !== APP_VERSION) {
+      setTimeout(() => toast('Updated to ' + APP_VERSION + '. Tap to see what\'s new.', () => { $('#toast').classList.remove('show'); go('changelog'); }, 7000), 1200);
+    }
   })();
 
   // ---------- Start ----------

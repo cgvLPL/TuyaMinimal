@@ -142,6 +142,8 @@ People:
 
 ## Updates
 
+See `CHANGELOG.md` (also in the app under Me → About → Version) for what changed in each release.
+
 After you deploy a new version, the installed app downloads it in the background and reloads itself
 once, at a quiet moment (never while you're typing, dragging a slider or editing a scene).
 
