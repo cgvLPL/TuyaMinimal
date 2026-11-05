@@ -2,6 +2,14 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.22.0
+
+- Redesigned to follow Apple's Liquid Glass guidelines: glass only on the navigation layer (tab bar, side rail, back buttons, alerts), standard materials for cards and lists, a plain system background, system label colours, a quiet selected-tab fill, and toggles that turn glassy while pressed. Respects Reduce Transparency and Increase Contrast.
+
+## 2.21.1
+
+- Calmer glass: a softer, more neutral backdrop, a subtler sheen and quieter edges, keeping the depth.
+
 ## 2.21.0
 
 - Stronger liquid glass: clearer surfaces with more blur, a light-catching sheen and brighter edges, over a more colourful backdrop. Turn on Reduce Transparency on your phone for solid surfaces.

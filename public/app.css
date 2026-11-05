@@ -1057,3 +1057,224 @@ body {
   .card::after, .list::after, .hero::after, .reading::after, .tabbar::after, .scene::after { display: none; }
 }
 :root { --glass-ink: rgba(18, 18, 26, 0.7); } @media (prefers-color-scheme: dark) { :root { --glass-ink: rgba(246, 246, 252, 0.8); } }
+
+/* =========================================================
+   Calmer glass: keep the depth and clarity, drop the loudness.
+   Softer backdrop, gentler sheen, quieter rims.
+   ========================================================= */
+:root {
+  --glass: rgba(255, 255, 255, 0.52);
+  --glass-strong: rgba(255, 255, 255, 0.68);
+  --glass-ink: rgba(20, 20, 26, 0.84);
+  --blur: blur(24px) saturate(150%);
+  --glass-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.25),
+    0 8px 24px rgba(30, 32, 60, 0.08),
+    0 1px 3px rgba(30, 32, 60, 0.06);
+  --glass-edge-hi: rgba(255, 255, 255, 0.75);
+  --glass-edge-lo: rgba(255, 255, 255, 0.12);
+  --muted: #55555F;
+  --chip: rgba(255, 255, 255, 0.5);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --glass: rgba(40, 40, 48, 0.5);
+    --glass-strong: rgba(44, 44, 54, 0.66);
+    --glass-ink: rgba(240, 240, 245, 0.9);
+    --blur: blur(24px) saturate(140%);
+    --glass-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      inset 0 0 0 0.5px rgba(255, 255, 255, 0.08),
+      0 8px 24px rgba(0, 0, 0, 0.4),
+      0 1px 3px rgba(0, 0, 0, 0.3);
+    --glass-edge-hi: rgba(255, 255, 255, 0.22);
+    --glass-edge-lo: rgba(255, 255, 255, 0.03);
+    --muted: #A8A8B3;
+    --chip: rgba(255, 255, 255, 0.09);
+  }
+}
+
+/* Quiet backdrop: two soft, low-saturation glows on a neutral base */
+body {
+  background:
+    radial-gradient(900px 600px at 0% -10%, rgba(170, 186, 230, 0.45), transparent 60%),
+    radial-gradient(900px 700px at 100% 110%, rgba(196, 214, 210, 0.4), transparent 62%),
+    var(--bg);
+  background-attachment: fixed;
+}
+@media (prefers-color-scheme: dark) {
+  body {
+    background:
+      radial-gradient(900px 600px at 0% -10%, rgba(70, 82, 140, 0.32), transparent 60%),
+      radial-gradient(900px 700px at 100% 110%, rgba(40, 90, 86, 0.26), transparent 62%),
+      var(--bg);
+    background-attachment: fixed;
+  }
+}
+
+/* A faint highlight only along the top edge */
+.card::after, .list::after, .hero::after, .empty::after, .reading::after, .se-item::after, .scene::after,
+.banner::after, .room-box::after, .tabbar::after, .rail::after, dialog.confirm::after,
+.pill-btn.soft::after, .round-btn::after, .avatar::after, .icon-btn::after, .cl-list::after {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 30%);
+  mix-blend-mode: soft-light;
+}
+@media (prefers-color-scheme: dark) {
+  .card::after, .list::after, .hero::after, .empty::after, .reading::after, .se-item::after, .scene::after,
+  .banner::after, .room-box::after, .tabbar::after, .rail::after, dialog.confirm::after,
+  .pill-btn.soft::after, .round-btn::after, .avatar::after, .icon-btn::after, .cl-list::after {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 30%);
+    mix-blend-mode: normal;
+  }
+}
+.card::before, .list::before, .hero::before, .reading::before, .room-box::before, .tabbar::before, .rail::before { padding: 1px; }
+
+/* Active devices: solid-looking tinted glass, simple shadow */
+.card.active { box-shadow: 0 10px 26px rgba(20, 20, 40, 0.18); }
+@media (prefers-color-scheme: dark) { .card.active { box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4); } }
+.tabbar { background: var(--glass-strong); }
+
+/* =========================================================================
+   Liquid Glass, following Apple's Human Interface Guidelines (Materials):
+   - Liquid Glass only for the navigation/control layer that floats above content
+     (tab bar, side rail, back buttons, alerts, toasts). Used sparingly.
+   - The content layer (cards, lists, readings, editors) uses standard materials:
+     quiet, near-opaque fills with blur, no specular rims or sheens.
+   - Regular variant (blurs and adjusts luminosity for legibility), not clear.
+   - No glass on glass: the selected tab is a subtle fill, not a tinted glass pill.
+   - Toggles take a glassy look only while being pressed (transient controls).
+   - System-style label and fill colours; Reduce Transparency and Increase
+     Contrast are respected.
+   ========================================================================= */
+:root {
+  --bg: #F2F2F7;                                   /* systemGroupedBackground */
+  --content: rgba(255, 255, 255, 0.86);            /* standard material over the background */
+  --content-blur: blur(20px) saturate(160%);
+  --text: #000000;
+  --muted: #6C6C70;                                /* secondary label, kept at 4.5:1 contrast */
+  --chip: rgba(118, 118, 128, 0.12);               /* tertiary fill */
+  --track-off: rgba(120, 120, 128, 0.2);           /* system fill */
+  --line: rgba(60, 60, 67, 0.14);                  /* separator */
+  --ink: #1C1C1E; --on-ink: #FFFFFF;
+  --on-ink-muted: rgba(235, 235, 245, 0.72); --on-ink-soft: rgba(255, 255, 255, 0.14);
+  --glass: rgba(255, 255, 255, 0.62);              /* Liquid Glass, regular */
+  --glass-strong: rgba(255, 255, 255, 0.72);
+  --glass-ink: #1C1C1E;
+  --blur: blur(14px) saturate(180%) brightness(1.04);
+  --glass-shadow: 0 8px 26px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
+  --glass-edge-hi: rgba(255, 255, 255, 0.95);
+  --glass-edge-lo: rgba(255, 255, 255, 0.25);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #000000;
+    --content: rgba(28, 28, 30, 0.86);             /* secondarySystemGroupedBackground */
+    --text: #FFFFFF;
+    --muted: #AEAEB2;
+    --chip: rgba(118, 118, 128, 0.24);
+    --track-off: rgba(120, 120, 128, 0.36);
+    --line: rgba(84, 84, 88, 0.6);
+    --ink: #F2F2F7; --on-ink: #000000;
+    --on-ink-muted: rgba(60, 60, 67, 0.75); --on-ink-soft: rgba(0, 0, 0, 0.08);
+    --glass: rgba(36, 36, 40, 0.62);
+    --glass-strong: rgba(40, 40, 44, 0.74);
+    --glass-ink: #F2F2F7;
+    --blur: blur(14px) saturate(180%);
+    --glass-shadow: 0 8px 26px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.4);
+    --glass-edge-hi: rgba(255, 255, 255, 0.32);
+    --glass-edge-lo: rgba(255, 255, 255, 0.06);
+  }
+}
+
+/* Content first: a plain system background, so the glass layer is the only thing that shimmers */
+body, body { background: var(--bg); }
+@media (prefers-color-scheme: dark) { body { background: var(--bg); } }
+
+/* ---------- Content layer: standard material ---------- */
+.card, .list, .hero, .empty, .reading, .se-item, .scene, .banner, .skeleton, .room-box, .cl-list,
+.pill-btn.soft, .icon-btn, .head-icon, .icon-pick, .user-form, .field input, .field select, .section-count {
+  background: var(--content);
+  -webkit-backdrop-filter: var(--content-blur); backdrop-filter: var(--content-blur);
+  box-shadow: none;
+}
+.card, .scene { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); }
+@media (prefers-color-scheme: dark) { .card, .scene { box-shadow: none; } }
+.card::before, .list::before, .hero::before, .empty::before, .reading::before, .se-item::before, .scene::before,
+.banner::before, .room-box::before, .pill-btn.soft::before, .avatar::before,
+.card::after, .list::after, .hero::after, .empty::after, .reading::after, .se-item::after, .scene::after,
+.banner::after, .room-box::after, .pill-btn.soft::after, .icon-btn::after, .cl-list::after, .avatar::after {
+  content: none;
+}
+.section-count { background: var(--chip); }
+.list-row + .list-row, .energy .list-row + .list-row { border-top: 0.5px solid var(--line); }
+
+/* Active devices and selections are content states: solid, not glass */
+.card.active, .scene.running, .scene.done, .room-tile[aria-pressed="true"] .room-box,
+.chip[aria-pressed="true"], .chip.soft[aria-pressed="true"], .day[aria-pressed="true"],
+.pill-btn:not(.soft):not(.armed), .btn:not(.ghost):not(.soft-btn):not(.danger-btn), .icon-choice[aria-checked="true"] {
+  background: var(--ink); color: var(--on-ink);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+.card.active { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16); }
+@media (prefers-color-scheme: dark) { .card.active { box-shadow: none; } }
+
+/* ---------- Navigation layer: Liquid Glass (regular) ---------- */
+.tabbar, .rail, .detail-head .round-btn, .avatar, dialog.confirm, .toast, .ptr {
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+  box-shadow: var(--glass-shadow);
+}
+.toast { color: var(--text); }
+dialog.confirm { background: var(--glass-strong); }
+.tabbar::before, .rail::before, .detail-head .round-btn::before, .avatar::before, dialog.confirm::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none;
+  background: linear-gradient(150deg, var(--glass-edge-hi), var(--glass-edge-lo) 40%, var(--glass-edge-lo) 60%, var(--glass-edge-hi));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+}
+.tabbar::after, .rail::after, .detail-head .round-btn::after, dialog.confirm::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0) 38%);
+  mix-blend-mode: soft-light;
+}
+@media (prefers-color-scheme: dark) {
+  .tabbar::after, .rail::after, .detail-head .round-btn::after, dialog.confirm::after {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 38%); mix-blend-mode: normal;
+  }
+}
+.detail-head .round-btn, .avatar { position: relative; color: var(--text); }
+.avatar { background: var(--glass); }
+
+/* No glass on glass: the selected tab is a quiet fill inside the glass bar */
+.tab[aria-current="page"] .pill { background: rgba(0, 0, 0, 0.07); color: var(--text); box-shadow: none; }
+@media (prefers-color-scheme: dark) { .tab[aria-current="page"] .pill { background: rgba(255, 255, 255, 0.16); } }
+.tab { color: var(--muted); }
+.tab[aria-current="page"] { color: var(--text); }
+
+/* Transient controls: a toggle's knob turns into a glass lens while it's being pressed */
+.switch .knob { transition: transform .2s ease, width .15s ease, background-color .15s ease; }
+.switch:active .knob {
+  background: rgba(255, 255, 255, 0.55);
+  -webkit-backdrop-filter: blur(6px) saturate(180%); backdrop-filter: blur(6px) saturate(180%);
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.9), 0 3px 10px rgba(0, 0, 0, 0.2);
+  transform-origin: center;
+}
+.switch:not(.v):active .knob { width: 30px; }
+.switch:not(.v)[aria-checked="true"]:active .knob { transform: translateX(14px); }
+
+/* ---------- Accessibility settings ---------- */
+@media (prefers-reduced-transparency: reduce) {
+  :root { --glass: #FFFFFF; --glass-strong: #FFFFFF; --content: #FFFFFF; }
+  .card, .list, .hero, .reading, .tabbar, .rail, dialog.confirm, .toast, .detail-head .round-btn { -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media (prefers-reduced-transparency: reduce) and (prefers-color-scheme: dark) {
+  :root { --glass: #1C1C1E; --glass-strong: #2C2C2E; --content: #1C1C1E; }
+}
+@media (prefers-contrast: more) {
+  :root { --glass: rgba(255, 255, 255, 0.92); --content: #FFFFFF; --muted: #3A3A3C; --line: rgba(60, 60, 67, 0.4); }
+  .tabbar, .rail, .card, .list, .reading { box-shadow: 0 0 0 1px var(--line); }
+}
+@media (prefers-contrast: more) and (prefers-color-scheme: dark) {
+  :root { --glass: rgba(28, 28, 30, 0.94); --content: #1C1C1E; --muted: #D1D1D6; --line: rgba(255, 255, 255, 0.4); }
+}

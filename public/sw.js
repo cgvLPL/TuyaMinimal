@@ -1,6 +1,6 @@
 // Service worker: caches the app shell so Home opens instantly and offline.
 // Device data (/api/*) is never cached: it always comes live from your server.
-const CACHE = 'home-shell-v40';
+const CACHE = 'home-shell-v42';
 const SHELL = ['/', '/index.html', '/app.css', '/app.js', '/manifest.webmanifest',
   '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png'];
 
