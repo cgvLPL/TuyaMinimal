@@ -40,7 +40,8 @@
     allOffArmed: 0,      // time the "All off" button was armed
     pollMs: Number(store.get('pollMs')) || 4000,  // live status interval
     touched: {},
-    weather: null,       // { homeId, at, available, temp, code, isDay, unit } for the greeting
+    weather: null,
+    energy: {},          // deviceId -> { at, available, today, week, days, total } | 'loading'       // { homeId, at, available, temp, code, isDay, unit } for the greeting
     tempUnit: store.get('tempUnit') || 'c',  // Celsius unless changed in Me         // deviceId -> time of the last local command (avoid flicker)          // remoteId + key -> true briefly after a button is sent   // deviceId whose icon picker is open
     icons: readIcons(),  // deviceId -> icon key, saved on this device      // { id, code } while an outlet name is being edited
     installPrompt: null
@@ -193,7 +194,7 @@
   function prefetchLightSpecs() {
     if (!S.data) return;
     for (const d of S.data.devices) {
-      if ((kindOf(d) === 'light' || kindOf(d) === 'multi' || isReadingDevice(d)) && !S.specs[d.id] && d.online) loadSpec(d.id, true);
+      if ((kindOf(d) === 'light' || kindOf(d) === 'multi' || isReadingDevice(d) || hasEnergy(d)) && !S.specs[d.id] && d.online) loadSpec(d.id, true);
     }
   }
   async function loadSpec(id, quiet) {
@@ -355,12 +356,64 @@
     const extra = [];
     if (d.online && r.co2 != null) extra.push('CO₂ ' + r.co2 + ' ppm');
     if (d.online && r.pm25 != null) extra.push('PM2.5 ' + r.pm25 + ' µg/m³');
-    return '<div class="reading" role="listitem">' +
+    return '<div class="reading' + (lowBattery ? ' low' : '') + '" role="listitem"' + (lowBattery ? ' title="Battery low"' : '') + '>' +
       '<span class="reading-name">' + esc(d.name) + (showRoom && d.room ? '<span class="reading-room">' + esc(d.room) + '</span>' : '') + '</span>' +
       '<span class="reading-main">' + main + '</span>' +
       (extra.length ? '<span class="reading-extra">' + extra.map((x) => '<span>' + x + '</span>').join('') + '</span>' : '') +
       (lowBattery ? '<span class="reading-warn">Battery low</span>' : '') +
       '</div>';
+  }
+
+  // ---------- Energy (plugs that measure power) ----------
+  function hasEnergy(d) { return typeof d.status.cur_power === 'number' || 'add_ele' in d.status; }
+  function liveWatts(d) {
+    if (typeof d.status.cur_power !== 'number' || !specReady(d)) return null;
+    const sp = specOf(d, 'cur_power');
+    return d.status.cur_power / Math.pow(10, sp && typeof sp.scale === 'number' ? sp.scale : 1);
+  }
+  function fmtWatts(w) { return w >= 1000 ? (Math.round(w / 100) / 10) + ' kW' : (w >= 10 ? Math.round(w) : Math.round(w * 10) / 10) + ' W'; }
+  function fmtKwh(k) { return k == null ? '–' : (k >= 10 ? Math.round(k * 10) / 10 : Math.round(k * 100) / 100) + ' kWh'; }
+  function localYmd() { const t = new Date(); return t.getFullYear() + String(t.getMonth() + 1).padStart(2, '0') + String(t.getDate()).padStart(2, '0'); }
+  async function loadEnergy(d, force) {
+    const e = S.energy[d.id];
+    if (e === 'loading' || (!force && e && Date.now() - e.at < 5 * 60 * 1000)) return;
+    S.energy[d.id] = 'loading';
+    try {
+      const r = await api('energy?deviceId=' + encodeURIComponent(d.id) + '&today=' + localYmd());
+      S.energy[d.id] = Object.assign({ at: Date.now() }, r);
+    } catch (err) {
+      S.energy[d.id] = { at: Date.now(), available: false, error: err.message };
+    }
+    const typing = document.activeElement && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName) && document.activeElement.type !== 'range';
+    if (!S.dragging && !typing) render();
+  }
+  function energySection(d) {
+    if (!hasEnergy(d)) return '';
+    if (!S.energy[d.id]) loadEnergy(d);
+    const e = S.energy[d.id];
+    const w = liveWatts(d);
+    const st = d.status;
+    const volts = typeof st.cur_voltage === 'number' && specReady(d) ? st.cur_voltage / Math.pow(10, (specOf(d, 'cur_voltage') || {}).scale ?? 1) : null;
+    const amps = typeof st.cur_current === 'number' && specReady(d) ? st.cur_current / Math.pow(10, (specOf(d, 'cur_current') || {}).scale ?? 0) / 1000 : null;
+    let html = '<h2 class="section-title">Energy</h2><div class="list energy">';
+    html += '<div class="energy-now"><span class="se-label">Using now</span><span class="energy-watts">' + (w == null ? '…' : fmtWatts(d.online && isOn(d) ? w : 0)) + '</span>' +
+      ((volts != null || amps != null) ? '<span class="energy-meta">' + [volts != null ? Math.round(volts) + ' V' : '', amps != null ? (Math.round(amps * 100) / 100) + ' A' : ''].filter(Boolean).join(', ') + '</span>' : '') + '</div>';
+    if (e === 'loading' || !e) {
+      html += '<div class="list-row"><span class="meta">Loading usage…</span></div>';
+    } else if (e.available && e.days) {
+      const max = Math.max(0.0001, ...e.days.map((x) => x.kwh));
+      const dayName = (ymd) => ['S', 'M', 'T', 'W', 'T', 'F', 'S'][new Date(+ymd.slice(0, 4), +ymd.slice(4, 6) - 1, +ymd.slice(6, 8)).getDay()];
+      html += '<div class="energy-chart" role="img" aria-label="Daily use over the last 7 days: ' + esc(e.days.map((x) => fmtKwh(x.kwh)).join(', ')) + '">' +
+        e.days.map((x, i) => '<span class="bar-wrap"><span class="bar' + (i === e.days.length - 1 ? ' today' : '') + '" style="height:' + Math.max(4, Math.round((x.kwh / max) * 100)) + '%"></span><span class="bar-day">' + dayName(x.day) + '</span></span>').join('') + '</div>';
+      html += '<div class="list-row"><span class="label">Today</span><span class="value">' + fmtKwh(e.today) + '</span></div>' +
+        '<div class="list-row"><span class="label">Last 7 days</span><span class="value">' + fmtKwh(e.week) + '</span></div>' +
+        (e.total != null ? '<div class="list-row"><span class="label">All time</span><span class="value">' + fmtKwh(e.total) + '</span></div>' : '');
+    } else if (e.available) {
+      html += '<div class="list-row"><span class="label">All time</span><span class="value">' + fmtKwh(e.total) + '</span></div>';
+    } else {
+      html += '<div class="list-row"><span class="meta">Usage history isn\'t available for this plug.</span></div>';
+    }
+    return html + '</div>';
   }
 
   function statusText(d) {
@@ -392,7 +445,12 @@
     if (k === 'irremote') return 'Remote control';
     if (k === 'multi') {
       const codes = channelCodes(d), n = codes.filter((c) => st[c]).length;
-      return n === 0 ? 'Off' : n === codes.length ? 'All on' : n + ' of ' + codes.length + ' on';
+      const w = n ? liveWatts(d) : null;
+      return (n === 0 ? 'Off' : n === codes.length ? 'All on' : n + ' of ' + codes.length + ' on') + (w != null && w > 0 ? ', ' + fmtWatts(w) : '');
+    }
+    if (hasEnergy(d) && powerCode(d) && on) {
+      const w = liveWatts(d);
+      if (w != null) return 'On, ' + fmtWatts(w);
     }
     if (k === 'sensor') return sensorReading(d);
     if (k === 'camera') return 'Online';
@@ -527,8 +585,8 @@
   function tabs(active) {
     const items = [['devices', 'Devices', 'grid'], ['scenes', 'Scenes', 'scenes'], ['me', 'Me', 'me']];
     return items.map(([id, label, ic]) =>
-      '<button class="tab" data-act="tab" data-tab="' + id + '" data-key="tab-' + id + '"' +
-      (active === id ? ' aria-current="page"' : '') + '><span class="pill">' + icon(ic) + '</span><span>' + label + '</span></button>'
+      '<button class="tab" data-act="tab" data-tab="' + id + '" data-key="tab-' + id + '" aria-label="' + label + '" title="' + label + '"' +
+      (active === id ? ' aria-current="page"' : '') + '><span class="pill">' + icon(ic) + '</span><span class="tab-label">' + label + '</span></button>'
     ).join('');
   }
 
@@ -586,11 +644,12 @@
   }
   function weatherLine(homeId) {
     const w = S.weather;
-    if (!w || w.homeId !== homeId || w.unit !== S.tempUnit) return '<p class="weather" aria-hidden="true"><span class="wx-placeholder"></span></p>';
+    if (!w || w.homeId !== homeId || w.unit !== S.tempUnit) return '<div class="weather" aria-hidden="true"><span class="wx-placeholder"></span></div>';
     if (w.error) return '';
-    if (!w.available) return '<p class="weather wx-missing">Add your home\'s address in the Tuya app to see the weather.</p>';
+    if (!w.available) return '<div class="weather wx-missing" title="Add your home\'s address in the Tuya app to see the weather.">No location for weather</div>';
     const [ic, desc] = weatherInfo(w.code, w.isDay);
-    return '<p class="weather"><span class="wx-icon">' + icon(ic, 26) + '</span><span class="wx-temp">' + w.temp + w.unitLabel + '</span><span class="wx-desc">' + desc + '</span></p>';
+    return '<div class="weather" aria-label="' + esc(desc + ', ' + w.temp + w.unitLabel) + '"><span class="wx-icon">' + icon(ic, 26) + '</span>' +
+      '<span class="wx-text"><span class="wx-temp">' + w.temp + w.unitLabel + '</span><span class="wx-desc">' + desc + '</span></span></div>';
   }
   async function loadWeather(force) {
     if (!S.data || !S.data.homeId) return;
@@ -633,9 +692,9 @@
     // The top (greeting, rooms, readings, heading) stays put; only the device cards scroll.
     let html = '<div class="dv-top"><div class="hello">' +
       '<div class="hello-text"><h1 class="title">' + esc(greeting()) + '</h1>' +
-      weatherLine(data.homeId) +
-      '<p class="hello-sub">' + homeLine + '<span class="hello-dot" aria-hidden="true"></span><span>' + onCount + (onCount === 1 ? ' device on' : ' devices on') + '</span></p></div>' +
-      '<button class="avatar" data-act="tab" data-tab="me" data-key="avatar" aria-label="Me">' + (S.me && !S.me.owner ? esc(initial) : icon('me', 22)) + '</button></div>';
+      '<p class="hello-sub">' + homeLine + '<span class="hello-dot" aria-hidden="true"></span><span>' + onCount + (onCount === 1 ? ' on' : ' on') + '</span></p></div>' +
+      '<div class="hello-side">' + weatherLine(data.homeId) +
+      '<button class="avatar" data-act="tab" data-tab="me" data-key="avatar" aria-label="Me">' + (S.me && !S.me.owner ? esc(initial) : icon('me', 22)) + '</button></div></div>';
     if (S.mode === 'demo') html += '<p class="banner">You are viewing sample devices. Connect your server in Me to control your own.</p>';
     if (rooms.length > 1) {
       html += '<div class="room-tiles" role="group" aria-label="Rooms">' + rooms.map((r) =>
@@ -1100,6 +1159,7 @@
       '<div><p class="sub">' + esc(d.room || 'No room') + '</p><h2 class="detail-title">' + esc(d.name) + '</h2></div></div>' +
       '<div class="hero">' + hero + '</div>' +
       '<div class="list">' + rows.join('') + '</div>' +
+      (d.online ? energySection(d) : '') +
       '</div>';
   }
 
@@ -1663,7 +1723,7 @@
     }
     html += '<h2 class="section-title">About</h2><div class="list">' +
       '<div class="list-row"><span class="label">Adding devices</span><span class="value">Pair them in the Tuya app</span></div>' +
-      '<div class="list-row"><span class="label">Version</span><span class="value">2.10.0</span></div></div>';
+      '<div class="list-row"><span class="label">Version</span><span class="value">2.13.0</span></div></div>';
     return html;
   }
 
@@ -2326,6 +2386,65 @@
     render();
   }
 
+  // ---------- Pull down to refresh ----------
+  const PTR_TRIGGER = 64;
+  let ptr = null;
+  function ptrEl() {
+    let el = document.getElementById('ptr');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'ptr'; el.className = 'ptr'; el.setAttribute('aria-hidden', 'true');
+      el.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg>';
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+  function activeScroller() {
+    const list = document.querySelector('.main.devices-view .dv-scroll');
+    if (list) return list;
+    if (wide.matches && shell) return shell.main;
+    return document.scrollingElement || document.documentElement;
+  }
+  function ptrShow(pull) {
+    const el = ptrEl(), y = Math.min(pull, 96);
+    el.style.transform = 'translate(-50%, ' + (y - 48) + 'px) rotate(' + Math.round(pull * 3) + 'deg)';
+    el.style.opacity = String(Math.min(1, pull / PTR_TRIGGER));
+    el.classList.toggle('armed', pull >= PTR_TRIGGER);
+  }
+  function ptrHide() {
+    const el = document.getElementById('ptr');
+    if (!el) return;
+    el.classList.remove('armed', 'spinning');
+    el.style.transform = 'translate(-50%, -48px)'; el.style.opacity = '0';
+  }
+  document.addEventListener('touchstart', (e) => {
+    if (S.gate || e.touches.length !== 1 || !S.data || ptr && ptr.busy) return;
+    if (e.target.closest('input, select, textarea, dialog, .arc-dial, .hue-range, .switch')) return;
+    const scroller = activeScroller();
+    if (!scroller || scroller.scrollTop > 0) return;
+    ptr = { y0: e.touches[0].clientY, x0: e.touches[0].clientX, pull: 0, scroller };
+  }, { passive: true });
+  document.addEventListener('touchmove', (e) => {
+    if (!ptr || ptr.busy) return;
+    const dy = e.touches[0].clientY - ptr.y0, dx = e.touches[0].clientX - ptr.x0;
+    if (ptr.scroller.scrollTop > 0 || dy <= 0 || Math.abs(dx) > Math.abs(dy)) { if (!ptr.pull) ptr = null; else { ptr.pull = 0; ptrHide(); } return; }
+    ptr.pull = dy * 0.5;  // resistance
+    ptrShow(ptr.pull);
+  }, { passive: true });
+  document.addEventListener('touchend', async () => {
+    if (!ptr || ptr.busy) return;
+    const go = ptr.pull >= PTR_TRIGGER;
+    if (!go) { ptr = null; ptrHide(); return; }
+    ptr.busy = true;
+    const el = ptrEl();
+    el.classList.add('spinning'); el.style.opacity = '1'; el.style.transform = 'translate(-50%, 18px)';
+    if (navigator.vibrate) { try { navigator.vibrate(10); } catch (e) { /* ignore */ } }
+    S.energy = {};
+    await refresh({ fresh: true, silent: true });
+    loadWeather(true);
+    ptrHide(); ptr = null;
+  });
+
   // Physical keyboard support on the PIN screens.
   document.addEventListener('keydown', (e) => {
     if (S.gate !== 'pin' && S.gate !== 'pin-new') return;
@@ -2479,8 +2598,8 @@
         { id: 'dev7', name: 'Bedroom curtains', category: 'cl', product: 'Curtain motor', online: true, room: 'Bedroom', status: { control: 'stop', percent_control: 60, percent_state: 60 } },
         { id: 'dev8', name: 'Bedside lamp', category: 'dj', product: 'Smart bulb', online: true, room: 'Bedroom', status: { switch_led: false, work_mode: 'white', bright_value_v2: 300, temp_value_v2: 0 } },
         { id: 'dev11', name: 'Donut Lamp', category: 'kg', product: '2-gang switch', online: true, room: 'Living room', status: { switch_1: true, switch_2: false } },
-        { id: 'dev12', name: 'Desk power strip', category: 'pc', product: 'Power strip with USB', online: true, room: 'Bedroom', status: { switch_1: true, switch_2: true, switch_3: false, switch_usb1: true } },
-        { id: 'dev4', name: 'Kettle plug', category: 'cz', product: 'Smart plug', online: true, room: 'Kitchen', status: { switch_1: false } },
+        { id: 'dev12', name: 'Desk power strip', category: 'pc', product: 'Power strip with USB', online: true, room: 'Bedroom', status: { switch_1: true, switch_2: true, switch_3: false, switch_usb1: true, cur_power: 865, cur_voltage: 2298, cur_current: 380, add_ele: 0 } },
+        { id: 'dev4', name: 'Kettle plug', category: 'cz', product: 'Smart plug with energy monitoring', online: true, room: 'Kitchen', status: { switch_1: false, cur_power: 0, cur_voltage: 2301, cur_current: 0, add_ele: 0 } },
         { id: 'dev5', name: 'Front door', category: 'mcs', product: 'Door sensor', online: true, room: 'Hallway', status: { doorcontact_state: false, battery_percentage: 86 } },
         { id: 'dev6', name: 'Porch camera', category: 'sp', product: 'Outdoor camera', online: true, room: 'Hallway', status: {} },
         { id: 'dev10', name: 'Garage plug', category: 'cz', product: 'Smart plug', online: false, room: '', status: { switch_1: false } },
@@ -2520,7 +2639,9 @@
       dj: { bright_value_v2: { min: 10, max: 1000, scale: 0, step: 1 }, temp_value_v2: { min: 0, max: 1000, scale: 0, step: 1 } },
       kt: { temp_set: { min: 16, max: 30, scale: 0, step: 1 }, temp_current: { scale: 0 }, mode: { range: ['cold', 'hot', 'wind', 'auto'] } },
       wsdcg: { va_temperature: { scale: 1 }, va_humidity: { scale: 0 } },
-      cl: { percent_control: { min: 0, max: 100, scale: 0, step: 1 } }
+      cl: { percent_control: { min: 0, max: 100, scale: 0, step: 1 } },
+      cz: { cur_power: { scale: 1 }, cur_voltage: { scale: 1 }, cur_current: { scale: 0 } },
+      pc: { cur_power: { scale: 1 }, cur_voltage: { scale: 1 }, cur_current: { scale: 0 } }
     };
     const names = { dev12: { switch_1: 'Monitor', switch_2: 'Laptop charger' } };
     const demoIcons = {};
@@ -2554,6 +2675,7 @@
         const dev = db.devices.find((x) => x.id === b.deviceId);
         if (!dev || !dev.online) { const e = new Error('Device is offline.'); e.code = 'offline'; throw e; }
         for (const c of b.commands) dev.status[c.code] = c.value;
+        if ('cur_power' in dev.status) dev.status.cur_power = dev.id === 'dev4' ? (dev.status.switch_1 ? 21540 : 0) : dev.status.cur_power;
         if (dev.status.control === 'open') dev.status.percent_control = 100;
         if (dev.status.control === 'close') dev.status.percent_control = 0;
         if ('percent_control' in dev.status) dev.status.percent_state = dev.status.percent_control;
@@ -2571,6 +2693,13 @@
         const dev = db.devices.find((x) => x.id === b.remoteId);
         if (b.action === 'ac' && dev) dev.ir.state = { power: b.power === 1, mode: b.mode, temp: b.temp, wind: b.wind };
         return { ok: true };
+      }
+      if (path.startsWith('energy')) {
+        const days = [0.32, 0.41, 0.28, 0.55, 0.47, 0.6, 0.21].map((k, i) => {
+          const t = new Date(); t.setDate(t.getDate() - 6 + i);
+          return { day: t.getFullYear() + String(t.getMonth() + 1).padStart(2, '0') + String(t.getDate()).padStart(2, '0'), kwh: k };
+        });
+        return { available: true, days, today: 0.21, week: 2.84, total: 142.6 };
       }
       if (path.startsWith('weather')) {
         const f = /unit=f/.test(path);

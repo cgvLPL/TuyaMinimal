@@ -16,7 +16,8 @@ const routes = {
   logout: require('./_routes/logout'),
   users: require('./_routes/users'),
   settings: require('./_routes/settings'),
-  weather: require('./_routes/weather')
+  weather: require('./_routes/weather'),
+  energy: require('./_routes/energy')
 };
 
 module.exports = async (req, res) => {

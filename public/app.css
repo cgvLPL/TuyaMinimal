@@ -745,3 +745,84 @@ html.lock-scroll, html.lock-scroll body { height: 100%; overflow: hidden; oversc
   .main.devices-view { height: auto; min-height: 0; padding-bottom: 0; }
   .dv-scroll { margin: 0 -32px; padding: 8px 32px 36px; }
 }
+
+/* Bottom navigation pill: icons only (labels stay for screen readers via aria-label) */
+.tabbar .tab-label { display: none; }
+.tabbar .tab { min-height: 52px; gap: 0; }
+.tabbar .tab .pill { width: 60px; height: 40px; border-radius: 20px; }
+.tabbar .tab .pill svg { width: 24px; height: 24px; }
+.tabbar { padding: 6px 10px; }
+.main { padding-bottom: calc(var(--safe-bottom) + 112px); }
+.dv-scroll { padding-bottom: calc(var(--safe-bottom) + 104px); }
+.toast { bottom: calc(var(--safe-bottom) + 96px); }
+@media (min-width: 900px) { .toast { bottom: 32px; } .dv-scroll { padding-bottom: 36px; } }
+
+/* ---------- Compact header ---------- */
+.hello { align-items: center; margin-bottom: 16px; }
+.hello-side { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
+.weather { margin: 0; min-height: 0; gap: 8px; }
+.wx-text { display: flex; flex-direction: column; line-height: 1.1; }
+.wx-temp { font-size: 20px; }
+.wx-desc { font-size: 12px; }
+.wx-placeholder { width: 72px; height: 32px; border-radius: 12px; }
+.wx-missing { font-size: 11px; max-width: 96px; text-align: right; line-height: 1.25; }
+
+@media (max-width: 899px) {
+  .main { padding-top: calc(var(--safe-top) + 14px); }
+  .hello { margin-bottom: 12px; gap: 10px; }
+  .hello .title { font-size: 25px; line-height: 1.1; }
+  .hello-sub { font-size: 13px; margin-top: 3px; gap: 6px; }
+  .hello .avatar { display: none; }      /* Me is already in the tab bar */
+  .wx-icon svg { width: 24px; height: 24px; }
+  .banner { padding: 8px 12px; font-size: 12px; margin-bottom: 10px; border-radius: 14px; }
+  .room-tiles { gap: 8px; margin-bottom: 12px; }
+  .room-tile { width: 52px; gap: 5px; }
+  .room-box { width: 46px; height: 46px; border-radius: 15px; }
+  .room-box svg { width: 20px; height: 20px; }
+  .room-name { font-size: 11px; max-width: 60px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .readings { gap: 8px; margin-bottom: 10px; }
+  .reading { min-width: 0; padding: 9px 12px; border-radius: 18px; gap: 1px; flex-direction: row; align-items: center; gap: 10px; }
+  .reading-name { font-size: 11px; max-width: 76px; }
+  .reading-room { display: none; }
+  .reading-main { gap: 6px; flex-wrap: nowrap; }
+  .reading-temp { font-size: 19px; line-height: 22px; letter-spacing: -0.3px; }
+  .reading-hum { font-size: 13px; }
+  .reading-hum svg { width: 12px; height: 12px; }
+  .reading-extra, .reading-warn { font-size: 11px; }
+  .dv-top .section-head { margin: 0 0 4px; }
+  .dv-top .section-head h2 { font-size: 17px; }
+  .dv-top .icon-btn { width: 38px; height: 38px; }
+}
+@media (max-width: 899px) {
+  .reading { flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 12px 9px; max-width: 170px; }
+  .reading-name { display: block; max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
+  .reading-warn { display: none; }
+  .reading.low .reading-name { color: var(--danger); }
+}
+
+/* ---------- Pull to refresh ---------- */
+html, body { overscroll-behavior-y: contain; }
+.ptr {
+  position: fixed; left: 50%; top: calc(var(--safe-top) + 6px); z-index: 40;
+  width: 40px; height: 40px; border-radius: 20px; display: flex; align-items: center; justify-content: center;
+  color: var(--muted); background: var(--glass-strong, var(--surface));
+  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); box-shadow: var(--glass-shadow, 0 4px 14px rgba(0,0,0,.12));
+  transform: translate(-50%, -48px); opacity: 0; pointer-events: none;
+  transition: opacity .15s ease, color .15s ease;
+}
+.ptr.armed { color: var(--text); }
+.ptr.spinning { color: var(--text); transition: transform .2s ease, opacity .2s ease; }
+.ptr.spinning svg { animation: ptr-spin .8s linear infinite; }
+@keyframes ptr-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ptr.spinning svg { animation-duration: 2s; } }
+
+/* ---------- Energy ---------- */
+.energy-now { display: flex; flex-direction: column; gap: 2px; padding: 16px 18px 10px; }
+.energy-watts { font-size: 36px; font-weight: 700; letter-spacing: -1px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.energy-meta { font-size: 13px; font-weight: 500; color: var(--muted); }
+.energy-chart { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; align-items: end; height: 110px; padding: 6px 18px 12px; }
+.bar-wrap { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; height: 100%; }
+.bar { width: 100%; max-width: 26px; border-radius: 8px; background: var(--track-off); min-height: 4px; }
+.bar.today { background: var(--glass-ink, var(--ink)); }
+.bar-day { font-size: 11px; font-weight: 600; color: var(--muted); }
+.energy .list-row + .list-row, .energy .energy-chart + .list-row { border-top: 1px solid rgba(120, 120, 140, 0.16); }

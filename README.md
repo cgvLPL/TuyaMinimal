@@ -15,6 +15,9 @@ so your API secret never reaches the browser.
 - People: give family members their own password (admins and members), and sync icons across devices
 - Greeting with the current weather at your home (from the home's address in the Tuya app,
   via the free Open-Meteo service; Celsius by default, switchable in Me)
+- Energy for plugs that measure power: live watts on the card, and on the plug's screen volts/amps,
+  a 7-day chart, today, last 7 days and all-time kWh (from Tuya's data statistics)
+- Pull down to refresh
 - Readings: temperature/humidity (and CO₂, PM2.5) sensors appear as a strip of readings above
   your devices instead of as cards, including IR blasters with a built-in thermometer
 - Tap-to-run scenes: run, create, edit and delete them (devices, outlets, brightness, AC settings,
@@ -52,6 +55,7 @@ api/_routes/       the endpoints (folders starting with _ aren't deployed as sep
   logout.js        end this device's session
   users.js         manage people (admins), change your own password
   settings.js      shared settings such as custom icons
+  energy.js        daily and total kWh for plugs that measure power
   weather.js       current weather at the home's location (Open-Meteo, cached 10 minutes)
 api/_lib/          Tuya client and signing, sign-in, home access checks, scene/automation validation, Neon helpers
 ```
