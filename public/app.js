@@ -5,6 +5,19 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.18.0",
+      "items": [
+        "Optional distance from home under the greeting (\"You're 12 km from home\"), turned on in Me. Your location stays on your phone.",
+        "Pinch and double-tap zoom are turned off."
+      ]
+    },
+    {
+      "v": "2.17.1",
+      "items": [
+        "Tidier Me tab: removed the explanatory notes under Device icons and People."
+      ]
+    },
+    {
       "v": "2.17.0",
       "items": [
         "23 new device icons: column, desk, table, pendant and wall lamps, spotlight, fairy lights, lantern, star light, night light, Christmas tree, air purifier, humidifier, water heater, coffee maker, washing machine, fridge, robot vacuum, lock, doorbell, garage, plant and pet feeder."
@@ -255,6 +268,8 @@
     touched: {},
     pending: {},         // deviceId -> number of commands still on their way
     weather: null,
+    showDistance: store.get('showDistance') === '1',  // "You're 12 km from home" (location stays on this phone)
+    myPos: null,
     energy: {},          // deviceId -> { at, available, today, week, days, total } | 'loading'       // { homeId, at, available, temp, code, isDay, unit } for the greeting
     tempUnit: store.get('tempUnit') || 'c',  // Celsius unless changed in Me         // deviceId -> time of the last local command (avoid flicker)          // remoteId + key -> true briefly after a button is sent   // deviceId whose icon picker is open
     icons: readIcons(),  // deviceId -> icon key, saved on this device      // { id, code } while an outlet name is being edited
@@ -789,6 +804,7 @@
     garage: '<path d="M3 10l9-6 9 6v11H3zM7 21v-8h10v8M7 16h10"/>',
     plant: '<path d="M7 14h10l-1.5 7h-7zM12 14V9M12 9c0-3-2-5-5-5 0 3 2 5 5 5zM12 11c0-2.5 2-4 4.5-4 0 2.5-2 4-4.5 4z"/>',
     petbowl: '<path d="M3 15h18l-2 5H5zM8 15a4 4 0 0 1 8 0"/><circle cx="9" cy="6" r="1.2"/><circle cx="15" cy="6" r="1.2"/><circle cx="12" cy="4.5" r="1.2"/>',
+    pin: '<path d="M12 21s-7-6.1-7-11.5a7 7 0 0 1 14 0C19 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
     drop: '<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>',
     down: '<path d="M6 9l6 6 6-6"/>',
     remote: '<rect x="7" y="2" width="10" height="20" rx="3"/><path d="M12 6v.01M10 10h4M10 13.5h4M10 17h4"/>',
@@ -906,6 +922,42 @@
     if (code >= 95) return ['storm', 'Thunderstorm'];
     return ['cloud', 'Cloudy'];
   }
+  // ---------- Distance from home ----------
+  // Uses the phone's location only on the phone: it's compared with the home's coordinates here
+  // and never sent to the server.
+  function kmBetween(a, b) {
+    const R = 6371, rad = (x) => x * Math.PI / 180;
+    const dLat = rad(b.lat - a.lat), dLon = rad(b.lon - a.lon);
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+  function distanceLine(homeId) {
+    const w = S.weather, p = S.myPos;
+    if (!S.showDistance || !w || w.homeId !== homeId || w.lat == null || !p) return '';
+    const km = kmBetween(p, w);
+    let text;
+    if (km < 0.15) text = 'You\'re home';
+    else if (km < 1) text = 'You\'re ' + Math.max(100, Math.round(km * 10) * 100) + ' m from home';
+    else text = 'You\'re ' + (km < 10 ? Math.round(km * 10) / 10 : Math.round(km)) + ' km from home';
+    return '<p class="distance">' + icon('pin', 14) + '<span>' + text + '</span></p>';
+  }
+  function updatePosition(force) {
+    if (!S.showDistance || !('geolocation' in navigator) || document.visibilityState !== 'visible') return;
+    if (!force && updatePosition.at && Date.now() - updatePosition.at < 60000) return;
+    updatePosition.at = Date.now();
+    navigator.geolocation.getCurrentPosition((pos) => {
+      S.myPos = { lat: pos.coords.latitude, lon: pos.coords.longitude, at: Date.now() };
+      const typing = document.activeElement && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName);
+      if (!S.dragging && !typing && !S.gate) render();
+    }, (err) => {
+      if (err && err.code === 1) {  // permission denied
+        S.showDistance = false; store.set('showDistance', '0'); S.myPos = null;
+        toast('Location is turned off for this app, so distance can\'t be shown.');
+        render();
+      }
+    }, { enableHighAccuracy: false, maximumAge: 120000, timeout: 15000 });
+  }
+
   function weatherLine(homeId) {
     const w = S.weather;
     if (!w || w.homeId !== homeId || w.unit !== S.tempUnit) return '<div class="weather" aria-hidden="true"><span class="wx-placeholder"></span></div>';
@@ -923,7 +975,9 @@
     loadWeather.busy = true;
     try {
       const r = await api('weather?homeId=' + encodeURIComponent(homeId) + '&unit=' + S.tempUnit);
-      S.weather = { homeId, unit: S.tempUnit, at: Date.now(), available: !!r.available, temp: r.temp, code: r.code, isDay: r.isDay, unitLabel: r.unit === '°F' ? '°F' : '°C' };
+      S.weather = { homeId, unit: S.tempUnit, at: Date.now(), available: !!r.available, temp: r.temp, code: r.code, isDay: r.isDay, unitLabel: r.unit === '°F' ? '°F' : '°C',
+        lat: typeof r.lat === 'number' ? r.lat : null, lon: typeof r.lon === 'number' ? r.lon : null };
+      updatePosition();
     } catch (e) {
       S.weather = { homeId, unit: S.tempUnit, at: Date.now(), error: true };
     } finally {
@@ -956,7 +1010,8 @@
     // The top (greeting, rooms, readings, heading) stays put; only the device cards scroll.
     let html = '<div class="dv-top"><div class="hello">' +
       '<div class="hello-text"><h1 class="title">' + esc(greeting()) + '</h1>' +
-      '<p class="hello-sub">' + homeLine + '<span class="hello-dot" aria-hidden="true"></span><span>' + onCount + (onCount === 1 ? ' on' : ' on') + '</span></p></div>' +
+      '<p class="hello-sub">' + homeLine + '<span class="hello-dot" aria-hidden="true"></span><span>' + onCount + (onCount === 1 ? ' on' : ' on') + '</span></p>' +
+      distanceLine(data.homeId) + '</div>' +
       '<div class="hello-side">' + weatherLine(data.homeId) +
       '<button class="avatar" data-act="tab" data-tab="me" data-key="avatar" aria-label="Me">' + (S.me && !S.me.owner ? esc(initial) : icon('me', 22)) + '</button></div></div>';
     if (S.mode === 'demo') html += '<p class="banner">You are viewing sample devices. Connect your server in Me to control your own.</p>';
@@ -1222,7 +1277,7 @@
         '<span class="se-room">' + esc((d.room ? d.room + ', ' : '') + label) + '</span></span></span>' + icon(open ? 'down' : 'chevron', 16) + '</button>' +
         (open ? iconSection(d, '-' + d.id) : '');
     }).join('') + '</div>';
-    html += '<p class="note" style="text-align:left;margin-top:10px">' + (S.sync ? 'Icons sync to everyone who uses this app.' : 'Icons are saved in this browser. Set up sync to share them across devices.') + '</p>';
+    if (!S.sync) html += '<p class="note" style="text-align:left;margin-top:10px">Icons are saved in this browser. Set up sync to share them across devices.</p>';
     return html;
   }
 
@@ -1969,6 +2024,8 @@
       [[2000, 'Fastest (2 s)'], [4000, 'Fast (4 s)'], [10000, 'Normal (10 s)'], [30000, 'Saver (30 s)']].map(([ms, label]) =>
         '<option value="' + ms + '"' + (S.pollMs === ms ? ' selected' : '') + '>' + label + '</option>').join('') + '</select></div>';
     html += '<button class="list-row" data-act="tab" data-tab="icons" data-key="icons-open"><span class="label">Device icons</span><span class="value icon-value">Change' + icon('chevron', 16) + '</span></button>';
+    html += '<div class="list-row"><span class="label" id="dist-label">Distance from home</span>' +
+      '<button class="switch" role="switch" aria-checked="' + S.showDistance + '" aria-labelledby="dist-label" data-act="distance" data-key="distance"><span class="knob"></span></button></div>';
     html += '<div class="list-row"><label class="label" for="unit-select">Weather units</label><select id="unit-select" data-act="tempunit" data-key="unit-select">' +
       '<option value="c"' + (S.tempUnit === 'c' ? ' selected' : '') + '>Celsius (°C)</option>' +
       '<option value="f"' + (S.tempUnit === 'f' ? ' selected' : '') + '>Fahrenheit (°F)</option></select></div>';
@@ -2057,7 +2114,7 @@
     } else {
       html += '<button class="list-row" data-act="user-form-open" data-key="uf-open"><span class="label">Add a person</span>' + icon('plus', 16) + '</button>';
     }
-    html += '</div><p class="note" style="text-align:left;margin-top:10px">Each person signs in with their own password. Choose "Only" a home to limit a member to it: they won\'t see or control anything elsewhere. Admins always have every home. Removing someone signs them out everywhere.</p>';
+    html += '</div>';
     return html;
   }
 
@@ -2420,6 +2477,12 @@
       case 'pw-open': S.pwForm = { current: '', password: '', error: '', busy: false, open: true }; render(); focusFirst('pf-cur'); break;
       case 'pw-close': S.pwForm.open = false; render(); break;
       case 'alloff': allOff(); break;
+      case 'distance':
+        if (S.showDistance) { S.showDistance = false; store.set('showDistance', '0'); S.myPos = null; render(); break; }
+        if (!('geolocation' in navigator)) { toast('This browser can\'t share your location.'); break; }
+        S.showDistance = true; store.set('showDistance', '1'); render();
+        updatePosition(true);  // asks for permission the first time
+        break;
       case 'pin-setup':
         S.gate = 'pin-new'; S.pinStage = 'enter'; S.pinEntry = ''; S.pinFirst = ''; S.pinError = ''; render(); break;
       case 'pin-off':
@@ -2750,6 +2813,12 @@
     if (el && el.classList && el.classList.contains('dv-scroll')) el.classList.toggle('scrolled', el.scrollTop > 2);
   }, true);
 
+  // ---------- No zooming ----------
+  // iPhone ignores user-scalable=no, so block pinch and gesture zoom here too.
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
+  document.addEventListener('touchmove', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+  document.addEventListener('wheel', (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });  // trackpad pinch on computers
+
   // ---------- Pull down to refresh ----------
   const PTR_TRIGGER = 64;
   let ptr = null;
@@ -2893,7 +2962,7 @@
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') { hiddenAt = Date.now(); return; }
     if (S.mode === 'live' && !S.gate && readVault() && hiddenAt && Date.now() - hiddenAt > AUTO_LOCK_MS) { lockApp(); return; }
-    if (!S.gate) refresh({ silent: true });
+    if (!S.gate) { refresh({ silent: true }); updatePosition(); }
   });
   // Two speeds of updates: a light status poll every few seconds (just device states, one request),
   // and a full refresh (rooms, scenes, automations...) once a minute.
@@ -3085,7 +3154,7 @@
       }
       if (path.startsWith('weather')) {
         const f = /unit=f/.test(path);
-        return { available: true, temp: f ? 75 : 24, code: 2, isDay: true, unit: f ? '°F' : '°C', place: 'Demo' };
+        return { available: true, temp: f ? 75 : 24, code: 2, isDay: true, unit: f ? '°F' : '°C', place: 'Demo', lat: 51.5074, lon: -0.1278 };
       }
       if (path.startsWith('status')) {
         const out = {};

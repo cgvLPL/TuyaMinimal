@@ -911,3 +911,9 @@ input, select, textarea { font-size: 16px; }
   font-size: 14px; line-height: 1.45;
 }
 .toast.actionable { pointer-events: auto; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+
+/* Distance from home */
+.distance { display: flex; align-items: center; gap: 5px; margin-top: 3px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.distance svg { flex: 0 0 auto; }
+/* No zoom: keep the whole interface at its designed size */
+html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }

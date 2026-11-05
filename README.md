@@ -18,6 +18,8 @@ so your API secret never reaches the browser.
 - Energy for plugs that measure power: live watts on the card, and on the plug's screen volts/amps,
   a 7-day chart, today, last 7 days and all-time kWh (from Tuya's data statistics)
 - Pull down to refresh
+- Optional "You're 12 km from home" under the greeting (Me → Distance from home). The phone's
+  location is compared with the home's location on the phone itself and never sent to the server.
 - Readings: temperature/humidity (and CO₂, PM2.5) sensors appear as a strip of readings above
   your devices instead of as cards, including IR blasters with a built-in thermometer
 - Tap-to-run scenes: run, create, edit and delete them (devices, outlets, brightness, AC settings,

@@ -57,6 +57,8 @@ module.exports = handler(['GET'], async (req) => {
     code: Number(c.weather_code) || 0,
     isDay: c.is_day === 1 || c.is_day === true,
     unit: unit === 'f' ? '°F' : '°C',
-    place
+    place,
+    lat: Math.round(lat * 10000) / 10000,
+    lon: Math.round(lon * 10000) / 10000
   };
 });

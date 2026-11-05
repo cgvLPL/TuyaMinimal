@@ -2,6 +2,15 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.18.0
+
+- Optional distance from home under the greeting ("You're 12 km from home"), turned on in Me. Your location stays on your phone.
+- Pinch and double-tap zoom are turned off.
+
+## 2.17.1
+
+- Tidier Me tab: removed the explanatory notes under Device icons and People.
+
 ## 2.17.0
 
 - 23 new device icons: column, desk, table, pendant and wall lamps, spotlight, fairy lights, lantern, star light, night light, Christmas tree, air purifier, humidifier, water heater, coffee maker, washing machine, fridge, robot vacuum, lock, doorbell, garage, plant and pet feeder.
