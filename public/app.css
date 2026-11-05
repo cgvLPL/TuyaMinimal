@@ -929,3 +929,131 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
 .act-text b { font-weight: 700; }
 .act-time { flex: 0 0 auto; font-size: 12px; font-weight: 600; color: var(--muted); padding-top: 7px; font-variant-numeric: tabular-nums; }
 .act-more { width: 100%; margin-top: 10px; }
+
+/* ---------- People rows: name + remove on top, two equal menus below ---------- */
+.list-row.user-row { flex-direction: column; align-items: stretch; gap: 10px; padding: 14px 18px; }
+.user-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 32px; }
+.user-top .label { font-size: 16px; }
+.user-remove {
+  height: 32px; padding: 0 14px; border-radius: 16px; border: 0; flex: 0 0 auto;
+  background: var(--chip); color: var(--muted); font-size: 13px; font-weight: 700;
+}
+.user-remove.armed { background: var(--danger); color: #FFFFFF; }
+.user-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.user-controls select {
+  width: 100%; min-width: 0; height: 44px; border-radius: 14px; border: 0; padding: 0 12px;
+  background: var(--chip); color: var(--text); font-size: 16px; font-weight: 600;
+  text-overflow: ellipsis;
+}
+.user-controls select:disabled { opacity: .55; }
+.user-controls select { max-width: none; }
+
+/* =========================================================
+   Stronger liquid glass: clearer, more refractive surfaces,
+   a light-catching sheen and a more vivid backdrop.
+   ========================================================= */
+:root {
+  --glass: rgba(255, 255, 255, 0.34);
+  --glass-strong: rgba(255, 255, 255, 0.5);
+  --glass-ink: rgba(18, 18, 26, 0.62);
+  --blur: blur(30px) saturate(210%) brightness(1.04);
+  --glass-shadow:
+    inset 0 1px 1.5px rgba(255, 255, 255, 0.75),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.18),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.35),
+    0 14px 40px rgba(40, 44, 90, 0.14),
+    0 2px 6px rgba(40, 44, 90, 0.08);
+  --glass-edge-hi: rgba(255, 255, 255, 1);
+  --glass-edge-lo: rgba(255, 255, 255, 0.18);
+  --muted: #4B4B56;
+  --chip: rgba(255, 255, 255, 0.42);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --glass: rgba(44, 44, 58, 0.34);
+    --glass-strong: rgba(48, 48, 62, 0.52);
+    --glass-ink: rgba(246, 246, 252, 0.78);
+    --blur: blur(30px) saturate(200%) brightness(1.08);
+    --glass-shadow:
+      inset 0 1px 1px rgba(255, 255, 255, 0.28),
+      inset 0 -1px 1px rgba(255, 255, 255, 0.06),
+      inset 0 0 0 0.5px rgba(255, 255, 255, 0.12),
+      0 14px 40px rgba(0, 0, 0, 0.5),
+      0 2px 6px rgba(0, 0, 0, 0.35);
+    --glass-edge-hi: rgba(255, 255, 255, 0.45);
+    --glass-edge-lo: rgba(255, 255, 255, 0.05);
+    --muted: #B4B4C0;
+    --chip: rgba(255, 255, 255, 0.12);
+  }
+}
+
+/* A livelier backdrop so there's more for the glass to bend */
+body {
+  background:
+    radial-gradient(900px 560px at 6% -6%, rgba(132, 166, 255, 0.75), transparent 60%),
+    radial-gradient(800px 560px at 108% 4%, rgba(255, 164, 202, 0.7), transparent 58%),
+    radial-gradient(700px 520px at 85% 62%, rgba(255, 214, 150, 0.45), transparent 60%),
+    radial-gradient(900px 700px at 20% 112%, rgba(140, 228, 200, 0.65), transparent 62%),
+    var(--bg);
+  background-attachment: fixed;
+}
+@media (prefers-color-scheme: dark) {
+  body {
+    background:
+      radial-gradient(900px 560px at 6% -6%, rgba(72, 98, 255, 0.55), transparent 60%),
+      radial-gradient(800px 560px at 108% 4%, rgba(214, 64, 150, 0.45), transparent 58%),
+      radial-gradient(700px 520px at 85% 62%, rgba(255, 150, 60, 0.18), transparent 60%),
+      radial-gradient(900px 700px at 20% 112%, rgba(30, 170, 130, 0.38), transparent 62%),
+      var(--bg);
+    background-attachment: fixed;
+  }
+}
+
+/* Sheen: a soft highlight across the top of each glass surface, like light on curved glass */
+.card::after, .list::after, .hero::after, .empty::after, .reading::after, .se-item::after, .scene::after,
+.banner::after, .room-box::after, .tabbar::after, .rail::after, dialog.confirm::after,
+.pill-btn.soft::after, .round-btn::after, .avatar::after, .icon-btn::after, .cl-list::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.08) 22%, rgba(255, 255, 255, 0) 45%),
+    radial-gradient(120% 60% at 0% 0%, rgba(255, 255, 255, 0.25), transparent 60%);
+  mix-blend-mode: soft-light;
+}
+@media (prefers-color-scheme: dark) {
+  .card::after, .list::after, .hero::after, .empty::after, .reading::after, .se-item::after, .scene::after,
+  .banner::after, .room-box::after, .tabbar::after, .rail::after, dialog.confirm::after,
+  .pill-btn.soft::after, .round-btn::after, .avatar::after, .icon-btn::after, .cl-list::after {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0) 50%);
+    mix-blend-mode: screen;
+  }
+}
+.icon-btn, .cl-list { position: relative; }
+.card > *:not(.card-switch), .scene > *, .list > *, .hero > *, .reading > * { position: relative; z-index: 1; }
+.card-switch { z-index: 2; }
+
+/* Brighter, crisper rims */
+.card::before, .list::before, .hero::before, .reading::before, .room-box::before, .tabbar::before, .rail::before {
+  padding: 1.2px;
+}
+
+/* Tinted (active) glass keeps a little transparency and its own sheen */
+.card.active { box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35), 0 16px 38px rgba(20, 20, 50, 0.3); }
+@media (prefers-color-scheme: dark) {
+  .card.active { box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.9), 0 16px 38px rgba(0, 0, 0, 0.45); }
+}
+
+/* Clearer floating tab bar */
+.tabbar { background: var(--glass); }
+.tab[aria-current="page"] .pill { box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.3); }
+
+/* Fallbacks stay solid and readable */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root { --glass: rgba(255, 255, 255, 0.92); --glass-strong: rgba(255, 255, 255, 0.96); --glass-ink: #16161C; }
+  @media (prefers-color-scheme: dark) { :root { --glass: rgba(34, 34, 42, 0.95); --glass-strong: rgba(40, 40, 50, 0.97); --glass-ink: #F2F2F7; } }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root { --glass: var(--surface); --glass-strong: var(--surface); --glass-ink: var(--ink); --chip: rgba(120, 120, 140, 0.12); }
+  body { background: var(--bg); }
+  .card::after, .list::after, .hero::after, .reading::after, .tabbar::after, .scene::after { display: none; }
+}
+:root { --glass-ink: rgba(18, 18, 26, 0.7); } @media (prefers-color-scheme: dark) { :root { --glass-ink: rgba(246, 246, 252, 0.8); } }

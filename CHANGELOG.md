@@ -2,6 +2,14 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.21.0
+
+- Stronger liquid glass: clearer surfaces with more blur, a light-catching sheen and brighter edges, over a more colourful backdrop. Turn on Reduce Transparency on your phone for solid surfaces.
+
+## 2.20.1
+
+- Neater People list: name and Remove on one line, role and home menus side by side at equal width.
+
 ## 2.20.0
 
 - IR remotes in scenes and automations: set an IR air conditioner's power, temperature, mode and fan, or press any button on a TV or other IR remote.

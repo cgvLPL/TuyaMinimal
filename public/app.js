@@ -5,6 +5,18 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.21.0",
+      "items": [
+        "Stronger liquid glass: clearer surfaces with more blur, a light-catching sheen and brighter edges, over a more colourful backdrop. Turn on Reduce Transparency on your phone for solid surfaces."
+      ]
+    },
+    {
+      "v": "2.20.1",
+      "items": [
+        "Neater People list: name and Remove on one line, role and home menus side by side at equal width."
+      ]
+    },
+    {
       "v": "2.20.0",
       "items": [
         "IR remotes in scenes and automations: set an IR air conditioner's power, temperature, mode and fan, or press any button on a TV or other IR remote."
@@ -2197,25 +2209,27 @@
     if (S.users === null) { loadUsers(); return html + '<p class="note" style="text-align:left">Loading…</p>'; }
     if (S.users === 'loading') return html + '<p class="note" style="text-align:left">Loading…</p>';
     if (S.users && S.users.error) return html + '<p class="note" style="text-align:left">' + esc(S.users.error) + '</p>';
-    html += '<div class="list"><div class="list-row"><span class="channel"><span class="label">Owner</span></span><span class="value">Admin, uses APP_PASSWORD</span></div>';
+    html += '<div class="list"><div class="list-row"><span class="channel"><span class="label">Owner</span></span><span class="value">Admin</span></div>';
     html += S.users.map((u) => {
       const armed = S.userDelete === u.id;
       const homes = (S.data && S.data.homes) || [];
       const isAdmin = u.role === 'admin';
       const sel = Array.isArray(u.homes) ? u.homes : null;
       const homeOptions = isAdmin
-        ? '<option selected>All homes (admin)</option>'
+        ? '<option selected>All homes</option>'
         : '<option value=""' + (!sel ? ' selected' : '') + '>All homes</option>' +
           (sel && sel.length > 1 ? '<option selected disabled>' + sel.length + ' homes</option>' : '') +
           (sel && sel.length === 0 ? '<option value="none" selected>No homes</option>' : '') +
           homes.map((h) => '<option value="' + esc(h.id) + '"' + (sel && sel.length === 1 && sel[0] === h.id ? ' selected' : '') + '>Only ' + esc(h.name) + '</option>').join('');
-      return '<div class="list-row user-row"><span class="label">' + esc(u.name) + '</span><span class="user-actions">' +
+      return '<div class="list-row user-row"><div class="user-top"><span class="label">' + esc(u.name) + '</span>' +
+        '<button class="user-remove' + (armed ? ' armed' : '') + '" data-act="user-del" data-id="' + esc(u.id) + '" data-key="udel-' + esc(u.id) + '" aria-label="' + (armed ? 'Confirm removing ' : 'Remove ') + esc(u.name) + '">' + (armed ? 'Confirm' : 'Remove') + '</button></div>' +
+        '<div class="user-controls">' +
         '<label class="sr-only" for="role-' + esc(u.id) + '">Role for ' + esc(u.name) + '</label>' +
         '<select id="role-' + esc(u.id) + '" data-act="user-role" data-id="' + esc(u.id) + '" data-key="role-' + esc(u.id) + '">' +
         ['member', 'admin'].map((r) => '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' + (r === 'admin' ? 'Admin' : 'Member') + '</option>').join('') + '</select>' +
         '<label class="sr-only" for="uhome-' + esc(u.id) + '">Homes for ' + esc(u.name) + '</label>' +
         '<select id="uhome-' + esc(u.id) + '" data-act="user-homes" data-id="' + esc(u.id) + '" data-key="uhome-' + esc(u.id) + '"' + (isAdmin ? ' disabled' : '') + '>' + homeOptions + '</select>' +
-        '<button class="chip soft' + (armed ? ' danger-chip' : '') + '" data-act="user-del" data-id="' + esc(u.id) + '" data-key="udel-' + esc(u.id) + '">' + (armed ? 'Confirm' : 'Remove') + '</button></span></div>';
+        '</div></div>';
     }).join('');
     const F = S.userForm;
     if (F.open) {
