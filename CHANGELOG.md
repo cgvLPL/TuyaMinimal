@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.26.0
+
+- Device photos: choose a black desk lamp, white column lamp, orange donut lamp or blue table lamp in Me > Device icons. The photo shows on the device card and its screen, with a warm glow (in the light's colour) when it is on and a muted look when it is off.
+
 ## 2.25.0
 
 - Timers: on a device's screen, choose Turn off (or on) in 15 min, 30 min, 1 hour or 2 hours. Upcoming timers show with a Cancel button.

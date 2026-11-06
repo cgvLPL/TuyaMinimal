@@ -1384,3 +1384,47 @@ button.reading:active { transform: scale(0.98); }
 .hist-axis { display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: var(--muted); margin-top: 4px; }
 .hist-stats { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 0.5px solid var(--line); font-size: 12px; color: var(--muted); }
 .hist-stats b { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* =========================================================
+   Device photos (optional, chosen per device in Me > Device icons)
+   Photos sit on a light "stage" tile so dark and white products
+   both stay visible on any card colour; a warm glow shows when on.
+   ========================================================= */
+:root { --photo-stage: linear-gradient(180deg, #F1F0EC 0%, #E4E2DC 100%); }
+@media (prefers-color-scheme: dark) { :root { --photo-stage: linear-gradient(180deg, #DCDBD6 0%, #CBCAC4 100%); } }
+html[data-bg] { --photo-stage: linear-gradient(180deg, #DCDBD6 0%, #CBCAC4 100%); }
+
+.dev-photo { display: block; max-width: 100%; max-height: 100%; object-fit: contain; user-select: none; -webkit-user-drag: none; pointer-events: none; }
+
+/* In small round dots (lists, editors, the header) */
+.icon-dot:has(.dev-photo) { background: var(--photo-stage); }
+.icon-dot .dev-photo { max-width: 72%; max-height: 72%; }
+.head-icon .dev-photo { max-width: 74%; max-height: 74%; }
+
+/* Device cards */
+.card.has-photo .card-top { display: block; position: relative; }
+.card-photo, .hero-photo {
+  display: flex; align-items: center; justify-content: center; background: var(--photo-stage);
+  border-radius: 20px; overflow: hidden;
+}
+.card-photo { height: 98px; padding: 10px 14px; }
+.card-photo .dev-photo { max-height: 78px; max-width: 86%; transition: filter .3s ease, opacity .3s ease; }
+.card-photo.lit .dev-photo, .hero-photo.lit .dev-photo { filter: drop-shadow(0 0 14px var(--glow-color, transparent)) drop-shadow(0 0 4px var(--glow-color, transparent)); }
+.card-photo.dim .dev-photo, .hero-photo.dim .dev-photo { filter: saturate(0.55) brightness(0.9); opacity: 0.92; }
+.card.has-photo .offline-tag { position: absolute; top: 8px; right: 8px; background: rgba(255, 255, 255, 0.92); }
+.card.has-photo .card-text { padding-right: 38px; }
+.card.has-photo { min-height: 188px; }
+.card.offline .card-photo { opacity: 0.6; }
+
+/* Device screen */
+.hero-photo { width: 100%; height: 150px; padding: 12px; margin-bottom: 4px; }
+.hero-photo .dev-photo { max-height: 126px; max-width: 70%; transition: filter .3s ease, opacity .3s ease; }
+
+/* Photo picker */
+.icon-group { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin: 4px 2px 0; }
+.photo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.photo-choice { min-height: 118px; gap: 8px; padding: 10px 6px; }
+.photo-thumb { display: flex; align-items: center; justify-content: center; width: 100%; height: 70px; border-radius: 14px; background: var(--photo-stage); padding: 6px; }
+.photo-thumb .dev-photo { max-height: 100%; max-width: 80%; }
+.photo-choice[aria-checked="true"] .photo-thumb { box-shadow: 0 0 0 2px var(--on-ink); }
+@media (min-width: 600px) { .photo-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }

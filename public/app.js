@@ -5,6 +5,12 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.26.0",
+      "items": [
+        "Device photos: choose a black desk lamp, white column lamp, orange donut lamp or blue table lamp in Me > Device icons. The photo shows on the device card and its screen, with a warm glow (in the light's colour) when it is on and a muted look when it is off."
+      ]
+    },
+    {
       "v": "2.25.0",
       "items": [
         "Timers: on a device's screen, choose Turn off (or on) in 15 min, 30 min, 1 hour or 2 hours. Upcoming timers show with a Cancel button.",
@@ -1053,9 +1059,31 @@
     ['fridge', 'Fridge'], ['robovac', 'Robot vacuum'], ['lock', 'Lock'], ['doorbell', 'Doorbell'], ['garage', 'Garage'],
     ['plant', 'Plant'], ['petbowl', 'Pet feeder'], ['router', 'Router'], ['remote', 'Remote'], ['generic', 'Other']
   ];
+  // Product photos that can be used instead of a line icon (transparent WebP files in /devices).
+  const PHOTOS = {
+    photodesk:   { src: '/devices/desk.webp',   name: 'Black desk lamp' },
+    photocolumn: { src: '/devices/column.webp', name: 'White column lamp' },
+    photodonut:  { src: '/devices/donut.webp',  name: 'Orange donut lamp' },
+    phototable:  { src: '/devices/table.webp',  name: 'Blue table lamp' }
+  };
+  const photoOf = (d) => PHOTOS[iconKeyOf(d)] || null;
+  const photoImg = (ph) => '<img class="dev-photo" src="' + ph.src + '" alt="" draggable="false" decoding="async">';
+  // The glow behind a photo of a device that is on: stronger when brighter, in the light's colour.
+  function photoGlow(d) {
+    if (!d.online || !isOn(d)) return 'transparent';
+    if (kindOf(d) === 'light') {
+      if (inColour(d)) {
+        const m = colourMax(colourCode(d)), c = currentColour(d);
+        return 'hsla(' + Math.round(c.h) + ', ' + Math.max(60, Math.round((c.s / m.s) * 100)) + '%, 60%, 0.6)';
+      }
+      const bc = brightCode(d);
+      if (bc && specReady(d)) return 'rgba(255, 206, 140, ' + (0.25 + 0.5 * toPct(d.status[bc], lightRange(d, bc)) / 100).toFixed(2) + ')';
+    }
+    return 'rgba(255, 206, 140, 0.5)';
+  }
   function iconKeyOf(d) {
     const custom = S.icons[d.id];
-    if (custom && P[custom]) return custom;
+    if (custom && (P[custom] || PHOTOS[custom])) return custom;
     const k = kindOf(d);
     if (k === 'irac') return 'climate';
     if (k === 'irremote') {
@@ -1068,7 +1096,7 @@
     }
     return P[k] ? k : 'generic';
   }
-  function deviceIcon(d, size) { return icon(iconKeyOf(d), size); }
+  function deviceIcon(d, size) { const ph = photoOf(d); return ph ? photoImg(ph) : icon(iconKeyOf(d), size); }
 
   // ---------- Views ----------
   function tabs(active) {
@@ -1091,11 +1119,14 @@
 
   function deviceCard(d, selectedId) {
     const on = isOn(d), toggle = hasToggle(d);
-    const cls = ['card', toggle && on && d.online ? 'active' : '', d.online ? '' : 'offline', d.id === selectedId ? 'selected' : '', isPending(d.id) ? 'pending' : ''].join(' ');
+    const cls = ['card', photoOf(d) ? 'has-photo' : '', toggle && on && d.online ? 'active' : '', d.online ? '' : 'offline', d.id === selectedId ? 'selected' : '', isPending(d.id) ? 'pending' : ''].join(' ');
     return '<div class="' + cls + '">' +
       '<button class="card-open" data-act="open" data-id="' + esc(d.id) + '" data-key="open-' + esc(d.id) + '" aria-label="' + esc(d.name) + ', ' + esc(statusText(d)) + ', show controls">' +
-      '<span class="card-top"><span class="icon-dot"' + (on && d.online && kindOf(d) === 'light' && inColour(d) ? ' style="background:' + colourCss(d) + ';color:#141414"' : '') + '>' + deviceIcon(d) + '</span>' + (d.online ? '<span class="card-room">' + esc(d.room) + '</span>'
-        : '<span class="offline-tag">' + icon('wifioff', 13) + 'Offline</span>') + '</span>' +
+      (photoOf(d)
+        ? '<span class="card-top"><span class="card-photo ' + (on && d.online ? 'lit' : 'dim') + '" style="--glow-color:' + photoGlow(d) + '">' + photoImg(photoOf(d)) + '</span>' +
+          (d.online ? '' : '<span class="offline-tag">' + icon('wifioff', 13) + 'Offline</span>') + '</span>'
+        : '<span class="card-top"><span class="icon-dot"' + (on && d.online && kindOf(d) === 'light' && inColour(d) ? ' style="background:' + colourCss(d) + ';color:#141414"' : '') + '>' + deviceIcon(d) + '</span>' + (d.online ? '<span class="card-room">' + esc(d.room) + '</span>'
+          : '<span class="offline-tag">' + icon('wifioff', 13) + 'Offline</span>') + '</span>') +
       '<span class="card-text"><span class="card-name">' + esc(d.name) + '</span><span class="card-status">' + esc(statusText(d)) + '</span></span>' +
       '</button>' +
       (toggle ? '<div class="card-switch">' + switchBtn(d, '', null, true) + '</div>' : '') +
@@ -1551,9 +1582,9 @@
     html += '<div class="list">' + devices.map((d) => {
       const open = S.iconPicking === d.id;
       const current = iconKeyOf(d);
-      const label = (ICON_CHOICES.find(([k]) => k === current) || [current, 'Other'])[1];
+      const label = PHOTOS[current] ? PHOTOS[current].name : (ICON_CHOICES.find(([k]) => k === current) || [current, 'Other'])[1];
       return '<button class="list-row" data-act="icon-open" data-id="' + esc(d.id) + '" data-key="icon-open-' + esc(d.id) + '" aria-expanded="' + open + '" aria-controls="icons-' + esc(d.id) + '">' +
-        '<span class="channel"><span class="icon-dot sm">' + icon(current, 18) + '</span><span class="se-title">' + esc(d.name) +
+        '<span class="channel"><span class="icon-dot sm">' + deviceIcon(d, 18) + '</span><span class="se-title">' + esc(d.name) +
         '<span class="se-room">' + esc((d.room ? d.room + ', ' : '') + label) + '</span></span></span>' + icon(open ? 'down' : 'chevron', 16) + '</button>' +
         (open ? iconSection(d, '-' + d.id) : '');
     }).join('') + '</div>';
@@ -1566,6 +1597,13 @@
     let html = '<div>';
     {
       html += '<div class="icon-pick" id="icons' + sfx + '">' +
+        '<p class="icon-group">Photos</p>' +
+        '<div class="icon-grid photo-grid" role="radiogroup" aria-label="Photo for ' + esc(d.name) + '">' +
+        Object.keys(PHOTOS).map((k) =>
+          '<button class="icon-choice photo-choice" role="radio" aria-checked="' + (k === current) + '" data-act="icon-set" data-id="' + esc(d.id) + '" data-icon="' + k + '" data-key="icon-' + k + sfx + '">' +
+          '<span class="photo-thumb">' + photoImg(PHOTOS[k]) + '</span><span>' + PHOTOS[k].name + '</span></button>').join('') +
+        '</div>' +
+        '<p class="icon-group">Icons</p>' +
         '<div class="icon-grid" role="radiogroup" aria-label="Icon for ' + esc(d.name) + '">' +
         ICON_CHOICES.map(([k, name]) =>
           '<button class="icon-choice" role="radio" aria-checked="' + (k === current) + '" data-act="icon-set" data-id="' + esc(d.id) + '" data-icon="' + k + '" data-key="icon-' + k + sfx + '">' +
@@ -1675,6 +1713,7 @@
 
   function detailView(d, inPanel) {
     if (!d) return '<div class="empty"><strong>Pick a device</strong><p>Its controls appear here.</p></div>';
+    const on = isOn(d);
     const k = kindOf(d), st = d.status;
     const sfx = inPanel ? '-p' : '-d';
     const dis = d.online ? '' : ' disabled';
@@ -1774,7 +1813,7 @@
       (inPanel ? '' : '<button class="round-btn" data-act="back" data-key="back" aria-label="Back to devices">' + icon('back', 20) + '</button>') +
       '<span class="icon-dot head-icon">' + deviceIcon(d) + '</span>' +
       '<div><p class="sub">' + esc((d.room || 'No room') + (d.ir && d.ir.brand ? ', ' + d.ir.brand : '')) + '</p><h2 class="detail-title">' + esc(d.name) + '</h2></div></div>' +
-      '<div class="hero">' + hero + '</div>' +
+      '<div class="hero">' + (photoOf(d) ? '<div class="hero-photo ' + (on && d.online ? 'lit' : 'dim') + '" style="--glow-color:' + photoGlow(d) + '">' + photoImg(photoOf(d)) + '</div>' : '') + hero + '</div>' +
       '<div class="list">' + rows.join('') + '</div>' +
       (d.online ? timerSection(d) : '') +
       (d.online ? energySection(d) : '') +
@@ -3478,7 +3517,7 @@
       pc: { cur_power: { scale: 1 }, cur_voltage: { scale: 1 }, cur_current: { scale: 0 } }
     };
     const names = { dev12: { switch_1: 'Monitor', switch_2: 'Laptop charger' } };
-    const demoIcons = {};
+    const demoIcons = { dev2: 'photocolumn', dev11: 'photodonut', dev8: 'phototable' };
     const demoTimers = {};
     const demoAct = [
       { at: Date.now() - 5 * 60000, who: 'Sam', text: 'turned off Kettle plug', home: true },

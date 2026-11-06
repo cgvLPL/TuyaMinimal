@@ -18,6 +18,8 @@ so your API secret never reaches the browser.
 - Energy for plugs that measure power: live watts on the card, and on the plug's screen volts/amps,
   a 7-day chart, today, last 7 days and all-time kWh (from Tuya's data statistics)
 - Pull down to refresh
+- Device photos (Me → Device icons → Photos): product pictures from `public/devices/` shown on cards and
+  device screens. To add more, drop a transparent WebP/PNG in that folder and list it in `PHOTOS` in app.js.
 - Activity log (Me → Activity): who controlled which device, ran scenes, switched automations,
   edited scenes/automations, changed people or signed in, kept for 30 days. Needs the database.
 - Optional "You're 12 km from home" under the greeting (Me → Distance from home). The phone's
