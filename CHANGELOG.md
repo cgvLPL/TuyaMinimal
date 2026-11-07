@@ -2,6 +2,11 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.34.0
+
+- Arrange your device cards: tap Arrange above the cards, drag a card by its handle (or use the arrow keys), then tap Done. The order is saved for each home and syncs across your devices when sync is on.
+- Wall tablet mode (Me → Wall tablet mode): a full-screen dashboard with a big clock, weather, sensor gauges, scenes and your first 12 devices. It keeps the screen awake where the browser allows, dims itself from 22:00 to 06:00 (tap to wake), and you press and hold the ✕ to leave.
+
 ## 2.33.0
 
 - Plain on/off devices (plugs, switches and lamps without dimming) now have a big rocker switch: the knob sits at the bottom when off and slides up, glowing, when on. Tap it, or swipe it up or down. Power strips keep the all-outlets button.

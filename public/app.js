@@ -5,6 +5,13 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.34.0",
+      "items": [
+        "Arrange your device cards: tap Arrange above the cards, drag a card by its handle (or use the arrow keys), then tap Done. The order is saved for each home and syncs across your devices when sync is on.",
+        "Wall tablet mode (Me → Wall tablet mode): a full-screen dashboard with a big clock, weather, sensor gauges, scenes and your first 12 devices. It keeps the screen awake where the browser allows, dims itself from 22:00 to 06:00 (tap to wake), and you press and hold the ✕ to leave."
+      ]
+    },
+    {
       "v": "2.33.0",
       "items": [
         "Plain on/off devices (plugs, switches and lamps without dimming) now have a big rocker switch: the knob sits at the bottom when off and slides up, glowing, when on. Tap it, or swipe it up or down. Power strips keep the all-outlets button."
@@ -390,6 +397,8 @@
     activity: null,      // { homeId, entries, more, loading, error }
     energy: {},          // deviceId -> { at, available, today, week, days, total } | 'loading'       // { homeId, at, available, temp, code, isDay, unit } for the greeting
     tempUnit: store.get('tempUnit') || 'c',  // Celsius unless changed in Me         // deviceId -> time of the last local command (avoid flicker)          // remoteId + key -> true briefly after a button is sent   // deviceId whose icon picker is open
+    order: (() => { try { return JSON.parse(store.get('order') || '{}') || {}; } catch (e) { return {}; } })(),  // homeId -> [deviceId]
+    reorder: false,       // true while arranging device cards
     icons: readIcons(),  // deviceId -> icon key, saved on this device      // { id, code } while an outlet name is being edited
     installPrompt: null
   };
@@ -461,6 +470,7 @@
     if (h === 'activity') return { view: 'activity' };
     if (h === 'backgrounds') return { view: 'backgrounds' };
     if (ME_PAGES.includes(h)) return { view: h };
+    if (h === 'kiosk') return { view: 'kiosk' };
     if (h.startsWith('history/')) return { view: 'history', id: decodeURIComponent(h.slice(8)) };
     if (h === 'scenes' || h === 'me') return { view: h };
     return { view: 'devices' };
@@ -520,6 +530,9 @@
       if (data.me) S.me = data.me;
       S.sync = !!data.sync;
       if (data.settings && data.settings.icons) { S.icons = Object.assign({}, data.settings.icons); saveIcons(); }
+      if (data.settings && data.settings.order && data.homeId && Array.isArray(data.settings.order[data.homeId])) {
+        S.order = Object.assign({}, S.order, { [data.homeId]: data.settings.order[data.homeId] }); store.set('order', JSON.stringify(S.order));
+      }
       if (data.homeId) { S.homeId = data.homeId; store.set('homeId', data.homeId); }
       loadWeather();
       prefetchLightSpecs();
@@ -1098,6 +1111,9 @@
     remote: '<rect x="7" y="2" width="10" height="20" rx="3"/><path d="M12 6v.01M10 10h4M10 13.5h4M10 17h4"/>',
     multi: '<rect x="2" y="8" width="20" height="8" rx="3"/><path d="M7 11v2M12 11v2M17 11v2"/>',
     pencil: '<path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/>',
+    grip: '<circle cx="9" cy="6" r="1.3"/><circle cx="15" cy="6" r="1.3"/><circle cx="9" cy="12" r="1.3"/><circle cx="15" cy="12" r="1.3"/><circle cx="9" cy="18" r="1.3"/><circle cx="15" cy="18" r="1.3"/>',
+    close: '<path d="M6 6l12 12M18 6L6 18"/>',
+    tablet: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M10 16h4"/>',
     plug: '<path d="M9 2v6M15 2v6M6 8h12v3a6 6 0 0 1-12 0V8zM12 17v5"/>',
     climate: '<rect x="2" y="4" width="20" height="9" rx="2"/><path d="M6 9h12M8 17v3M12 17v4M16 17v3"/>',
     cover: '<path d="M3 3h18M5 3v18M19 3v18M5 21c2-5 2-11 0-18M19 21c-2-5-2-11 0-18"/>',
@@ -1194,8 +1210,10 @@
   function deviceCard(d, selectedId) {
     const on = isOn(d), toggle = hasToggle(d);
     const cls = ['card', photoOf(d) ? 'has-photo' : '', toggle && on && d.online ? 'active' : '', d.online ? '' : 'offline', d.id === selectedId ? 'selected' : '', isPending(d.id) ? 'pending' : ''].join(' ');
-    return '<div class="' + cls + '">' +
-      '<button class="card-open" data-act="open" data-id="' + esc(d.id) + '" data-key="open-' + esc(d.id) + '" aria-label="' + esc(d.name) + ', ' + esc(statusText(d)) + ', show controls">' +
+    const r = S.reorder;
+    return '<div class="' + cls + '" data-card-id="' + esc(d.id) + '">' +
+      (r ? '<button class="card-grip" data-key="grip-' + esc(d.id) + '" aria-label="Move ' + esc(d.name) + '. Use the arrow keys.">' + icon('grip', 18) + '</button>' : '') +
+      '<button class="card-open"' + (r ? ' inert' : '') + ' data-act="open" data-id="' + esc(d.id) + '" data-key="open-' + esc(d.id) + '" aria-label="' + esc(d.name) + ', ' + esc(statusText(d)) + ', show controls">' +
       (photoOf(d)
         ? '<span class="card-top"><span class="card-photo ' + (on && d.online ? 'lit' : 'dim') + '" style="--glow-color:' + photoGlow(d) + '">' + photoImg(photoOf(d)) + '</span>' +
           (d.online ? '' : '<span class="offline-tag">' + icon('wifioff', 13) + 'Offline</span>') + '</span>'
@@ -1203,9 +1221,91 @@
           : '<span class="offline-tag">' + icon('wifioff', 13) + 'Offline</span>') + '</span>') +
       '<span class="card-text"><span class="card-name">' + esc(d.name) + '</span><span class="card-status">' + esc(statusText(d)) + '</span></span>' +
       '</button>' +
-      (toggle ? '<div class="card-switch">' + switchBtn(d, '', null, true) + '</div>' : '') +
+      (toggle ? '<div class="card-switch"' + (S.reorder ? ' inert' : '') + '>' + switchBtn(d, '', null, true) + '</div>' : '') +
       '</div>';
   }
+
+  // ---------- Card order (Arrange) ----------
+  function sortByOrder(list, homeId) {
+    const o = S.order && S.order[homeId];
+    if (!Array.isArray(o) || !o.length) return list;
+    const pos = new Map(o.map((id, i) => [id, i]));
+    return list.map((d, i) => [d, pos.has(d.id) ? pos.get(d.id) : 1e6 + i]).sort((a, b) => a[1] - b[1]).map((x) => x[0]);
+  }
+  // visibleIds: the new order of the cards on screen (maybe one room). Other cards keep their places.
+  function saveOrder(visibleIds) {
+    const homeId = S.data && S.data.homeId;
+    if (!homeId) return;
+    const all = sortByOrder(S.data.devices.filter((d) => !isReadingDevice(d)), homeId).map((d) => d.id);
+    const set = new Set(visibleIds), merged = all.slice();
+    let k = 0;
+    all.forEach((id, i) => { if (set.has(id)) merged[i] = visibleIds[k++]; });
+    S.order = Object.assign({}, S.order, { [homeId]: merged });
+    store.set('order', JSON.stringify(S.order));
+    if (S.sync && S.mode === 'live') {
+      clearTimeout(saveOrder.t);
+      saveOrder.t = setTimeout(() => {
+        api('settings', { method: 'POST', body: { order: { homeId, ids: S.order[homeId] } } })
+          .catch(() => toast('The new order is saved on this device but couldn\'t sync.'));
+      }, 600);
+    }
+  }
+  const gridIds = (grid) => Array.from(grid.querySelectorAll('.card')).map((c) => c.dataset.cardId);
+  let cardDrag = null;
+  document.addEventListener('pointerdown', (e) => {
+    const grip = S.reorder && e.target.closest && e.target.closest('.reordering .card-grip');
+    if (!grip) return;
+    e.preventDefault();
+    const card = grip.closest('.card');
+    cardDrag = { card, grid: card.parentElement, before: gridIds(card.parentElement).join(','), scroller: card.closest('.dv-scroll') };
+    S.dragging = true;
+    card.classList.add('lifted');
+    if (grip.setPointerCapture) grip.setPointerCapture(e.pointerId);
+  });
+  document.addEventListener('pointermove', (e) => {
+    if (!cardDrag) return;
+    const { card, grid, scroller } = cardDrag;
+    const under = document.elementFromPoint(e.clientX, e.clientY);
+    const t = under && under.closest && under.closest('.card');
+    if (t && t !== card && t.parentElement === grid) {
+      const cards = Array.from(grid.children), from = cards.indexOf(card), to = cards.indexOf(t);
+      // FLIP: remember where cards were, move, then animate from there.
+      const before = new Map(cards.map((c) => [c, c.getBoundingClientRect()]));
+      grid.insertBefore(card, from < to ? t.nextSibling : t);
+      cards.forEach((c) => {
+        if (c === card) return;
+        const a = before.get(c), b = c.getBoundingClientRect();
+        if (a.left === b.left && a.top === b.top) return;
+        c.animate([{ transform: 'translate(' + (a.left - b.left) + 'px,' + (a.top - b.top) + 'px)' }, { transform: 'none' }], { duration: 180, easing: 'ease-out' });
+      });
+    }
+    // Scroll when dragging near the edges of the list.
+    const sc = scroller && scroller.scrollHeight > scroller.clientHeight ? scroller : document.scrollingElement;
+    const box = sc === document.scrollingElement ? { top: 0, bottom: window.innerHeight } : sc.getBoundingClientRect();
+    if (e.clientY > box.bottom - 70) sc.scrollBy(0, 14);
+    else if (e.clientY < box.top + 50) sc.scrollBy(0, -14);
+  });
+  function endCardDrag() {
+    if (!cardDrag) return;
+    const { card, grid, before } = cardDrag;
+    cardDrag = null; S.dragging = false;
+    card.classList.remove('lifted');
+    const ids = gridIds(grid);
+    if (ids.join(',') !== before) saveOrder(ids);
+  }
+  document.addEventListener('pointerup', endCardDrag);
+  document.addEventListener('pointercancel', endCardDrag);
+  document.addEventListener('keydown', (e) => {
+    const grip = S.reorder && e.target.closest && e.target.closest('.reordering .card-grip');
+    if (!grip) return;
+    const dir = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[e.key];
+    if (!dir) return;
+    e.preventDefault();
+    const card = grip.closest('.card'), grid = card.parentElement, ids = gridIds(grid), i = ids.indexOf(card.dataset.cardId), j = i + dir;
+    if (j < 0 || j >= ids.length) return;
+    ids.splice(j, 0, ids.splice(i, 1)[0]);
+    saveOrder(ids); render();
+  });
 
   function roomIcon(name) {
     const n = String(name).toLowerCase();
@@ -1353,13 +1453,16 @@
       return html + '</div><div class="dv-scroll"><div class="empty"><strong>No devices found</strong><p>Link your Tuya app account to your cloud project (see the README), then tap Refresh in Me.</p></div></div>';
     }
     const readings = shown.filter(isReadingDevice);
-    const cards = shown.filter((d) => !isReadingDevice(d));
+    const cards = sortByOrder(shown.filter((d) => !isReadingDevice(d)), data.homeId);
     if (readings.length) {
       html += '<div class="readings" role="group" aria-label="Readings">' + readings.map((d) => readingTile(d, S.room === 'All')).join('') + '</div>';
     }
     if (cards.length) {
-      html += '<div class="section-head"><h2>Devices</h2><span class="section-count">' + cards.length + '</span>' + allOffButton() + '</div>';
-      html += '</div><div class="dv-scroll" data-scroll="devices"><div class="grid">' + cards.map((d) => deviceCard(d, selectedId)).join('') + '</div></div>';
+      const arrange = cards.length > 1
+        ? '<button class="chip soft arrange-btn' + (S.reorder ? ' on' : '') + '" data-act="reorder" data-key="reorder" aria-pressed="' + S.reorder + '">' + (S.reorder ? 'Done' : 'Arrange') + '</button>' : '';
+      html += '<div class="section-head"><h2>Devices</h2><span class="section-count">' + cards.length + '</span>' + arrange + (S.reorder ? '' : allOffButton()) + '</div>';
+      if (S.reorder) html += '<p class="reorder-hint">Drag the handle to move a card. Or focus a handle and use the arrow keys.</p>';
+      html += '</div><div class="dv-scroll" data-scroll="devices"><div class="grid' + (S.reorder ? ' reordering' : '') + '">' + cards.map((d) => deviceCard(d, selectedId)).join('') + '</div></div>';
       return html;
     }
     html += '</div><div class="dv-scroll">' + (readings.length ? '' : '<div class="empty"><strong>Nothing in this room</strong><p>Assign devices to rooms in the Tuya app.</p></div>') + '</div>';
@@ -2778,6 +2881,108 @@
       active + ' of ' + a.length + ' on</p><h2 class="detail-title">Automations</h2></div>' + newAutoButton() + '</div>' + automationsList() + '</div>';
   }
 
+  // ---------- Wall tablet mode (kiosk) ----------
+  // A full-screen dashboard for a tablet on the wall: clock, weather, sensor gauges, scenes and
+  // device buttons. Keeps the screen awake, dims itself at night, and needs a press-and-hold to leave.
+  const kiosk = { on: false, lock: null, timer: null, wokeUntil: 0, hold: null };
+  const KIOSK_NIGHT = [22, 6];   // dim from 22:00 until 06:00
+  function kioskStart() {
+    kiosk.on = true;
+    const el = document.documentElement;
+    if (el.requestFullscreen && !document.fullscreenElement) el.requestFullscreen().catch(() => {});
+    kioskWake();
+    clearInterval(kiosk.timer); kiosk.timer = setInterval(kioskTick, 10000);
+    go('kiosk');
+  }
+  function kioskStop() {
+    kiosk.on = false;
+    clearInterval(kiosk.timer); kiosk.timer = null;
+    if (kiosk.lock) { kiosk.lock.release().catch(() => {}); kiosk.lock = null; }
+    if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    document.documentElement.classList.remove('k-night');
+  }
+  async function kioskWake() {
+    try {
+      if ('wakeLock' in navigator && !kiosk.lock && document.visibilityState === 'visible') {
+        kiosk.lock = await navigator.wakeLock.request('screen');
+        kiosk.lock.addEventListener('release', () => { kiosk.lock = null; });
+      }
+    } catch (e) { /* not supported or refused: the screen may sleep */ }
+  }
+  document.addEventListener('visibilitychange', () => { if (kiosk.on && document.visibilityState === 'visible') kioskWake(); });
+  function kioskIsNight(now) {
+    const h = now.getHours();
+    return (h >= KIOSK_NIGHT[0] || h < KIOSK_NIGHT[1]) && Date.now() > kiosk.wokeUntil;
+  }
+  // "12:27" big with a small "PM" (when the locale uses one).
+  function kTime(now) {
+    try {
+      const parts = new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit' }).formatToParts(now);
+      const main = parts.filter((p) => p.type !== 'dayPeriod').map((p) => p.value).join('').trim();
+      const ap = parts.find((p) => p.type === 'dayPeriod');
+      return esc(main) + (ap ? '<span class="k-ampm">' + esc(ap.value) + '</span>' : '');
+    } catch (e) { return esc(now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })); }
+  }
+  const kDate = (now) => now.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
+  function kioskTick() {
+    if (!kiosk.on) return;
+    const now = new Date();
+    document.querySelectorAll('[data-kclock="time"]').forEach((n) => { n.innerHTML = kTime(now); });
+    document.querySelectorAll('[data-kclock="date"]').forEach((n) => { n.textContent = kDate(now); });
+    document.documentElement.classList.toggle('k-night', kioskIsNight(now));
+  }
+  function kioskTile(d) {
+    const on = isOn(d), busy = isPending(d.id);
+    return '<button class="k-tile' + (on && d.online ? ' on' : '') + (busy ? ' pending' : '') + '" data-act="toggle" data-id="' + esc(d.id) + '" data-key="k-' + esc(d.id) + '"' +
+      ' aria-pressed="' + on + '" aria-label="' + esc(d.name + ', ' + statusText(d)) + '"' + (d.online ? '' : ' disabled') + '>' +
+      '<span class="k-icon">' + deviceIcon(d, 26) + '</span><span class="k-name">' + esc(d.name) + '</span><span class="k-status">' + esc(d.online ? statusText(d) : 'Offline') + '</span></button>';
+  }
+  function kioskView() {
+    const data = S.data;
+    if (!data) return '<div class="kiosk-wrap"><div class="empty"><strong>Loading…</strong></div></div>';
+    if (!kiosk.on) { kiosk.on = true; kioskWake(); clearInterval(kiosk.timer); kiosk.timer = setInterval(kioskTick, 10000); }
+    loadWeather();
+    const now = new Date();
+    document.documentElement.classList.toggle('k-night', kioskIsNight(now));
+    const readings = data.devices.filter(isReadingDevice);
+    const devices = sortByOrder(data.devices.filter((d) => !isReadingDevice(d) && hasToggle(d) && !d.ir), data.homeId).slice(0, 12);
+    const scenes = data.scenes || [];
+    let html = '<div class="kiosk-wrap">' +
+      '<header class="k-top"><div class="k-clock"><span class="k-time" data-kclock="time">' + kTime(now) + '</span>' +
+      '<span class="k-date" data-kclock="date">' + kDate(now) + '</span></div>' +
+      '<div class="k-side">' + weatherLine(data.homeId) +
+      '<button class="k-exit" data-key="k-exit" aria-label="Leave wall tablet mode (press and hold)" title="Press and hold to leave">' +
+      '<svg class="k-exit-ring" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="20"/></svg>' + icon('close', 18) + '</button></div></header>';
+    if (readings.length) html += '<div class="readings k-readings" role="group" aria-label="Readings">' + readings.map((d) => readingTile(d, true)).join('') + '</div>';
+    if (scenes.length) {
+      html += '<h2 class="k-h">Scenes</h2><div class="k-scenes">' + scenes.map((sc) => {
+        const st = S.sceneState[sc.id];
+        return '<button class="k-scene ' + (st || '') + '" data-act="scene" data-id="' + esc(sc.id) + '" data-key="ks-' + esc(sc.id) + '"' + (st === 'running' ? ' disabled' : '') + '>' +
+          '<span class="k-play">' + icon(st === 'done' ? 'check' : 'play', 18) + '</span><span>' + esc(sc.name) + '</span></button>';
+      }).join('') + '</div>';
+    }
+    if (devices.length) html += '<h2 class="k-h">Devices</h2><div class="k-devices">' + devices.map(kioskTile).join('') + '</div>';
+    html += '<button class="k-dim" data-act="kiosk-wake" data-key="k-dim" aria-label="Wake the screen" tabindex="-1"></button></div>';
+    return html;
+  }
+  // Leaving needs a 1-second press, so a passing hand (or a child) doesn't exit by accident.
+  document.addEventListener('pointerdown', (e) => {
+    const b = e.target.closest && e.target.closest('.k-exit');
+    if (!b) return;
+    e.preventDefault();
+    b.classList.add('holding');
+    kiosk.hold = setTimeout(() => { kiosk.hold = null; kioskStop(); go('me'); }, 1000);
+  });
+  const kioskHoldEnd = (e) => {
+    if (!kiosk.hold) return;
+    clearTimeout(kiosk.hold); kiosk.hold = null;
+    document.querySelectorAll('.k-exit.holding').forEach((b) => b.classList.remove('holding'));
+    if (e.type === 'pointerup') toast('Press and hold to leave wall tablet mode.');
+  };
+  document.addEventListener('pointerup', kioskHoldEnd);
+  document.addEventListener('pointercancel', kioskHoldEnd);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && kiosk.on && route().view === 'kiosk') { kioskStop(); go('me'); } });
+
   // ---------- Me ----------
   // The main page keeps only what people reach for; everything else lives one tap away.
   const chevRow = (act, tab, key, label, value) =>
@@ -2813,6 +3018,7 @@
       html += chevRow('tab', 'people', 'people-open', 'People', n ? n + (n === 1 ? ' person' : ' people') : '');
     }
     html += chevRow('tab', 'icons', 'icons-open', 'Device icons', '');
+    html += chevRow('kiosk-enter', null, 'kiosk-open', 'Wall tablet mode', 'Clock, scenes, devices');
     html += '</div>';
 
     html += '<div class="list">' +
@@ -3034,7 +3240,7 @@
 
   // Gentle page transitions: deeper screens slide in from the right, going back slides from the left,
   // switching tabs fades. Skipped after a swipe-back (it already animated) and for reduced motion.
-  const DEPTH = { devices: 1, scenes: 1, me: 1, device: 2, 'scene-edit': 2, 'auto-edit': 2, icons: 2, changelog: 3, activity: 2, backgrounds: 3, history: 2, people: 2, appearance: 2, settings: 2, about: 2, attention: 2 };
+  const DEPTH = { devices: 1, scenes: 1, me: 1, device: 2, 'scene-edit': 2, 'auto-edit': 2, icons: 2, changelog: 3, activity: 2, backgrounds: 3, history: 2, people: 2, appearance: 2, settings: 2, about: 2, attention: 2, kiosk: 2 };
   let skipAnim = false;
   function animateRoute(from, to, isWide) {
     if (skipAnim) { skipAnim = false; return; }
@@ -3070,7 +3276,7 @@
 
     const r = route();
     const isWide = wide.matches;
-    const activeTab = (r.view === 'device' || r.view === 'history') ? 'devices' : (r.view === 'scene-edit' || r.view === 'auto-edit') ? 'scenes' : (r.view === 'icons' || r.view === 'changelog' || r.view === 'activity' || r.view === 'backgrounds' || ME_PAGES.includes(r.view)) ? 'me' : r.view;
+    const activeTab = (r.view === 'device' || r.view === 'history') ? 'devices' : (r.view === 'scene-edit' || r.view === 'auto-edit') ? 'scenes' : (r.view === 'icons' || r.view === 'changelog' || r.view === 'activity' || r.view === 'backgrounds' || r.view === 'kiosk' || ME_PAGES.includes(r.view)) ? 'me' : r.view;
     let mainHtml, panelHtml = null;
 
     if (r.view === 'history') {
@@ -3099,6 +3305,8 @@
       mainHtml = activityView();
     } else if (r.view === 'backgrounds') {
       mainHtml = backgroundsView();
+    } else if (r.view === 'kiosk') {
+      mainHtml = kioskView();
     } else if (r.view === 'people') {
       mainHtml = peopleView();
     } else if (r.view === 'appearance') {
@@ -3122,6 +3330,9 @@
     const devicesPage = activeTab === 'devices' && !(r.view === 'device' && !isWide) && !!S.data;
     shell.main.classList.toggle('devices-view', devicesPage);
     document.documentElement.classList.toggle('lock-scroll', devicesPage);
+    if (r.view !== 'devices' && S.reorder) S.reorder = false;
+    document.documentElement.classList.toggle('kiosk', r.view === 'kiosk');
+    if (r.view !== 'kiosk' && kiosk.on) kioskStop();
     document.documentElement.classList.toggle('in-editor', r.view === 'scene-edit' || r.view === 'auto-edit');
     shell.app.className = 'app' + (panelHtml == null ? ' no-panel' : '');
     shell.rail.innerHTML = '<span class="mark" aria-hidden="true"><img src="/icons/logo.webp" alt="" width="48" height="48"></span>' + tabs(activeTab);
@@ -3165,6 +3376,9 @@
       case 'room': S.room = el.dataset.room; S.allOffArmed = 0; render(); break;
       case 'open': go('device/' + encodeURIComponent(id)); break;
       case 'back': go('devices'); break;
+      case 'reorder': S.reorder = !S.reorder; render(); break;
+      case 'kiosk-enter': kioskStart(); break;
+      case 'kiosk-wake': kiosk.wokeUntil = Date.now() + 60000; kioskTick(); break;
       case 'toggle': {
         if (!d) return;
         if (el.dataset.swiped) return;

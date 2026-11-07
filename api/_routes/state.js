@@ -204,8 +204,12 @@ module.exports = handler(['GET'], async (req) => {
 
   let settings = null;
   if (store.enabled()) {
-    try { settings = await store.getJSON('settings', { icons: {} }); }
-    catch (e) { warnings.push('Sync: ' + e.message); }
+    try {
+      settings = await store.getJSON('settings', { icons: {} });
+      // Only this home's card order goes out.
+      const all = settings.order || {};
+      settings.order = home && Array.isArray(all[home.id]) ? { [home.id]: all[home.id] } : {};
+    } catch (e) { warnings.push('Sync: ' + e.message); }
   }
 
   return {

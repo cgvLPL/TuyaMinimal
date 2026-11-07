@@ -34,6 +34,8 @@ so your API secret never reaches the browser.
   Weather and other conditions made in the Tuya app are kept when you edit.
 - Several homes: switch between them from the home name at the top of Devices
 - Custom device icons in Me → Device icons (synced when the database is set up)
+- Arrange device cards: tap **Arrange** above the cards, drag the handles, tap **Done** (saved per home, synced when the database is set up)
+- Wall tablet mode (Me → Wall tablet mode): a full-screen clock, weather, sensor gauges, scenes and device buttons. It keeps the screen awake (where the browser allows), dims from 22:00 to 06:00 (tap to wake), and you press and hold the ✕ for a second to leave. Bookmark `/#kiosk` to open straight into it.
 - Optional PIN unlock per device instead of typing the password (Me → Settings → Security)
 - Light and dark mode, offline app shell, installable from Chrome or Safari
 - Demo mode with sample devices: open `/?demo`
