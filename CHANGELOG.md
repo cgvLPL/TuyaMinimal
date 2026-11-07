@@ -2,6 +2,14 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.41.1
+
+- The Arrange button above the devices is now an icon (two arrows); it turns into a checkmark while you're arranging.
+
+## 2.41.0
+
+- More compact device tiles, like the Home app: a short tile with the round icon on the left and the name and state beside it, so about twice as many fit on screen. Tap the icon to turn a device on or off, or the name for its full controls.
+
 ## 2.40.0
 
 - Device cards on the home screen now match the wall tablet: glass when off, and bright white with a yellow round icon when on.

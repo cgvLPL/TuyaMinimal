@@ -5,6 +5,18 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.41.1",
+      "items": [
+        "The Arrange button above the devices is now an icon (two arrows); it turns into a checkmark while you're arranging."
+      ]
+    },
+    {
+      "v": "2.41.0",
+      "items": [
+        "More compact device tiles, like the Home app: a short tile with the round icon on the left and the name and state beside it, so about twice as many fit on screen. Tap the icon to turn a device on or off, or the name for its full controls."
+      ]
+    },
+    {
       "v": "2.40.0",
       "items": [
         "Device cards on the home screen now match the wall tablet: glass when off, and bright white with a yellow round icon when on."
@@ -1249,6 +1261,7 @@
     pencil: '<path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/>',
     grip: '<circle cx="9" cy="6" r="1.3"/><circle cx="15" cy="6" r="1.3"/><circle cx="9" cy="12" r="1.3"/><circle cx="15" cy="12" r="1.3"/><circle cx="9" cy="18" r="1.3"/><circle cx="15" cy="18" r="1.3"/>',
     close: '<path d="M6 6l12 12M18 6L6 18"/>',
+    arrange: '<path d="M7 4v16M4 7l3-3 3 3M17 20V4M14 17l3 3 3-3"/>',
     alert: '<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17h.01"/>',
     tablet: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M10 16h4"/>',
     plug: '<path d="M9 2v6M15 2v6M6 8h12v3a6 6 0 0 1-12 0V8zM12 17v5"/>',
@@ -1344,21 +1357,25 @@
       (d.online ? '' : ' disabled') + '><span class="knob"></span></button>';
   }
 
+  // Compact tile, like the Home app's accessory tiles: a round icon on the left (tap it to turn the
+  // device on or off) and the name and state beside it (tap for the full controls).
   function deviceCard(d, selectedId) {
-    const on = isOn(d), toggle = hasToggle(d);
-    const cls = ['card', photoOf(d) ? 'has-photo' : '', toggle && on && d.online ? 'active' : '', d.online ? '' : 'offline', d.id === selectedId ? 'selected' : '', isPending(d.id) ? 'pending' : ''].join(' ');
-    const r = S.reorder;
-    return '<div class="' + cls + '" data-card-id="' + esc(d.id) + '">' +
+    const on = isOn(d), toggle = hasToggle(d), lit = toggle && on && d.online;
+    const cls = ['card', 'compact', photoOf(d) ? 'has-photo' : '', lit ? 'active' : '', d.online ? '' : 'offline', d.id === selectedId ? 'selected' : '', isPending(d.id) ? 'pending' : ''].join(' ');
+    const r = S.reorder, busy = isPending(d.id);
+    const colour = lit && kindOf(d) === 'light' && inColour(d) ? ' style="background:' + colourCss(d) + ';color:#141414"' : '';
+    const glyph = photoOf(d)
+      ? '<span class="tile-photo' + (lit ? ' lit' : '') + '" style="--glow-color:' + photoGlow(d) + '">' + photoImg(photoOf(d)) + '</span>'
+      : deviceIcon(d);
+    const iconEl = toggle
+      ? '<button class="card-icon icon-dot' + (busy ? ' pending' : '') + '" role="switch" aria-checked="' + on + '" aria-label="' + esc(d.name + (isMulti(d) ? ', all outlets' : ' power')) + '"' +
+        (busy ? ' aria-busy="true"' : '') + ' data-act="toggle" data-id="' + esc(d.id) + '" data-key="sw-' + esc(d.id) + '"' + (d.online ? '' : ' disabled') + (r ? ' inert' : '') + colour + '>' + glyph + '</button>'
+      : '<span class="card-icon icon-dot" aria-hidden="true">' + glyph + '</span>';
+    const status = d.online ? statusText(d) : 'Offline';
+    return '<div class="' + cls + '" data-card-id="' + esc(d.id) + '">' + iconEl +
+      '<button class="card-open"' + (r ? ' inert' : '') + ' data-act="open" data-id="' + esc(d.id) + '" data-key="open-' + esc(d.id) + '" aria-label="' + esc(d.name) + ', ' + esc(status) + ', show controls">' +
+      '<span class="card-text"><span class="card-name">' + esc(d.name) + '</span><span class="card-status">' + esc(status) + '</span></span></button>' +
       (r ? '<button class="card-grip" data-key="grip-' + esc(d.id) + '" aria-label="Move ' + esc(d.name) + '. Use the arrow keys.">' + icon('grip', 18) + '</button>' : '') +
-      '<button class="card-open"' + (r ? ' inert' : '') + ' data-act="open" data-id="' + esc(d.id) + '" data-key="open-' + esc(d.id) + '" aria-label="' + esc(d.name) + ', ' + esc(statusText(d)) + ', show controls">' +
-      (photoOf(d)
-        ? '<span class="card-top"><span class="card-photo ' + (on && d.online ? 'lit' : 'dim') + '" style="--glow-color:' + photoGlow(d) + '">' + photoImg(photoOf(d)) + '</span>' +
-          (d.online ? '' : '<span class="offline-tag">' + icon('wifioff', 13) + 'Offline</span>') + '</span>'
-        : '<span class="card-top"><span class="icon-dot"' + (on && d.online && kindOf(d) === 'light' && inColour(d) ? ' style="background:' + colourCss(d) + ';color:#141414"' : '') + '>' + deviceIcon(d) + '</span>' + (d.online ? '<span class="card-room">' + esc(d.room) + '</span>'
-          : '<span class="offline-tag">' + icon('wifioff', 13) + 'Offline</span>') + '</span>') +
-      '<span class="card-text"><span class="card-name">' + esc(d.name) + '</span><span class="card-status">' + esc(statusText(d)) + '</span></span>' +
-      '</button>' +
-      (toggle ? '<div class="card-switch"' + (S.reorder ? ' inert' : '') + '>' + switchBtn(d, '', null, true) + '</div>' : '') +
       '</div>';
   }
 
@@ -1594,9 +1611,10 @@
     if (readings.length) html += climateSummaries(readings);
     if (cards.length) {
       const arrange = cards.length > 1
-        ? '<button class="chip soft arrange-btn' + (S.reorder ? ' on' : '') + '" data-act="reorder" data-key="reorder" aria-pressed="' + S.reorder + '">' + (S.reorder ? 'Done' : 'Arrange') + '</button>' : '';
+        ? '<button class="icon-btn arrange-btn' + (S.reorder ? ' on' : '') + '" data-act="reorder" data-key="reorder" aria-pressed="' + S.reorder + '"' +
+          ' aria-label="' + (S.reorder ? 'Done arranging' : 'Arrange devices') + '" title="' + (S.reorder ? 'Done' : 'Arrange devices') + '">' + icon(S.reorder ? 'check' : 'arrange', 20) + '</button>' : '';
       html += '<div class="section-head"><h2>Devices</h2><span class="section-count">' + cards.length + '</span>' + arrange + (S.reorder ? '' : allOffButton()) + '</div>';
-      if (S.reorder) html += '<p class="reorder-hint">Drag the handle to move a card. Or focus a handle and use the arrow keys.</p>';
+      if (S.reorder) html += '<p class="reorder-hint">Drag the handles to move devices, then tap ✓. With a keyboard, focus a handle and use the arrow keys.</p>';
       html += '</div><div class="dv-scroll" data-scroll="devices"><div class="grid' + (S.reorder ? ' reordering' : '') + '">' + cards.map((d) => deviceCard(d, selectedId)).join('') + '</div></div>';
       return html;
     }
