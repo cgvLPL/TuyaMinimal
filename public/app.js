@@ -5,6 +5,12 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.39.0",
+      "items": [
+        "Temperature and humidity on the home screen now look like the Home app's summaries: capsule buttons at the top with an icon, \"Climate\" or \"Humidity\" and the reading (a range like 24–26° when you have several sensors). Tap one to see each sensor, or its history if you only have one."
+      ]
+    },
+    {
       "v": "2.38.0",
       "items": [
         "Wall tablet mode redesigned in the iOS 26 style. A Lock Screen-style clock sits at the top, with the date and weather above it. Scenes are capsules like the Home app. Below is a grid of glass widgets: sensors with gauges, large AC widgets, and Control Center-style device tiles that turn bright when on.",
@@ -803,6 +809,47 @@
       '<g transform="translate(16.2 16.2) scale(1.15)">' + GAUGE_ICONS[kind] + '</g></svg>' +
       '<span class="gauge-text" aria-hidden="true"><span class="gauge-label">' + label + '</span><span class="gauge-value">' + esc(valueText) + '</span></span></span>';
   }
+  // Like the Home app's summaries: capsule buttons at the top with an icon, a title and the
+  // value (a range when there are several sensors). Tap one for each sensor's reading;
+  // with a single sensor, tapping opens its history straight away.
+  function rangeText(vals, fmt) {
+    if (!vals.length) return null;
+    const lo = Math.min(...vals), hi = Math.max(...vals);
+    return Math.round(lo) === Math.round(hi) ? fmt(lo) : fmt(lo).replace(/[^\d.\-]+$/, '') + '–' + fmt(hi);
+  }
+  function climateSummaries(readings) {
+    const live = readings.filter((d) => d.online).map((d) => ({ d, r: readingsOf(d) }));
+    const temps = live.map((x) => x.r.temp).filter((v) => v != null);
+    const hums = live.map((x) => x.r.hum).filter((v) => v != null);
+    const low = readings.some((d) => typeof d.status.battery_percentage === 'number' && d.status.battery_percentage <= 20);
+    const one = readings.length === 1 ? readings[0] : null;
+    const act = one ? 'data-act="open-history" data-id="' + esc(one.id) + '"' : 'data-act="climate-toggle"';
+    const pressed = one ? '' : ' aria-expanded="' + !!S.climateOpen + '"';
+    const btn = (key, kind, title, value, label) =>
+      '<button class="summary" ' + act + pressed + ' data-key="sum-' + key + '" aria-label="' + esc(label) + '">' +
+      '<span class="sum-icon ' + kind + '">' + icon(kind === 'temp' ? 'thermo' : 'drop', 18) + '</span>' +
+      '<span class="sum-text"><span class="sum-title">' + title + '</span><span class="sum-value">' + esc(value) + '</span></span></button>';
+    let html = '<div class="summaries" role="group" aria-label="Climate">';
+    const t = rangeText(temps, (v) => fmtTemp(Math.round(v)));
+    const h = rangeText(hums, (v) => Math.round(v) + '%');
+    if (t) html += btn('temp', 'temp', 'Climate', t, 'Temperature ' + t + (one ? ', show history' : ''));
+    if (h) html += btn('hum', 'hum', 'Humidity', h, 'Humidity ' + h + (one ? ', show history' : ''));
+    if (!t && !h) html += btn('off', 'temp', 'Climate', 'Offline', 'Climate sensors offline');
+    if (low) html += '<span class="sum-warn" role="status">' + icon('alert', 14) + 'Sensor battery low</span>';
+    html += '</div>';
+    // Expanded: one row per sensor (room, temperature, humidity), each opening its history.
+    if (!one && S.climateOpen) {
+      html += '<div class="list climate-list">' + readings.map((d) => {
+        const r = readingsOf(d);
+        const vals = !d.online ? 'Offline' : [r.temp != null ? fmtTemp(r.temp) : null, r.hum != null ? Math.round(r.hum) + '%' : null].filter(Boolean).join(' · ');
+        return '<button class="list-row" data-act="open-history" data-id="' + esc(d.id) + '" data-key="clim-' + esc(d.id) + '">' +
+          '<span class="label">' + esc(d.name) + (d.room ? '<span class="clim-room">' + esc(d.room) + '</span>' : '') + '</span>' +
+          '<span class="value icon-value">' + esc(vals) + icon('chevron', 16) + '</span></button>';
+      }).join('') + '</div>';
+    }
+    return html;
+  }
+
   function readingTile(d, showRoom) {
     const r = readingsOf(d);
     const lowBattery = typeof d.status.battery_percentage === 'number' && d.status.battery_percentage <= 20;
@@ -1185,6 +1232,7 @@
     pencil: '<path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/>',
     grip: '<circle cx="9" cy="6" r="1.3"/><circle cx="15" cy="6" r="1.3"/><circle cx="9" cy="12" r="1.3"/><circle cx="15" cy="12" r="1.3"/><circle cx="9" cy="18" r="1.3"/><circle cx="15" cy="18" r="1.3"/>',
     close: '<path d="M6 6l12 12M18 6L6 18"/>',
+    alert: '<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17h.01"/>',
     tablet: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M10 16h4"/>',
     plug: '<path d="M9 2v6M15 2v6M6 8h12v3a6 6 0 0 1-12 0V8zM12 17v5"/>',
     climate: '<rect x="2" y="4" width="20" height="9" rx="2"/><path d="M6 9h12M8 17v3M12 17v4M16 17v3"/>',
@@ -1526,9 +1574,7 @@
     }
     const readings = shown.filter(isReadingDevice);
     const cards = sortByOrder(shown.filter((d) => !isReadingDevice(d)), data.homeId);
-    if (readings.length) {
-      html += '<div class="readings" role="group" aria-label="Readings">' + readings.map((d) => readingTile(d, S.room === 'All')).join('') + '</div>';
-    }
+    if (readings.length) html += climateSummaries(readings);
     if (cards.length) {
       const arrange = cards.length > 1
         ? '<button class="chip soft arrange-btn' + (S.reorder ? ' on' : '') + '" data-act="reorder" data-key="reorder" aria-pressed="' + S.reorder + '">' + (S.reorder ? 'Done' : 'Arrange') + '</button>' : '';
@@ -3720,6 +3766,7 @@
       case 'pw-close': S.pwForm.open = false; render(); break;
       case 'alloff': allOff(); break;
       case 'act-more': loadActivity(true); break;
+      case 'climate-toggle': S.climateOpen = !S.climateOpen; render(); break;
       case 'open-history': S.history = null; go('history/' + encodeURIComponent(id)); break;
       case 'hist-range': S.histHours = Number(el.dataset.h) === 168 ? 168 : 24; S.history = null; render(); break;
       case 'timer-add': if (d) addTimer(d, Number(el.dataset.m)); break;

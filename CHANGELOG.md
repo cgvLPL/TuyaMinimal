@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.39.0
+
+- Temperature and humidity on the home screen now look like the Home app's summaries: capsule buttons at the top with an icon, "Climate" or "Humidity" and the reading (a range like 24–26° when you have several sensors). Tap one to see each sensor, or its history if you only have one.
+
 ## 2.38.0
 
 - Wall tablet mode redesigned in the iOS 26 style. A Lock Screen-style clock sits at the top, with the date and weather above it. Scenes are capsules like the Home app. Below is a grid of glass widgets: sensors with gauges, large AC widgets, and Control Center-style device tiles that turn bright when on.
