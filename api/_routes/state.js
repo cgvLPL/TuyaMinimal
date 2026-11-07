@@ -119,9 +119,13 @@ async function settle(promise, fallback) {
   try { return { value: await promise }; } catch (e) { return { value: fallback, error: e.message }; }
 }
 
+let lastFresh = 0;
+
 module.exports = handler(['GET'], async (req) => {
   const { uid } = config();
-  if (req.query && req.query.fresh) clearCache();
+  // "Refresh now" skips the cache, but at most once every 15 seconds per server instance,
+  // so repeated taps (or a stuck client) can't burn through the Tuya API allowance.
+  if (req.query && req.query.fresh && Date.now() - lastFresh > 15000) { lastFresh = Date.now(); clearCache(); }
   const [devices, homesRes] = await Promise.all([
     call('GET', `/v1.0/users/${uid}/devices`),
     settle(cached('homes', SLOW, () => call('GET', `/v1.0/users/${uid}/homes`)), [])
@@ -175,8 +179,18 @@ module.exports = handler(['GET'], async (req) => {
         props: a.executor_property && typeof a.executor_property === 'object' ? a.executor_property : {}
       }))
     }));
+    // Conditions and actions come along (when Tuya includes them) so the app can say what each one does.
     automations = (autosRes.value || []).map((a) => ({
-      id: String(a.automation_id), name: a.name, enabled: !!a.enabled
+      id: String(a.automation_id), name: a.name, enabled: !!a.enabled,
+      match_type: Number(a.match_type) || 1,
+      conditions: (Array.isArray(a.conditions) ? a.conditions : []).slice(0, 10).map((c) => ({
+        entity_type: Number(c.entity_type), entity_id: c.entity_id || '',
+        display: c.display && typeof c.display === 'object' ? c.display : {}
+      })),
+      actions: (Array.isArray(a.actions) ? a.actions : []).slice(0, 40).map((x) => ({
+        action_executor: x.action_executor, entity_id: x.entity_id || '',
+        executor_property: x.executor_property && typeof x.executor_property === 'object' ? x.executor_property : {}
+      }))
     }));
   }
 
@@ -194,8 +208,12 @@ module.exports = handler(['GET'], async (req) => {
 
   let settings = null;
   if (store.enabled()) {
-    try { settings = await store.getJSON('settings', { icons: {} }); }
-    catch (e) { warnings.push('Sync: ' + e.message); }
+    try {
+      settings = await store.getJSON('settings', { icons: {} });
+      // Only this home's card order goes out.
+      const all = settings.order || {};
+      settings.order = home && Array.isArray(all[home.id]) ? { [home.id]: all[home.id] } : {};
+    } catch (e) { warnings.push('Sync: ' + e.message); }
   }
 
   return {

@@ -4,6 +4,10 @@
 const { call, config, TuyaError } = require('../_lib/tuya');
 const { handler } = require('../_lib/http');
 const access = require('../_lib/access');
+const { cached } = require('../_lib/cache');
+
+// Every open screen polls this. Within a couple of seconds they all share one Tuya call.
+const STATUS_TTL = 2500;
 
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 
@@ -13,7 +17,7 @@ module.exports = handler(['GET'], async (req) => {
   if (ids.length > 300) throw new TuyaError('Too many devices.', 'bad_request', 400);
   const wanted = new Set(ids);
   const { uid } = config();
-  const list = await call('GET', `/v1.0/users/${uid}/devices`);
+  const list = await cached('userdevs:' + uid, STATUS_TTL, () => call('GET', `/v1.0/users/${uid}/devices`));
   const allowed = await access.allowedDeviceIds(req.user);
   const devices = {};
   for (const d of list || []) {

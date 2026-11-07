@@ -50,6 +50,7 @@ function signRequest(cfg, { method, path, body, accessToken, t, nonce }) {
 
 // Token cache lives as long as the warm serverless instance.
 let tokenCache = null;
+const TIMEOUT_MS = 8000;   // per request to Tuya
 
 async function rawRequest(cfg, method, path, bodyObj, accessToken) {
   const body = bodyObj === undefined ? '' : JSON.stringify(bodyObj);
@@ -65,16 +66,21 @@ async function rawRequest(cfg, method, path, bodyObj, accessToken) {
   };
   if (accessToken) headers.access_token = accessToken;
 
+  // Give up after a few seconds so a slow Tuya answer can't hold the function (and the app) hostage.
+  const signal = AbortSignal.timeout(TIMEOUT_MS);
+  const timedOut = (e) => e && (e.name === 'TimeoutError' || e.name === 'AbortError');
   let res;
   try {
-    res = await fetch(cfg.host + path, { method, headers, body: body || undefined });
+    res = await fetch(cfg.host + path, { method, headers, body: body || undefined, signal });
   } catch (e) {
+    if (timedOut(e)) throw new TuyaError('Tuya Cloud took too long to answer. Try again in a moment.', 'timeout', 504);
     throw new TuyaError('Could not reach Tuya Cloud.', 'network');
   }
   let json;
   try {
     json = await res.json();
   } catch (e) {
+    if (timedOut(e)) throw new TuyaError('Tuya Cloud took too long to answer. Try again in a moment.', 'timeout', 504);
     throw new TuyaError('Tuya Cloud sent an unreadable response (HTTP ' + res.status + ').', 'bad_response');
   }
   return json;

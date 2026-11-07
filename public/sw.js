@@ -1,8 +1,10 @@
 // Service worker: caches the app shell so Home opens instantly and offline.
 // Device data (/api/*) is never cached: it always comes live from your server.
-const CACHE = 'home-shell-v46';
+const CACHE = 'home-shell-v60';
 const SHELL = ['/', '/index.html', '/app.css', '/app.js', '/manifest.webmanifest',
-  '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png', '/backgrounds/aura.jpg'];
+  '/icons/icon-192.png', '/icons/apple-touch-icon.png', '/icons/logo.webp', '/backgrounds/aura.jpg',
+  '/devices/desk.webp', '/devices/column.webp', '/devices/donut.webp', '/devices/table.webp',
+  '/devices/ac.webp', '/devices/lantern.webp', '/devices/star.webp'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
