@@ -1533,3 +1533,61 @@ html[data-bg] { --photo-stage: linear-gradient(180deg, #DCDBD6 0%, #CBCAC4 100%)
 }
 .label.attn { color: var(--danger); }
 .main > .list + .list { margin-top: 16px; }
+
+/* ---------- Logo ---------- */
+.gate-mark, .rail .mark { background: none; overflow: hidden; box-shadow: 0 6px 18px rgba(0,0,0,0.18); }
+.gate-mark img, .rail .mark img { width: 100%; height: 100%; display: block; border-radius: 50%; }
+
+/* ---------- Sensor gauges ---------- */
+.reading:has(.gauges) { max-width: none; }
+.reading-main.gauges { display: flex; align-items: center; gap: 22px; flex-wrap: nowrap; }
+.gauge { display: inline-flex; align-items: center; gap: 12px; color: var(--text); }
+.gauge-ring { width: 56px; height: 56px; flex: none; overflow: visible; }
+.gauge-dot { fill: var(--surface); stroke: currentColor; stroke-width: 2.4; }
+.gauge-text { display: flex; flex-direction: column; gap: 1px; }
+.gauge-label { font-size: 15px; font-weight: 800; line-height: 1.15; }
+.gauge-value { font-size: 18px; font-weight: 500; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.reading.low .gauge-label { color: inherit; }
+@media (max-width: 899px) {
+  .reading:has(.gauges) { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 16px 14px; }
+  .reading:has(.gauges) .reading-name { max-width: none; font-size: 12px; }
+  .reading-main.gauges { gap: 18px; }
+  .gauge { gap: 9px; }
+  .gauge-ring { width: 46px; height: 46px; }
+  .gauge-label { font-size: 13px; }
+  .gauge-value { font-size: 16px; }
+}
+
+/* ---------- Rocker switch (plain on/off devices) ---------- */
+.rocker-wrap { display: flex; flex-direction: column; align-items: center; gap: 22px; padding: 8px 0 4px; }
+.rocker-state { font-size: 20px; font-weight: 700; color: var(--muted); letter-spacing: -0.2px; }
+.rocker-state.on { color: var(--text); }
+.rocker {
+  position: relative; width: 124px; height: 300px; border: 0; padding: 8px; border-radius: 46px;
+  background: var(--track-off); cursor: pointer; touch-action: none;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.12); -webkit-tap-highlight-color: transparent;
+  transition: background-color .25s ease;
+}
+.rocker-knob {
+  position: absolute; left: 8px; right: 8px; bottom: 8px; height: 168px; border-radius: 38px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface); color: var(--muted);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+  transition: transform .28s cubic-bezier(.2, .8, .2, 1), background-color .25s ease, color .25s ease, box-shadow .25s ease;
+}
+.rocker[aria-checked="true"] { background: rgba(255, 196, 40, 0.28); }
+.rocker[aria-checked="true"] .rocker-knob {
+  transform: translateY(-116px); background: #fff7dc; color: #e7a400;
+  box-shadow: 0 0 0 1px rgba(255, 200, 60, 0.35), 0 10px 34px rgba(255, 190, 40, 0.55);
+}
+.rocker.flip-up .rocker-knob { animation: rocker-up .3s cubic-bezier(.2, .8, .2, 1); }
+.rocker.flip-down .rocker-knob { animation: rocker-down .3s cubic-bezier(.2, .8, .2, 1); }
+@keyframes rocker-up { from { transform: translateY(0); } to { transform: translateY(-116px); } }
+@keyframes rocker-down { from { transform: translateY(-116px); } to { transform: translateY(0); } }
+.rocker:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }
+.rocker:disabled { opacity: .5; cursor: default; }
+.rocker.pending .rocker-knob { opacity: .85; }
+@media (prefers-reduced-motion: reduce) { .rocker-knob, .rocker.flip-up .rocker-knob, .rocker.flip-down .rocker-knob { transition: none; animation: none; } }
+@media (max-height: 700px) { .rocker { height: 250px; } .rocker-knob { height: 138px; } .rocker[aria-checked="true"] .rocker-knob { transform: translateY(-96px); }
+  @keyframes rocker-up { from { transform: translateY(0); } to { transform: translateY(-96px); } }
+  @keyframes rocker-down { from { transform: translateY(-96px); } to { transform: translateY(0); } } }

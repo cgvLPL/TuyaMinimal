@@ -2,6 +2,22 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.33.0
+
+- Plain on/off devices (plugs, switches and lamps without dimming) now have a big rocker switch: the knob sits at the bottom when off and slides up, glowing, when on. Tap it, or swipe it up or down. Power strips keep the all-outlets button.
+
+## 2.32.0
+
+- Temperature and humidity sensors on the home screen now show round gauges with an icon, the label and the reading. The dot on each gauge marks the value (0–40° for temperature, 0–100% for humidity). Tap one for its history, as before.
+
+## 2.31.1
+
+- The AC and thermostat screen no longer shows the device photo above the temperature dial. The photo still shows on the device card and in the header.
+
+## 2.31.0
+
+- New app logo: a little house on the horizon at sunrise, on the home screen icon, the sign-in screen and the tablet sidebar. Installed apps may keep the old home screen icon until you reinstall.
+
 ## 2.30.0
 
 - Scenes and automations explain themselves: scene cards say what they do ("Ceiling light off · Floor lamp on, 29%") and automations show when and what ("Every day at 7:00 PM → Porch light on").

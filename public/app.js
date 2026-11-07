@@ -5,6 +5,30 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.33.0",
+      "items": [
+        "Plain on/off devices (plugs, switches and lamps without dimming) now have a big rocker switch: the knob sits at the bottom when off and slides up, glowing, when on. Tap it, or swipe it up or down. Power strips keep the all-outlets button."
+      ]
+    },
+    {
+      "v": "2.32.0",
+      "items": [
+        "Temperature and humidity sensors on the home screen now show round gauges with an icon, the label and the reading. The dot on each gauge marks the value (0–40° for temperature, 0–100% for humidity). Tap one for its history, as before."
+      ]
+    },
+    {
+      "v": "2.31.1",
+      "items": [
+        "The AC and thermostat screen no longer shows the device photo above the temperature dial. The photo still shows on the device card and in the header."
+      ]
+    },
+    {
+      "v": "2.31.0",
+      "items": [
+        "New app logo: a little house on the horizon at sunrise, on the home screen icon, the sign-in screen and the tablet sidebar. Installed apps may keep the old home screen icon until you reinstall."
+      ]
+    },
+    {
       "v": "2.30.0",
       "items": [
         "Scenes and automations explain themselves: scene cards say what they do (\"Ceiling light off · Floor lamp on, 29%\") and automations show when and what (\"Every day at 7:00 PM → Porch light on\").",
@@ -675,6 +699,25 @@
     const r = readingsOf(d);
     return r.temp != null || r.hum != null || r.co2 != null || r.pm25 != null;
   }
+  // Round gauges for temperature and humidity: a 270° arc open at the bottom, with a dot at the value.
+  const GAUGE_TEMP = [0, 40];   // °C shown across the arc
+  const GAUGE_ICONS = {
+    temp: '<path d="M10.5 4.5a1.5 1.5 0 0 1 3 0v8.6a3.5 3.5 0 1 1-3 0z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="16" r="1.7" fill="currentColor"/>' +
+      '<path d="M12 9.5V15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M16 5.5h2M16 8h2M16 10.5h2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
+    hum: '<path d="M3.5 8.5c1.5-1.2 3-1.2 4.5 0s3 1.2 4.5 0M3.5 12c1.5-1.2 3-1.2 4.5 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
+      '<path d="M16 9.5c1.8 2.3 3 4 3 5.5a3 3 0 0 1-6 0c0-1.5 1.2-3.2 3-5.5z" fill="currentColor"/>'
+  };
+  function gauge(kind, label, valueText, frac) {
+    const f = Math.min(1, Math.max(0, Number.isFinite(frac) ? frac : 0));
+    const pt = (deg) => { const a = deg * Math.PI / 180; return [(30 + 24 * Math.cos(a)).toFixed(2), (30 + 24 * Math.sin(a)).toFixed(2)]; };
+    const [sx, sy] = pt(135), [ex, ey] = pt(45), [dx, dy] = pt(135 + 270 * f);
+    return '<span class="gauge" role="img" aria-label="' + label + ' ' + esc(valueText) + '">' +
+      '<svg class="gauge-ring" viewBox="0 0 60 60" aria-hidden="true">' +
+      '<path d="M' + sx + ' ' + sy + ' A24 24 0 1 1 ' + ex + ' ' + ey + '" fill="none" stroke="currentColor" stroke-width="5.5" stroke-linecap="round"/>' +
+      '<circle class="gauge-dot" cx="' + dx + '" cy="' + dy + '" r="3.6"/>' +
+      '<g transform="translate(16.2 16.2) scale(1.15)">' + GAUGE_ICONS[kind] + '</g></svg>' +
+      '<span class="gauge-text" aria-hidden="true"><span class="gauge-label">' + label + '</span><span class="gauge-value">' + esc(valueText) + '</span></span></span>';
+  }
   function readingTile(d, showRoom) {
     const r = readingsOf(d);
     const lowBattery = typeof d.status.battery_percentage === 'number' && d.status.battery_percentage <= 20;
@@ -682,15 +725,15 @@
     if (!d.online) {
       main = '<span class="reading-off">Offline</span>';
     } else {
-      if (r.temp != null) main += '<span class="reading-temp">' + fmtTemp(r.temp) + '</span>';
-      if (r.hum != null) main += '<span class="reading-hum" aria-label="Humidity ' + Math.round(r.hum) + '%">' + icon('drop', 16) + Math.round(r.hum) + '%</span>';
+      if (r.temp != null) main += gauge('temp', 'Temperature', fmtTemp(r.temp), (r.temp - GAUGE_TEMP[0]) / (GAUGE_TEMP[1] - GAUGE_TEMP[0]));
+      if (r.hum != null) main += gauge('hum', 'Humidity', Math.round(r.hum) + '%', r.hum / 100);
     }
     const extra = [];
     if (d.online && r.co2 != null) extra.push('CO₂ ' + r.co2 + ' ppm');
     if (d.online && r.pm25 != null) extra.push('PM2.5 ' + r.pm25 + ' µg/m³');
     return '<button class="reading' + (lowBattery ? ' low' : '') + '" data-act="open-history" data-id="' + esc(d.id) + '" data-key="reading-' + esc(d.id) + '" aria-label="' + esc(d.name + ', show history') + '"' + (lowBattery ? ' title="Battery low"' : '') + '>' +
       '<span class="reading-name">' + esc(d.name) + (showRoom && d.room ? '<span class="reading-room">' + esc(d.room) + '</span>' : '') + '</span>' +
-      '<span class="reading-main">' + main + '</span>' +
+      '<span class="reading-main gauges">' + main + '</span>' +
       (extra.length ? '<span class="reading-extra">' + extra.map((x) => '<span>' + x + '</span>').join('') + '</span>' : '') +
       (lowBattery ? '<span class="reading-warn">Battery low</span>' : '') +
       '</button>';
@@ -1431,6 +1474,32 @@
       icon('power', 40) + '<span>' + esc(text) + '</span></button>';
   }
 
+  // Big rocker switch for plain on/off devices (lamps without dimming, plugs, switches): the knob sits
+  // at the bottom when off and slides to the top, lit, when on. Tap it, or swipe it up or down.
+  const flipped = {};   // id -> time of the last tap, so only a real change animates
+  function rockerSwitch(d) {
+    const on = isOn(d), busy = isPending(d.id);
+    const anim = flipped[d.id] && Date.now() - flipped[d.id] < 500 ? (on ? ' flip-up' : ' flip-down') : '';
+    return '<div class="rocker-wrap">' +
+      '<span class="rocker-state' + (on ? ' on' : '') + '" aria-hidden="true">' + (busy ? (on ? 'Turning on…' : 'Turning off…') : on ? 'On' : 'Off') + '</span>' +
+      '<button class="rocker' + anim + (busy ? ' pending' : '') + '" role="switch" aria-checked="' + on + '" aria-label="' + esc(d.name) + '" data-act="toggle" data-id="' + esc(d.id) + '" data-key="rocker-' + esc(d.id) + '"' + (busy ? ' aria-busy="true"' : '') + (d.online ? '' : ' disabled') + '>' +
+      '<span class="rocker-knob">' + icon(iconKeyOf(d), 30) + '</span></button></div>';
+  }
+  let rockerDrag = null;
+  document.addEventListener('pointerdown', (e) => {
+    const el = e.target.closest && e.target.closest('.rocker');
+    if (el && !el.disabled) rockerDrag = { el, y0: e.clientY };
+  });
+  document.addEventListener('pointerup', (e) => {
+    if (!rockerDrag) return;
+    const { el, y0 } = rockerDrag; rockerDrag = null;
+    const dy = e.clientY - y0, on = el.getAttribute('aria-checked') === 'true';
+    if (Math.abs(dy) < 24) return;               // a tap: the click handler toggles it
+    el.dataset.swiped = '1';                     // the click that follows is ignored
+    if ((dy < 0 && !on) || (dy > 0 && on)) { delete el.dataset.swiped; el.click(); el.dataset.swiped = '1'; }
+    setTimeout(() => { delete el.dataset.swiped; }, 400);
+  });
+
   // Brightness dial: an arc from Low (bottom) to High (top), dragged with a finger or the mouse.
   const ARC = { cx: 0, cy: 120, r: 104 };
   function arcPoint(pct) {
@@ -1926,7 +1995,7 @@
           '<div class="tick-row" aria-hidden="true">' + '<span></span>'.repeat(7) + '</div>' +
           '<div class="ends"><span>Off</span><span>100%</span></div></div>';
       } else {
-        hero += powerButton(d); heroHasPower = true;
+        hero += rockerSwitch(d); heroHasPower = true;
       }
       if (wc) {
         const pct = toPct(st[wc], lightRange(d, wc, true));
@@ -1984,7 +2053,7 @@
       hero += powerButton(d); heroHasPower = true;
       hero += '<p class="note">Turns every outlet on or off together. Control each one below.</p>';
     } else if (powerCode(d)) {
-      hero += powerButton(d); heroHasPower = true;
+      hero += rockerSwitch(d); heroHasPower = true;
     } else {
       hero += '<div class="stack-center"><span class="big mid">Online</span><span class="big-label">This app does not have controls for this device type yet.</span></div>';
     }
@@ -2008,7 +2077,8 @@
       (inPanel ? '' : '<button class="round-btn" data-act="back" data-key="back" aria-label="Back to devices">' + icon('back', 20) + '</button>') +
       '<span class="icon-dot head-icon">' + deviceIcon(d) + '</span>' +
       '<div><p class="sub">' + esc((d.room || 'No room') + (d.ir && d.ir.brand ? ', ' + d.ir.brand : '')) + '</p><h2 class="detail-title">' + esc(d.name) + '</h2></div></div>' +
-      '<div class="hero">' + (photoOf(d) ? '<div class="hero-photo ' + (on && d.online ? 'lit' : 'dim') + '" style="--glow-color:' + photoGlow(d) + '">' + photoImg(photoOf(d)) + '</div>' : '') + hero + '</div>' +
+      // AC and thermostat screens skip the photo: the temperature dial is the picture there.
+      '<div class="hero">' + (photoOf(d) && hero.indexOf('<div class="td') === -1 ? '<div class="hero-photo ' + (on && d.online ? 'lit' : 'dim') + '" style="--glow-color:' + photoGlow(d) + '">' + photoImg(photoOf(d)) + '</div>' : '') + hero + '</div>' +
       '<div class="list">' + rows.join('') + '</div>' +
       (d.online ? timerSection(d) : '') +
       (d.online ? energySection(d) : '') +
@@ -2920,7 +2990,7 @@
       : S.pinStage === 'confirm' ? 'Enter the same PIN again.' : PIN_MIN + ' to ' + PIN_MAX + ' digits. You\'ll use it instead of your password on this device.';
     const canContinue = !unlocking && S.pinStage === 'enter' && S.pinEntry.length >= PIN_MIN;
     return '<div class="gate"><div class="gate-box pin-box">' +
-      '<span class="gate-mark">' + icon('home', 30) + '</span>' +
+      '<span class="gate-mark"><img src="/icons/logo.webp" alt="" width="64" height="64"></span>' +
       '<h1 class="title">' + title + '</h1><p>' + esc(sub) + '</p>' +
       '<div class="pin-dots" aria-hidden="true">' + dots + '</div>' +
       '<p class="sr-only" aria-live="polite">' + S.pinEntry.length + ' digits entered</p>' +
@@ -2939,7 +3009,7 @@
     if (S.gate === 'pin' || S.gate === 'pin-new') return pinView();
     const setup = S.gate === 'setup';
     return '<div class="gate"><form class="gate-box" data-act="unlock" novalidate>' +
-      '<span class="gate-mark">' + icon('home', 30) + '</span>' +
+      '<span class="gate-mark"><img src="/icons/logo.webp" alt="" width="64" height="64"></span>' +
       '<h1 class="title">' + (setup ? 'Finish setting up your server' : 'Sign in to Home') + '</h1>' +
       (setup
         ? '<p>' + esc(S.gateError) + ' Add the environment variables listed in the README to your Vercel project, redeploy, then try again.</p>' +
@@ -3054,7 +3124,7 @@
     document.documentElement.classList.toggle('lock-scroll', devicesPage);
     document.documentElement.classList.toggle('in-editor', r.view === 'scene-edit' || r.view === 'auto-edit');
     shell.app.className = 'app' + (panelHtml == null ? ' no-panel' : '');
-    shell.rail.innerHTML = '<span class="mark" aria-hidden="true">' + icon('home') + '</span>' + tabs(activeTab);
+    shell.rail.innerHTML = '<span class="mark" aria-hidden="true"><img src="/icons/logo.webp" alt="" width="48" height="48"></span>' + tabs(activeTab);
     shell.tabbar.innerHTML = tabs(activeTab);
     shell.main.innerHTML = mainHtml;
     shell.panel.innerHTML = panelHtml || '';
@@ -3097,6 +3167,8 @@
       case 'back': go('devices'); break;
       case 'toggle': {
         if (!d) return;
+        if (el.dataset.swiped) return;
+        if (el.classList.contains('rocker')) flipped[d.id] = Date.now();
         if (kindOf(d) === 'irac') { sendIrAc(d, { power: !isOn(d) }); break; }
         if (el.dataset.code) {
           const c = el.dataset.code;
@@ -3686,7 +3758,7 @@
   }
   document.addEventListener('touchstart', (e) => {
     if (S.gate || e.touches.length !== 1 || !S.data || ptr && ptr.busy) return;
-    if (e.target.closest('input, select, textarea, dialog, .arc-dial, .td-dial, .hue-range, .switch')) return;
+    if (e.target.closest('input, select, textarea, dialog, .arc-dial, .td-dial, .rocker, .hue-range, .switch')) return;
     const scroller = activeScroller();
     if (!scroller || scroller.scrollTop > 0) return;
     ptr = { y0: e.touches[0].clientY, x0: e.touches[0].clientX, pull: 0, scroller };
