@@ -1,4 +1,4 @@
-const { TuyaError } = require('./tuya');
+const { TuyaError, warm } = require('./tuya');
 const auth = require('./auth');
 
 function send(res, status, data) {
@@ -18,6 +18,8 @@ function handler(methods, fn, opts) {
         return send(res, 405, { error: 'Method not allowed.' });
       }
       if (!opts.public) {
+        // Get the Tuya token while the session is checked; both take a round trip on a cold start.
+        warm();
         // Valid sessions go straight through; only failed attempts touch the rate limiter.
         const user = await auth.resolve(req);
         if (!user) {

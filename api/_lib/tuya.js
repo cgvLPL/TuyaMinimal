@@ -118,4 +118,10 @@ async function call(method, path, bodyObj) {
   }
 }
 
-module.exports = { call, config, signRequest, TuyaError, HOSTS };
+// Fetches the access token ahead of time (e.g. while the session is being checked), so the first
+// real call doesn't wait for it. Errors are ignored here; the real call reports them.
+function warm() {
+  try { getToken(config()).catch(() => {}); } catch (e) { /* not configured */ }
+}
+
+module.exports = { call, config, signRequest, TuyaError, HOSTS, warm };

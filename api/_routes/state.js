@@ -76,7 +76,7 @@ async function expandIrRemotes(list, warnings) {
         brand: r.brand_name ? String(r.brand_name).slice(0, 40) : null };
       if (isAc) {
         try {
-          const st = await call('GET', `/v2.0/infrareds/${hub.id}/remotes/${id}/ac/status`);
+          const st = await acStatus(hub.id, id);
           ir.state = {
             power: String(st.power) === '1',
             mode: Number(st.mode) || 0,
@@ -100,6 +100,28 @@ async function expandIrRemotes(list, warnings) {
   return attachHubless(list.filter((d) => !hide.has(d.id)).concat(extra));
 }
 
+// IR AC settings, shared for a few seconds between the early fetch and the real one.
+const acStatus = (hubId, remoteId) =>
+  cached('acst:' + hubId + ':' + remoteId, 3000, () => call('GET', `/v2.0/infrareds/${hubId}/remotes/${remoteId}/ac/status`));
+
+// Starts the IR remote lookups as soon as the device list is in, so they run alongside the
+// home, room and scene calls instead of after them. expandIrRemotes() then finds them ready.
+function prefetchIr(list) {
+  const forced = envHubs();
+  const hasRemotes = list.some((d) => String(d.category || '').startsWith('infrared'));
+  const hubs = list.filter((d) => IR_HUBS.includes(d.category) || forced.includes(d.id) ||
+    (hasRemotes && !NOT_HUBS.includes(d.category) && !String(d.category || '').startsWith('infrared'))).slice(0, 10);
+  for (const hub of hubs) {
+    cached('remotes:' + hub.id, SLOW, () => call('GET', `/v2.0/infrareds/${hub.id}/remotes`))
+      .then((remotes) => {
+        for (const r of Array.isArray(remotes) ? remotes : []) {
+          if (Number(r.category_id) === IR_AC_CATEGORY) acStatus(hub.id, String(r.remote_id)).catch(() => {});
+        }
+      })
+      .catch(() => {});
+  }
+}
+
 // Remotes whose blaster wasn't found are still controllable through the standard instruction set.
 function attachHubless(list) {
   return list.map((d) => {
@@ -121,18 +143,46 @@ async function settle(promise, fallback) {
 
 let lastFresh = 0;
 
+// One home's devices, rooms (with each room's devices), scenes and automations, all started at once.
+// Rooms are followed straight away by their device lists, without waiting for scenes.
+function homeCalls(homeId) {
+  const rooms = settle(cached('rooms:' + homeId, SLOW, () => call('GET', `/v1.0/homes/${homeId}/rooms`)), {})
+    .then(async (res) => {
+      const raw = Array.isArray(res.value) ? res.value : ((res.value && res.value.rooms) || []);
+      const list = raw.map((r) => ({ id: String(r.room_id), name: r.name }));
+      const lists = await Promise.all(list.map((r) =>
+        settle(cached('roomdevs:' + homeId + ':' + r.id, SLOW, () => call('GET', `/v1.0/homes/${homeId}/rooms/${r.id}/devices`)), [])));
+      return { res, rooms: list, lists };
+    });
+  return {
+    homeDevs: settle(cached('homedevs:' + homeId, SLOW, () => call('GET', `/v1.0/homes/${homeId}/devices`)), null),
+    rooms,
+    scenes: settle(call('GET', `/v1.0/homes/${homeId}/scenes`), []),
+    autos: settle(call('GET', `/v1.0/homes/${homeId}/automations`), [])
+  };
+}
+
 module.exports = handler(['GET'], async (req) => {
   const { uid } = config();
   // "Refresh now" skips the cache, but at most once every 15 seconds per server instance,
   // so repeated taps (or a stuck client) can't burn through the Tuya API allowance.
   if (req.query && req.query.fresh && Date.now() - lastFresh > 15000) { lastFresh = Date.now(); clearCache(); }
+  const wanted = req.query && req.query.homeId ? requireId(String(req.query.homeId), 'home') : null;
+
+  // Everything that doesn't depend on something else starts now, side by side:
+  // the saved settings, the device list, the home list, and (when the app says which home it's
+  // showing) that home's devices, rooms, scenes and automations. Before, these ran in 4–5 waves.
+  const settingsP = store.enabled()
+    ? store.getJSON('settings', { icons: {} }).then((v) => ({ value: v }), (e) => ({ error: e.message }))
+    : Promise.resolve(null);
+  const early = wanted && access.homeAllowed(req.user, wanted) ? homeCalls(wanted) : null;
   const [devices, homesRes] = await Promise.all([
     call('GET', `/v1.0/users/${uid}/devices`),
     settle(cached('homes', SLOW, () => call('GET', `/v1.0/users/${uid}/homes`)), [])
   ]);
+  prefetchIr(devices || []);
   const homes = (homesRes.value || []).map((h) => ({ id: String(h.home_id), name: h.name }))
     .filter((h) => access.homeAllowed(req.user, h.id));
-  const wanted = req.query && req.query.homeId ? requireId(String(req.query.homeId), 'home') : null;
   const home = homes.find((h) => h.id === wanted) || homes[0] || null;
 
   const warnings = [];
@@ -142,19 +192,13 @@ module.exports = handler(['GET'], async (req) => {
   let inHome = null; // Set of device IDs that belong to the selected home
 
   if (home) {
-    const [homeDevsRes, roomsRes, scenesRes, autosRes] = await Promise.all([
-      settle(cached('homedevs:' + home.id, SLOW, () => call('GET', `/v1.0/homes/${home.id}/devices`)), null),
-      settle(cached('rooms:' + home.id, SLOW, () => call('GET', `/v1.0/homes/${home.id}/rooms`)), {}),
-      settle(call('GET', `/v1.0/homes/${home.id}/scenes`), []),
-      settle(call('GET', `/v1.0/homes/${home.id}/automations`), [])
-    ]);
+    const hc = early && home.id === wanted ? early : homeCalls(home.id);
+    const [homeDevsRes, roomData, scenesRes, autosRes] = await Promise.all([hc.homeDevs, hc.rooms, hc.scenes, hc.autos]);
+    const roomsRes = roomData.res, lists = roomData.lists;
     for (const [label, r] of [['Rooms', roomsRes], ['Scenes', scenesRes], ['Automations', autosRes]]) {
       if (r.error) warnings.push(label + ': ' + r.error);
     }
-    const rawRooms = Array.isArray(roomsRes.value) ? roomsRes.value : (roomsRes.value.rooms || []);
-    rooms = rawRooms.map((r) => ({ id: String(r.room_id), name: r.name }));
-    const lists = await Promise.all(rooms.map((r) =>
-      settle(cached('roomdevs:' + home.id + ':' + r.id, SLOW, () => call('GET', `/v1.0/homes/${home.id}/rooms/${r.id}/devices`)), [])));
+    rooms = roomData.rooms;
     lists.forEach((l, i) => { for (const d of l.value || []) roomOf[d.id || d.dev_id] = rooms[i].name; });
 
     // The user's device list covers every home, so keep only this home's devices.
@@ -207,13 +251,13 @@ module.exports = handler(['GET'], async (req) => {
   const irDevices = await expandIrRemotes(homeDevices, warnings);
 
   let settings = null;
-  if (store.enabled()) {
-    try {
-      settings = await store.getJSON('settings', { icons: {} });
-      // Only this home's card order goes out.
-      const all = settings.order || {};
-      settings.order = home && Array.isArray(all[home.id]) ? { [home.id]: all[home.id] } : {};
-    } catch (e) { warnings.push('Sync: ' + e.message); }
+  const st = await settingsP;
+  if (st && st.error) warnings.push('Sync: ' + st.error);
+  else if (st) {
+    settings = st.value;
+    // Only this home's card order goes out.
+    const all = settings.order || {};
+    settings.order = home && Array.isArray(all[home.id]) ? { [home.id]: all[home.id] } : {};
   }
 
   return {

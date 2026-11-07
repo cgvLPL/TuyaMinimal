@@ -5,6 +5,13 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.37.0",
+      "items": [
+        "Opening the app is faster: the server now starts all its Tuya requests side by side instead of in four or five waves, gets the Tuya sign-in ready while it checks your session, and looks up IR remotes alongside everything else. In tests with typical cross-region delays the first load went from 1.2 s to 0.7 s.",
+        "Me → Settings shows how long the last full update took. If it's slow, see \"Speed: put the server next to Tuya\" in the README: choosing a Vercel function region near your Tuya data center is the biggest speed-up."
+      ]
+    },
+    {
       "v": "2.36.0",
       "items": [
         "Fewer Tuya API calls: open screens share one device-status request on the server, Refresh now can skip the cache at most every 15 seconds, and the app checks less often when left idle (every 30 s), in wall tablet mode (every 15 s) and when the tablet is dimmed at night (every minute). It catches up as soon as you touch it.",
@@ -572,7 +579,9 @@
       const params = [];
       if (S.homeId) params.push('homeId=' + encodeURIComponent(S.homeId));
       if (opts.fresh) params.push('fresh=1');
+      const t0 = performance.now();
       const data = await api('state' + (params.length ? '?' + params.join('&') : ''));
+      S.loadMs = Math.round(performance.now() - t0);
       lastFull = Date.now();
       S.data = data;
       saveSnapshot(data);
@@ -3165,7 +3174,8 @@
       '<div class="list-row"><label class="label" for="poll-select">Live updates</label><select id="poll-select" data-act="poll" data-key="poll-select">' +
       [[2000, 'Fastest (2 s)'], [4000, 'Fast (4 s)'], [10000, 'Normal (10 s)'], [30000, 'Saver (30 s)']].map(([ms, label]) =>
         '<option value="' + ms + '"' + (S.pollMs === ms ? ' selected' : '') + '>' + label + '</option>').join('') + '</select></div>' +
-      '<button class="list-row" data-act="refresh" data-key="refresh"><span class="label">Refresh now</span><span class="value">' + (updated ? 'Updated ' + updated : '') + '</span></button></div>';
+      '<button class="list-row" data-act="refresh" data-key="refresh"><span class="label">Refresh now</span><span class="value">' + (updated ? 'Updated ' + updated : '') + '</span></button>' +
+      (S.loadMs && live ? '<div class="list-row"><span class="label">Last full update took</span><span class="value">' + (S.loadMs / 1000).toFixed(1) + ' s</span></div>' : '') + '</div>';
     html += noteBelow('Tuya\'s free plan has a monthly allowance of API calls. To save them, Home checks less often when it\'s left idle (every 30 s) and in wall tablet mode (every 15 s, every minute at night), and catches up as soon as you touch it.');
     if (live) {
       const hasPin = !!readVault();

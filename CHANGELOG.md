@@ -2,6 +2,11 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.37.0
+
+- Opening the app is faster: the server now starts all its Tuya requests side by side instead of in four or five waves, gets the Tuya sign-in ready while it checks your session, and looks up IR remotes alongside everything else. In tests with typical cross-region delays the first load went from 1.2 s to 0.7 s.
+- Me → Settings shows how long the last full update took. If it's slow, see "Speed: put the server next to Tuya" in the README: choosing a Vercel function region near your Tuya data center is the biggest speed-up.
+
 ## 2.36.0
 
 - Fewer Tuya API calls: open screens share one device-status request on the server, Refresh now can skip the cache at most every 15 seconds, and the app checks less often when left idle (every 30 s), in wall tablet mode (every 15 s) and when the tablet is dimmed at night (every minute). It catches up as soon as you touch it.

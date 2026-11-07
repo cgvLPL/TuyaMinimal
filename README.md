@@ -152,6 +152,28 @@ People:
   Removing a person signs them out everywhere within seconds. **Me → Sign out** ends a session.
 - After 10 wrong passwords from one network, sign-in pauses for 15 minutes.
 
+## Speed: put the server next to Tuya
+
+Every screen update makes a few calls from your Vercel function to Tuya Cloud. By default Vercel runs
+functions in Washington, D.C. (`iad1`). If your Tuya data center is far from there, each call
+crosses an ocean, and opening the app can take a couple of seconds.
+
+In Vercel: **Project → Settings → Functions → Function Region**, pick the region closest to your
+`TUYA_REGION`, then redeploy:
+
+| `TUYA_REGION` | Function region |
+|---|---|
+| `sg` (Singapore) | Singapore (`sin1`) |
+| `in` (India) | Mumbai (`bom1`) |
+| `eu` (Central Europe) | Frankfurt (`fra1`) |
+| `eu-w` (Western Europe) | London (`lhr1`) or Paris (`cdg1`) |
+| `us` (Western America) | San Francisco (`sfo1`) or Portland (`pdx1`) |
+| `us-e` (Eastern America) | Washington, D.C. (`iad1`, the default) |
+| `cn` (China) | Hong Kong (`hkg1`) |
+
+If you use the Neon database, create it in (or move it to) the same region, because every request
+checks your session there. **Me → Settings** shows how long the last full update took.
+
 ## Updates
 
 See `CHANGELOG.md` (also in the app under Me → About → Version) for what changed in each release.
