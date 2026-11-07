@@ -18,15 +18,13 @@ so your API secret never reaches the browser.
 - Energy for plugs that measure power: live watts on the card, and on the plug's screen volts/amps,
   a 7-day chart, today, last 7 days and all-time kWh (from Tuya's data statistics)
 - Pull down to refresh
-- Device photos (Me → Device icons → Photos): product pictures from `public/devices/` shown on cards and
-  device screens. To add more, drop a transparent WebP/PNG in that folder and list it in `PHOTOS` in app.js.
 - Activity log (Me → Activity): who controlled which device, ran scenes, switched automations,
   edited scenes/automations, changed people or signed in, kept for 30 days. Needs the database.
-- Optional "You're 12 km from home" under the greeting (Me → Appearance → Distance from home). The phone's
+- Optional "You're 12 km from home" under the greeting (Me → Distance from home). The phone's
   location is compared with the home's location on the phone itself and never sent to the server.
 - Readings: temperature/humidity (and CO₂, PM2.5) sensors appear as a strip of readings above
   your devices instead of as cards, including IR blasters with a built-in thermometer
-- Tap-to-run scenes: run, create, edit, duplicate and delete them (devices, outlets, brightness, AC settings,
+- Tap-to-run scenes: run, create, edit and delete them (devices, outlets, brightness, AC settings,
   curtains, waits); IR remotes can be used too (AC settings, or any remote button)
 - Automations: create, edit and delete them (admins). When: a time on chosen days, or a device
   turning on/off, a door opening, motion, a leak or smoke, temperature or humidity above/below a value;
@@ -34,9 +32,7 @@ so your API secret never reaches the browser.
   Weather and other conditions made in the Tuya app are kept when you edit.
 - Several homes: switch between them from the home name at the top of Devices
 - Custom device icons in Me → Device icons (synced when the database is set up)
-- Arrange device cards: tap **Arrange** above the cards, drag the handles, tap **Done** (saved per home, synced when the database is set up)
-- Wall tablet mode (Me → Wall tablet mode): a full-screen clock, weather, sensor gauges, scenes and device buttons. It keeps the screen awake (where the browser allows), dims from 22:00 to 06:00 (tap to wake), and you press and hold the ✕ for a second to leave. Bookmark `/#kiosk` to open straight into it.
-- Optional PIN unlock per device instead of typing the password (Me → Settings → Security)
+- Optional PIN unlock per device instead of typing the password (Me → Security)
 - Light and dark mode, offline app shell, installable from Chrome or Safari
 - Demo mode with sample devices: open `/?demo`
 
@@ -115,7 +111,7 @@ One dependency (the Neon database driver, installed by Vercel) and no build step
 
 ## 4. Install it
 
-- **Android (Chrome):** menu → **Install app**, or Me → Settings → Install app inside Home.
+- **Android (Chrome):** menu → **Install app**, or Me → Install app inside Home.
 - **iPhone/iPad (Safari):** Share → **Add to Home Screen**.
 - **Optional APK:** paste your Vercel URL into PWABuilder (pwabuilder.com) and download the
   Android package. It wraps the same web app, so updates you deploy show up automatically.
@@ -124,7 +120,7 @@ One dependency (the Neon database driver, installed by Vercel) and no build step
 
 Device states refresh every 4 seconds while the app is open (a light, single request), and after
 you control something the app checks again within a couple of seconds. Rooms, scenes and
-automations refresh once a minute. Change the speed in **Me → Settings → Live updates**: Tuya's free plan has
+automations refresh once a minute. Change the speed in **Me → Live updates**: Tuya's free plan has
 a monthly allowance of API calls, so pick Normal or Saver if you leave the app open on a wall
 tablet all day. Nothing is polled while the app is in the background.
 
@@ -137,7 +133,7 @@ Adding a free Neon Postgres database unlocks icon sync across devices and separa
    Pick the free plan and connect it to this project.
 2. Vercel adds `DATABASE_URL` to your environment variables automatically (`POSTGRES_URL` works too).
 3. Redeploy. Vercel installs the Neon driver listed in `package.json`, and the app creates its one
-   table (`tuyahome_kv`) by itself on first use. In the app, **Me** now shows **People**, and **Me → Settings** shows sync as **On**.
+   table (`tuyahome_kv`) by itself on first use. In the app, **Me** now shows **People** and **Sync: On**.
 
 People:
 - The owner signs in with `APP_PASSWORD` and is always an admin.

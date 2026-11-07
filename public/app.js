@@ -5,69 +5,6 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
-      "v": "2.34.0",
-      "items": [
-        "Arrange your device cards: tap Arrange above the cards, drag a card by its handle (or use the arrow keys), then tap Done. The order is saved for each home and syncs across your devices when sync is on.",
-        "Wall tablet mode (Me → Wall tablet mode): a full-screen dashboard with a big clock, weather, sensor gauges, scenes and your first 12 devices. It keeps the screen awake where the browser allows, dims itself from 22:00 to 06:00 (tap to wake), and you press and hold the ✕ to leave."
-      ]
-    },
-    {
-      "v": "2.33.0",
-      "items": [
-        "Plain on/off devices (plugs, switches and lamps without dimming) now have a big rocker switch: the knob sits at the bottom when off and slides up, glowing, when on. Tap it, or swipe it up or down. Power strips keep the all-outlets button."
-      ]
-    },
-    {
-      "v": "2.32.0",
-      "items": [
-        "Temperature and humidity sensors on the home screen now show round gauges with an icon, the label and the reading. The dot on each gauge marks the value (0–40° for temperature, 0–100% for humidity). Tap one for its history, as before."
-      ]
-    },
-    {
-      "v": "2.31.1",
-      "items": [
-        "The AC and thermostat screen no longer shows the device photo above the temperature dial. The photo still shows on the device card and in the header."
-      ]
-    },
-    {
-      "v": "2.31.0",
-      "items": [
-        "New app logo: a little house on the horizon at sunrise, on the home screen icon, the sign-in screen and the tablet sidebar. Installed apps may keep the old home screen icon until you reinstall."
-      ]
-    },
-    {
-      "v": "2.30.0",
-      "items": [
-        "Scenes and automations explain themselves: scene cards say what they do (\"Ceiling light off · Floor lamp on, 29%\") and automations show when and what (\"Every day at 7:00 PM → Porch light on\").",
-        "Scene and automation editor: Save stays at the bottom of the screen while you scroll, it shows when there are unsaved changes, and it asks before throwing them away. Duplicate a scene or automation to start a copy.",
-        "A tidier Me tab: your profile, then Home, Activity, People and Device icons. Appearance (background, weather units, distance), Settings (live updates, PIN, sync) and About each have their own page."
-      ]
-    },
-    {
-      "v": "2.29.0",
-      "items": [
-        "AC fan speed is now a slider (Low, Medium, High) with an Auto button beside it. The slider is dimmed while the fan is on Auto."
-      ]
-    },
-    {
-      "v": "2.28.0",
-      "items": [
-        "New AC and thermostat screen: a large room temperature on the left (with an arrow when it's warming or cooling) and a dial on the right. Drag the dial up for warmer or down for cooler, tap above or below the pointer to change by one degree, or use the arrow keys. IR remotes show the blaster's own thermometer when it has one."
-      ]
-    },
-    {
-      "v": "2.27.0",
-      "items": [
-        "More device photos: a white air conditioner, a paper lantern lamp and an orange star lamp, in Me > Device icons."
-      ]
-    },
-    {
-      "v": "2.26.0",
-      "items": [
-        "Device photos: choose a black desk lamp, white column lamp, orange donut lamp or blue table lamp in Me > Device icons. The photo shows on the device card and its screen, with a warm glow (in the light's colour) when it is on and a muted look when it is off."
-      ]
-    },
-    {
       "v": "2.25.0",
       "items": [
         "Timers: on a device's screen, choose Turn off (or on) in 15 min, 30 min, 1 hour or 2 hours. Upcoming timers show with a Cancel button.",
@@ -397,8 +334,6 @@
     activity: null,      // { homeId, entries, more, loading, error }
     energy: {},          // deviceId -> { at, available, today, week, days, total } | 'loading'       // { homeId, at, available, temp, code, isDay, unit } for the greeting
     tempUnit: store.get('tempUnit') || 'c',  // Celsius unless changed in Me         // deviceId -> time of the last local command (avoid flicker)          // remoteId + key -> true briefly after a button is sent   // deviceId whose icon picker is open
-    order: (() => { try { return JSON.parse(store.get('order') || '{}') || {}; } catch (e) { return {}; } })(),  // homeId -> [deviceId]
-    reorder: false,       // true while arranging device cards
     icons: readIcons(),  // deviceId -> icon key, saved on this device      // { id, code } while an outlet name is being edited
     installPrompt: null
   };
@@ -469,13 +404,10 @@
     if (h === 'changelog') return { view: 'changelog' };
     if (h === 'activity') return { view: 'activity' };
     if (h === 'backgrounds') return { view: 'backgrounds' };
-    if (ME_PAGES.includes(h)) return { view: h };
-    if (h === 'kiosk') return { view: 'kiosk' };
     if (h.startsWith('history/')) return { view: 'history', id: decodeURIComponent(h.slice(8)) };
     if (h === 'scenes' || h === 'me') return { view: h };
     return { view: 'devices' };
   }
-  const ME_PAGES = ['people', 'appearance', 'settings', 'about', 'attention'];
   function inEditor() { const v = route().view; return v === 'scene-edit' || v === 'auto-edit'; }
   function go(hash) {
     if (location.hash === '#' + hash) render(); else location.hash = hash;
@@ -530,9 +462,6 @@
       if (data.me) S.me = data.me;
       S.sync = !!data.sync;
       if (data.settings && data.settings.icons) { S.icons = Object.assign({}, data.settings.icons); saveIcons(); }
-      if (data.settings && data.settings.order && data.homeId && Array.isArray(data.settings.order[data.homeId])) {
-        S.order = Object.assign({}, S.order, { [data.homeId]: data.settings.order[data.homeId] }); store.set('order', JSON.stringify(S.order));
-      }
       if (data.homeId) { S.homeId = data.homeId; store.set('homeId', data.homeId); }
       loadWeather();
       prefetchLightSpecs();
@@ -712,25 +641,6 @@
     const r = readingsOf(d);
     return r.temp != null || r.hum != null || r.co2 != null || r.pm25 != null;
   }
-  // Round gauges for temperature and humidity: a 270° arc open at the bottom, with a dot at the value.
-  const GAUGE_TEMP = [0, 40];   // °C shown across the arc
-  const GAUGE_ICONS = {
-    temp: '<path d="M10.5 4.5a1.5 1.5 0 0 1 3 0v8.6a3.5 3.5 0 1 1-3 0z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="16" r="1.7" fill="currentColor"/>' +
-      '<path d="M12 9.5V15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M16 5.5h2M16 8h2M16 10.5h2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
-    hum: '<path d="M3.5 8.5c1.5-1.2 3-1.2 4.5 0s3 1.2 4.5 0M3.5 12c1.5-1.2 3-1.2 4.5 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
-      '<path d="M16 9.5c1.8 2.3 3 4 3 5.5a3 3 0 0 1-6 0c0-1.5 1.2-3.2 3-5.5z" fill="currentColor"/>'
-  };
-  function gauge(kind, label, valueText, frac) {
-    const f = Math.min(1, Math.max(0, Number.isFinite(frac) ? frac : 0));
-    const pt = (deg) => { const a = deg * Math.PI / 180; return [(30 + 24 * Math.cos(a)).toFixed(2), (30 + 24 * Math.sin(a)).toFixed(2)]; };
-    const [sx, sy] = pt(135), [ex, ey] = pt(45), [dx, dy] = pt(135 + 270 * f);
-    return '<span class="gauge" role="img" aria-label="' + label + ' ' + esc(valueText) + '">' +
-      '<svg class="gauge-ring" viewBox="0 0 60 60" aria-hidden="true">' +
-      '<path d="M' + sx + ' ' + sy + ' A24 24 0 1 1 ' + ex + ' ' + ey + '" fill="none" stroke="currentColor" stroke-width="5.5" stroke-linecap="round"/>' +
-      '<circle class="gauge-dot" cx="' + dx + '" cy="' + dy + '" r="3.6"/>' +
-      '<g transform="translate(16.2 16.2) scale(1.15)">' + GAUGE_ICONS[kind] + '</g></svg>' +
-      '<span class="gauge-text" aria-hidden="true"><span class="gauge-label">' + label + '</span><span class="gauge-value">' + esc(valueText) + '</span></span></span>';
-  }
   function readingTile(d, showRoom) {
     const r = readingsOf(d);
     const lowBattery = typeof d.status.battery_percentage === 'number' && d.status.battery_percentage <= 20;
@@ -738,15 +648,15 @@
     if (!d.online) {
       main = '<span class="reading-off">Offline</span>';
     } else {
-      if (r.temp != null) main += gauge('temp', 'Temperature', fmtTemp(r.temp), (r.temp - GAUGE_TEMP[0]) / (GAUGE_TEMP[1] - GAUGE_TEMP[0]));
-      if (r.hum != null) main += gauge('hum', 'Humidity', Math.round(r.hum) + '%', r.hum / 100);
+      if (r.temp != null) main += '<span class="reading-temp">' + fmtTemp(r.temp) + '</span>';
+      if (r.hum != null) main += '<span class="reading-hum" aria-label="Humidity ' + Math.round(r.hum) + '%">' + icon('drop', 16) + Math.round(r.hum) + '%</span>';
     }
     const extra = [];
     if (d.online && r.co2 != null) extra.push('CO₂ ' + r.co2 + ' ppm');
     if (d.online && r.pm25 != null) extra.push('PM2.5 ' + r.pm25 + ' µg/m³');
     return '<button class="reading' + (lowBattery ? ' low' : '') + '" data-act="open-history" data-id="' + esc(d.id) + '" data-key="reading-' + esc(d.id) + '" aria-label="' + esc(d.name + ', show history') + '"' + (lowBattery ? ' title="Battery low"' : '') + '>' +
       '<span class="reading-name">' + esc(d.name) + (showRoom && d.room ? '<span class="reading-room">' + esc(d.room) + '</span>' : '') + '</span>' +
-      '<span class="reading-main gauges">' + main + '</span>' +
+      '<span class="reading-main">' + main + '</span>' +
       (extra.length ? '<span class="reading-extra">' + extra.map((x) => '<span>' + x + '</span>').join('') + '</span>' : '') +
       (lowBattery ? '<span class="reading-warn">Battery low</span>' : '') +
       '</button>';
@@ -1111,9 +1021,6 @@
     remote: '<rect x="7" y="2" width="10" height="20" rx="3"/><path d="M12 6v.01M10 10h4M10 13.5h4M10 17h4"/>',
     multi: '<rect x="2" y="8" width="20" height="8" rx="3"/><path d="M7 11v2M12 11v2M17 11v2"/>',
     pencil: '<path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/>',
-    grip: '<circle cx="9" cy="6" r="1.3"/><circle cx="15" cy="6" r="1.3"/><circle cx="9" cy="12" r="1.3"/><circle cx="15" cy="12" r="1.3"/><circle cx="9" cy="18" r="1.3"/><circle cx="15" cy="18" r="1.3"/>',
-    close: '<path d="M6 6l12 12M18 6L6 18"/>',
-    tablet: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M10 16h4"/>',
     plug: '<path d="M9 2v6M15 2v6M6 8h12v3a6 6 0 0 1-12 0V8zM12 17v5"/>',
     climate: '<rect x="2" y="4" width="20" height="9" rx="2"/><path d="M6 9h12M8 17v3M12 17v4M16 17v3"/>',
     cover: '<path d="M3 3h18M5 3v18M19 3v18M5 21c2-5 2-11 0-18M19 21c-2-5-2-11 0-18"/>',
@@ -1146,34 +1053,9 @@
     ['fridge', 'Fridge'], ['robovac', 'Robot vacuum'], ['lock', 'Lock'], ['doorbell', 'Doorbell'], ['garage', 'Garage'],
     ['plant', 'Plant'], ['petbowl', 'Pet feeder'], ['router', 'Router'], ['remote', 'Remote'], ['generic', 'Other']
   ];
-  // Product photos that can be used instead of a line icon (transparent WebP files in /devices).
-  const PHOTOS = {
-    photodesk:   { src: '/devices/desk.webp',   name: 'Black desk lamp' },
-    photocolumn: { src: '/devices/column.webp', name: 'White column lamp' },
-    photodonut:  { src: '/devices/donut.webp',  name: 'Orange donut lamp' },
-    phototable:  { src: '/devices/table.webp',  name: 'Blue table lamp' },
-    photoac:      { src: '/devices/ac.webp',      name: 'White air conditioner' },
-    photolantern: { src: '/devices/lantern.webp', name: 'Paper lantern lamp' },
-    photostar:    { src: '/devices/star.webp',    name: 'Orange star lamp' }
-  };
-  const photoOf = (d) => PHOTOS[iconKeyOf(d)] || null;
-  const photoImg = (ph) => '<img class="dev-photo" src="' + ph.src + '" alt="" draggable="false" decoding="async">';
-  // The glow behind a photo of a device that is on: stronger when brighter, in the light's colour.
-  function photoGlow(d) {
-    if (!d.online || !isOn(d)) return 'transparent';
-    if (kindOf(d) === 'light') {
-      if (inColour(d)) {
-        const m = colourMax(colourCode(d)), c = currentColour(d);
-        return 'hsla(' + Math.round(c.h) + ', ' + Math.max(60, Math.round((c.s / m.s) * 100)) + '%, 60%, 0.6)';
-      }
-      const bc = brightCode(d);
-      if (bc && specReady(d)) return 'rgba(255, 206, 140, ' + (0.25 + 0.5 * toPct(d.status[bc], lightRange(d, bc)) / 100).toFixed(2) + ')';
-    }
-    return 'rgba(255, 206, 140, 0.5)';
-  }
   function iconKeyOf(d) {
     const custom = S.icons[d.id];
-    if (custom && (P[custom] || PHOTOS[custom])) return custom;
+    if (custom && P[custom]) return custom;
     const k = kindOf(d);
     if (k === 'irac') return 'climate';
     if (k === 'irremote') {
@@ -1186,7 +1068,7 @@
     }
     return P[k] ? k : 'generic';
   }
-  function deviceIcon(d, size) { const ph = photoOf(d); return ph ? photoImg(ph) : icon(iconKeyOf(d), size); }
+  function deviceIcon(d, size) { return icon(iconKeyOf(d), size); }
 
   // ---------- Views ----------
   function tabs(active) {
@@ -1209,103 +1091,16 @@
 
   function deviceCard(d, selectedId) {
     const on = isOn(d), toggle = hasToggle(d);
-    const cls = ['card', photoOf(d) ? 'has-photo' : '', toggle && on && d.online ? 'active' : '', d.online ? '' : 'offline', d.id === selectedId ? 'selected' : '', isPending(d.id) ? 'pending' : ''].join(' ');
-    const r = S.reorder;
-    return '<div class="' + cls + '" data-card-id="' + esc(d.id) + '">' +
-      (r ? '<button class="card-grip" data-key="grip-' + esc(d.id) + '" aria-label="Move ' + esc(d.name) + '. Use the arrow keys.">' + icon('grip', 18) + '</button>' : '') +
-      '<button class="card-open"' + (r ? ' inert' : '') + ' data-act="open" data-id="' + esc(d.id) + '" data-key="open-' + esc(d.id) + '" aria-label="' + esc(d.name) + ', ' + esc(statusText(d)) + ', show controls">' +
-      (photoOf(d)
-        ? '<span class="card-top"><span class="card-photo ' + (on && d.online ? 'lit' : 'dim') + '" style="--glow-color:' + photoGlow(d) + '">' + photoImg(photoOf(d)) + '</span>' +
-          (d.online ? '' : '<span class="offline-tag">' + icon('wifioff', 13) + 'Offline</span>') + '</span>'
-        : '<span class="card-top"><span class="icon-dot"' + (on && d.online && kindOf(d) === 'light' && inColour(d) ? ' style="background:' + colourCss(d) + ';color:#141414"' : '') + '>' + deviceIcon(d) + '</span>' + (d.online ? '<span class="card-room">' + esc(d.room) + '</span>'
-          : '<span class="offline-tag">' + icon('wifioff', 13) + 'Offline</span>') + '</span>') +
+    const cls = ['card', toggle && on && d.online ? 'active' : '', d.online ? '' : 'offline', d.id === selectedId ? 'selected' : '', isPending(d.id) ? 'pending' : ''].join(' ');
+    return '<div class="' + cls + '">' +
+      '<button class="card-open" data-act="open" data-id="' + esc(d.id) + '" data-key="open-' + esc(d.id) + '" aria-label="' + esc(d.name) + ', ' + esc(statusText(d)) + ', show controls">' +
+      '<span class="card-top"><span class="icon-dot"' + (on && d.online && kindOf(d) === 'light' && inColour(d) ? ' style="background:' + colourCss(d) + ';color:#141414"' : '') + '>' + deviceIcon(d) + '</span>' + (d.online ? '<span class="card-room">' + esc(d.room) + '</span>'
+        : '<span class="offline-tag">' + icon('wifioff', 13) + 'Offline</span>') + '</span>' +
       '<span class="card-text"><span class="card-name">' + esc(d.name) + '</span><span class="card-status">' + esc(statusText(d)) + '</span></span>' +
       '</button>' +
-      (toggle ? '<div class="card-switch"' + (S.reorder ? ' inert' : '') + '>' + switchBtn(d, '', null, true) + '</div>' : '') +
+      (toggle ? '<div class="card-switch">' + switchBtn(d, '', null, true) + '</div>' : '') +
       '</div>';
   }
-
-  // ---------- Card order (Arrange) ----------
-  function sortByOrder(list, homeId) {
-    const o = S.order && S.order[homeId];
-    if (!Array.isArray(o) || !o.length) return list;
-    const pos = new Map(o.map((id, i) => [id, i]));
-    return list.map((d, i) => [d, pos.has(d.id) ? pos.get(d.id) : 1e6 + i]).sort((a, b) => a[1] - b[1]).map((x) => x[0]);
-  }
-  // visibleIds: the new order of the cards on screen (maybe one room). Other cards keep their places.
-  function saveOrder(visibleIds) {
-    const homeId = S.data && S.data.homeId;
-    if (!homeId) return;
-    const all = sortByOrder(S.data.devices.filter((d) => !isReadingDevice(d)), homeId).map((d) => d.id);
-    const set = new Set(visibleIds), merged = all.slice();
-    let k = 0;
-    all.forEach((id, i) => { if (set.has(id)) merged[i] = visibleIds[k++]; });
-    S.order = Object.assign({}, S.order, { [homeId]: merged });
-    store.set('order', JSON.stringify(S.order));
-    if (S.sync && S.mode === 'live') {
-      clearTimeout(saveOrder.t);
-      saveOrder.t = setTimeout(() => {
-        api('settings', { method: 'POST', body: { order: { homeId, ids: S.order[homeId] } } })
-          .catch(() => toast('The new order is saved on this device but couldn\'t sync.'));
-      }, 600);
-    }
-  }
-  const gridIds = (grid) => Array.from(grid.querySelectorAll('.card')).map((c) => c.dataset.cardId);
-  let cardDrag = null;
-  document.addEventListener('pointerdown', (e) => {
-    const grip = S.reorder && e.target.closest && e.target.closest('.reordering .card-grip');
-    if (!grip) return;
-    e.preventDefault();
-    const card = grip.closest('.card');
-    cardDrag = { card, grid: card.parentElement, before: gridIds(card.parentElement).join(','), scroller: card.closest('.dv-scroll') };
-    S.dragging = true;
-    card.classList.add('lifted');
-    if (grip.setPointerCapture) grip.setPointerCapture(e.pointerId);
-  });
-  document.addEventListener('pointermove', (e) => {
-    if (!cardDrag) return;
-    const { card, grid, scroller } = cardDrag;
-    const under = document.elementFromPoint(e.clientX, e.clientY);
-    const t = under && under.closest && under.closest('.card');
-    if (t && t !== card && t.parentElement === grid) {
-      const cards = Array.from(grid.children), from = cards.indexOf(card), to = cards.indexOf(t);
-      // FLIP: remember where cards were, move, then animate from there.
-      const before = new Map(cards.map((c) => [c, c.getBoundingClientRect()]));
-      grid.insertBefore(card, from < to ? t.nextSibling : t);
-      cards.forEach((c) => {
-        if (c === card) return;
-        const a = before.get(c), b = c.getBoundingClientRect();
-        if (a.left === b.left && a.top === b.top) return;
-        c.animate([{ transform: 'translate(' + (a.left - b.left) + 'px,' + (a.top - b.top) + 'px)' }, { transform: 'none' }], { duration: 180, easing: 'ease-out' });
-      });
-    }
-    // Scroll when dragging near the edges of the list.
-    const sc = scroller && scroller.scrollHeight > scroller.clientHeight ? scroller : document.scrollingElement;
-    const box = sc === document.scrollingElement ? { top: 0, bottom: window.innerHeight } : sc.getBoundingClientRect();
-    if (e.clientY > box.bottom - 70) sc.scrollBy(0, 14);
-    else if (e.clientY < box.top + 50) sc.scrollBy(0, -14);
-  });
-  function endCardDrag() {
-    if (!cardDrag) return;
-    const { card, grid, before } = cardDrag;
-    cardDrag = null; S.dragging = false;
-    card.classList.remove('lifted');
-    const ids = gridIds(grid);
-    if (ids.join(',') !== before) saveOrder(ids);
-  }
-  document.addEventListener('pointerup', endCardDrag);
-  document.addEventListener('pointercancel', endCardDrag);
-  document.addEventListener('keydown', (e) => {
-    const grip = S.reorder && e.target.closest && e.target.closest('.reordering .card-grip');
-    if (!grip) return;
-    const dir = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[e.key];
-    if (!dir) return;
-    e.preventDefault();
-    const card = grip.closest('.card'), grid = card.parentElement, ids = gridIds(grid), i = ids.indexOf(card.dataset.cardId), j = i + dir;
-    if (j < 0 || j >= ids.length) return;
-    ids.splice(j, 0, ids.splice(i, 1)[0]);
-    saveOrder(ids); render();
-  });
 
   function roomIcon(name) {
     const n = String(name).toLowerCase();
@@ -1453,16 +1248,13 @@
       return html + '</div><div class="dv-scroll"><div class="empty"><strong>No devices found</strong><p>Link your Tuya app account to your cloud project (see the README), then tap Refresh in Me.</p></div></div>';
     }
     const readings = shown.filter(isReadingDevice);
-    const cards = sortByOrder(shown.filter((d) => !isReadingDevice(d)), data.homeId);
+    const cards = shown.filter((d) => !isReadingDevice(d));
     if (readings.length) {
       html += '<div class="readings" role="group" aria-label="Readings">' + readings.map((d) => readingTile(d, S.room === 'All')).join('') + '</div>';
     }
     if (cards.length) {
-      const arrange = cards.length > 1
-        ? '<button class="chip soft arrange-btn' + (S.reorder ? ' on' : '') + '" data-act="reorder" data-key="reorder" aria-pressed="' + S.reorder + '">' + (S.reorder ? 'Done' : 'Arrange') + '</button>' : '';
-      html += '<div class="section-head"><h2>Devices</h2><span class="section-count">' + cards.length + '</span>' + arrange + (S.reorder ? '' : allOffButton()) + '</div>';
-      if (S.reorder) html += '<p class="reorder-hint">Drag the handle to move a card. Or focus a handle and use the arrow keys.</p>';
-      html += '</div><div class="dv-scroll" data-scroll="devices"><div class="grid' + (S.reorder ? ' reordering' : '') + '">' + cards.map((d) => deviceCard(d, selectedId)).join('') + '</div></div>';
+      html += '<div class="section-head"><h2>Devices</h2><span class="section-count">' + cards.length + '</span>' + allOffButton() + '</div>';
+      html += '</div><div class="dv-scroll" data-scroll="devices"><div class="grid">' + cards.map((d) => deviceCard(d, selectedId)).join('') + '</div></div>';
       return html;
     }
     html += '</div><div class="dv-scroll">' + (readings.length ? '' : '<div class="empty"><strong>Nothing in this room</strong><p>Assign devices to rooms in the Tuya app.</p></div>') + '</div>';
@@ -1480,7 +1272,7 @@
         dlg.setAttribute('aria-describedby', 'confirm-body');
         document.body.appendChild(dlg);
       }
-      dlg.innerHTML = '<span class="confirm-icon" aria-hidden="true">' + icon(opts.icon || 'power', 26) + '</span>' +
+      dlg.innerHTML = '<span class="confirm-icon" aria-hidden="true">' + icon('power', 26) + '</span>' +
         '<h2 id="confirm-title">' + esc(opts.title) + '</h2>' +
         '<p id="confirm-body">' + esc(opts.body) + '</p>' +
         '<div class="confirm-actions">' +
@@ -1576,32 +1368,6 @@
     return '<button class="power-btn' + (busy ? ' pending' : '') + '" data-act="toggle" data-id="' + esc(d.id) + '" data-key="pwr-' + esc(d.id) + '" aria-pressed="' + on + '" aria-label="' + esc(aria) + '"' + (busy ? ' aria-busy="true"' : '') + (d.online ? '' : ' disabled') + '>' +
       icon('power', 40) + '<span>' + esc(text) + '</span></button>';
   }
-
-  // Big rocker switch for plain on/off devices (lamps without dimming, plugs, switches): the knob sits
-  // at the bottom when off and slides to the top, lit, when on. Tap it, or swipe it up or down.
-  const flipped = {};   // id -> time of the last tap, so only a real change animates
-  function rockerSwitch(d) {
-    const on = isOn(d), busy = isPending(d.id);
-    const anim = flipped[d.id] && Date.now() - flipped[d.id] < 500 ? (on ? ' flip-up' : ' flip-down') : '';
-    return '<div class="rocker-wrap">' +
-      '<span class="rocker-state' + (on ? ' on' : '') + '" aria-hidden="true">' + (busy ? (on ? 'Turning on…' : 'Turning off…') : on ? 'On' : 'Off') + '</span>' +
-      '<button class="rocker' + anim + (busy ? ' pending' : '') + '" role="switch" aria-checked="' + on + '" aria-label="' + esc(d.name) + '" data-act="toggle" data-id="' + esc(d.id) + '" data-key="rocker-' + esc(d.id) + '"' + (busy ? ' aria-busy="true"' : '') + (d.online ? '' : ' disabled') + '>' +
-      '<span class="rocker-knob">' + icon(iconKeyOf(d), 30) + '</span></button></div>';
-  }
-  let rockerDrag = null;
-  document.addEventListener('pointerdown', (e) => {
-    const el = e.target.closest && e.target.closest('.rocker');
-    if (el && !el.disabled) rockerDrag = { el, y0: e.clientY };
-  });
-  document.addEventListener('pointerup', (e) => {
-    if (!rockerDrag) return;
-    const { el, y0 } = rockerDrag; rockerDrag = null;
-    const dy = e.clientY - y0, on = el.getAttribute('aria-checked') === 'true';
-    if (Math.abs(dy) < 24) return;               // a tap: the click handler toggles it
-    el.dataset.swiped = '1';                     // the click that follows is ignored
-    if ((dy < 0 && !on) || (dy > 0 && on)) { delete el.dataset.swiped; el.click(); el.dataset.swiped = '1'; }
-    setTimeout(() => { delete el.dataset.swiped; }, 400);
-  });
 
   // Brightness dial: an arc from Low (bottom) to High (top), dragged with a finger or the mouse.
   const ARC = { cx: 0, cy: 120, r: 104 };
@@ -1758,7 +1524,7 @@
   }
 
   function backgroundsView() {
-    let html = '<div class="detail-head se-head-top"><button class="round-btn" data-act="tab" data-tab="appearance" data-key="bg-back" aria-label="Back to Appearance">' + icon('back', 20) + '</button>' +
+    let html = '<div class="detail-head se-head-top"><button class="round-btn" data-act="tab" data-tab="me" data-key="bg-back" aria-label="Back to Me">' + icon('back', 20) + '</button>' +
       '<div><p class="sub">Display</p><h1 class="detail-title">Background</h1></div></div>';
     html += '<div class="bg-grid" role="radiogroup" aria-label="Background">' + BACKGROUNDS.map(([v, n]) =>
       '<button class="bg-choice" role="radio" aria-checked="' + (S.bg === v) + '" data-act="bg-set" data-v="' + v + '" data-key="bg-' + v + '">' +
@@ -1769,7 +1535,7 @@
   }
 
   function changelogView() {
-    let html = '<div class="detail-head se-head-top"><button class="round-btn" data-act="tab" data-tab="about" data-key="cl-back" aria-label="Back to About">' + icon('back', 20) + '</button>' +
+    let html = '<div class="detail-head se-head-top"><button class="round-btn" data-act="tab" data-tab="me" data-key="cl-back" aria-label="Back to Me">' + icon('back', 20) + '</button>' +
       '<div><p class="sub">Version ' + APP_VERSION + '</p><h1 class="detail-title">What\'s new</h1></div></div>';
     html += CHANGELOG.map((c, i) =>
       '<section class="cl-entry"><h2 class="cl-version">' + esc(c.v) + (i === 0 ? '<span class="cl-badge">Current</span>' : '') + '</h2>' +
@@ -1785,9 +1551,9 @@
     html += '<div class="list">' + devices.map((d) => {
       const open = S.iconPicking === d.id;
       const current = iconKeyOf(d);
-      const label = PHOTOS[current] ? PHOTOS[current].name : (ICON_CHOICES.find(([k]) => k === current) || [current, 'Other'])[1];
+      const label = (ICON_CHOICES.find(([k]) => k === current) || [current, 'Other'])[1];
       return '<button class="list-row" data-act="icon-open" data-id="' + esc(d.id) + '" data-key="icon-open-' + esc(d.id) + '" aria-expanded="' + open + '" aria-controls="icons-' + esc(d.id) + '">' +
-        '<span class="channel"><span class="icon-dot sm">' + deviceIcon(d, 18) + '</span><span class="se-title">' + esc(d.name) +
+        '<span class="channel"><span class="icon-dot sm">' + icon(current, 18) + '</span><span class="se-title">' + esc(d.name) +
         '<span class="se-room">' + esc((d.room ? d.room + ', ' : '') + label) + '</span></span></span>' + icon(open ? 'down' : 'chevron', 16) + '</button>' +
         (open ? iconSection(d, '-' + d.id) : '');
     }).join('') + '</div>';
@@ -1800,13 +1566,6 @@
     let html = '<div>';
     {
       html += '<div class="icon-pick" id="icons' + sfx + '">' +
-        '<p class="icon-group">Photos</p>' +
-        '<div class="icon-grid photo-grid" role="radiogroup" aria-label="Photo for ' + esc(d.name) + '">' +
-        Object.keys(PHOTOS).map((k) =>
-          '<button class="icon-choice photo-choice" role="radio" aria-checked="' + (k === current) + '" data-act="icon-set" data-id="' + esc(d.id) + '" data-icon="' + k + '" data-key="icon-' + k + sfx + '">' +
-          '<span class="photo-thumb">' + photoImg(PHOTOS[k]) + '</span><span>' + PHOTOS[k].name + '</span></button>').join('') +
-        '</div>' +
-        '<p class="icon-group">Icons</p>' +
         '<div class="icon-grid" role="radiogroup" aria-label="Icon for ' + esc(d.name) + '">' +
         ICON_CHOICES.map(([k, name]) =>
           '<button class="icon-choice" role="radio" aria-checked="' + (k === current) + '" data-act="icon-set" data-id="' + esc(d.id) + '" data-icon="' + k + '" data-key="icon-' + k + sfx + '">' +
@@ -1876,7 +1635,6 @@
     const st2 = d.ir.state || (d.ir.state = { power: false, mode: 0, temp: 24, wind: 0 });
     if (!irPending[d.id]) irPending[d.id] = { before: Object.assign({}, st2), changed: new Set() };
     for (const k of Object.keys(patch)) if (st2[k] !== patch[k]) irPending[d.id].changed.add(k);
-    if (patch.wind) d.ir.lastWind = patch.wind;
     Object.assign(st2, patch);
     render();
     clearTimeout(irPending[d.id].t);
@@ -1915,167 +1673,8 @@
       switchBtn(d, sfx, code) + '</div>';
   }
 
-  // ---------- Temperature dial (ACs and thermostats) ----------
-  // A big reading on the left and a ring of ticks on the right edge. The ticks turn under a fixed
-  // pointer: drag them up for warmer, down for cooler (or use the arrow keys or the scroll wheel).
-  const TD = { cx: 176, cy: 160, r: 150, deg: 7 };  // ring geometry (SVG units) and degrees per 1°
-  function tempUnitOf(sp) {
-    const u = String((sp && sp.unit) || '');
-    return /f/i.test(u) ? '°F' : /c|℃/i.test(u) || !u ? '°C' : '°';
-  }
-  const tdFmt = (v) => String(Math.round(v * 10) / 10);
-  function tdTicks(m) {
-    let out = '';
-    for (let v = m.min, i = 0; v <= m.max + 1e-9; v = Math.round((v + 0.5) * 10) / 10, i++) {
-      const whole = Math.abs(v - Math.round(v)) < 1e-9;
-      const major = whole && Math.round(v) % 5 === 0;
-      const len = major ? 22 : whole ? 15 : 9;
-      const a = (180 - (v - m.min) * TD.deg) * Math.PI / 180;
-      const x1 = TD.cx + TD.r * Math.cos(a), y1 = TD.cy + TD.r * Math.sin(a);
-      const x2 = TD.cx + (TD.r + len) * Math.cos(a), y2 = TD.cy + (TD.r + len) * Math.sin(a);
-      out += '<line class="' + (major ? 'tk-major' : whole ? 'tk' : 'tk-minor') + '" x1="' + x1.toFixed(1) + '" y1="' + y1.toFixed(1) + '" x2="' + x2.toFixed(1) + '" y2="' + y2.toFixed(1) + '"/>';
-    }
-    return out;
-  }
-  const tdTurn = (m, v) => 'rotate(' + ((v - m.min) * TD.deg).toFixed(2) + ' ' + TD.cx + ' ' + TD.cy + ')';
-  function tempDial(d, m) {
-    const set = m.set == null ? m.min : clamp(m.set, m.min, m.max);
-    const big = m.cur != null ? m.cur : set;
-    const cap = m.cur != null ? 'Currently' : m.on ? 'Target' : 'Off';
-    let trend = '';
-    if (m.on && m.cur != null && Math.abs(set - m.cur) >= 0.5) {
-      const up = set > m.cur;
-      trend = '<span class="td-trend' + (up ? ' up' : ' down') + '" role="img" aria-label="' + (up ? 'Warming' : 'Cooling') + ' to ' + tdFmt(set) + m.unit + '">' +
-        '<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="' + (up ? 'M5 2 L9 8 H1 Z' : 'M5 8 L9 2 H1 Z') + '"/></svg></span>';
-    }
-    const id = esc(d.id);
-    return '<div class="td' + (m.on ? '' : ' is-off') + (m.cur != null ? '' : ' no-cur') + '">' +
-      '<div class="td-now"><div class="td-num"><span class="td-big">' + tdFmt(big) + '</span><span class="td-side"><span class="td-unit">' + m.unit + '</span>' + trend + '</span></div>' +
-      '<span class="td-cap">' + cap + '</span></div>' +
-      '<div class="td-dial" role="slider" tabindex="0" aria-label="Target temperature" aria-valuemin="' + m.min + '" aria-valuemax="' + m.max + '" aria-valuenow="' + set + '"' +
-      ' aria-valuetext="' + esc(tdFmt(set) + m.unit + (m.on ? '' : ', off')) + '" data-id="' + id + '" data-act-temp="' + m.act + '"' +
-      ' data-min="' + m.min + '" data-max="' + m.max + '" data-step="' + m.step + '" data-value="' + set + '" data-unit="' + esc(m.unit) + '" data-key="tdial-' + id + m.sfx + '"' + (d.online ? '' : ' aria-disabled="true"') + '>' +
-      '<span class="td-target"><span class="td-set">' + tdFmt(set) + m.unit + '</span><i aria-hidden="true"></i></span>' +
-      '<svg viewBox="0 0 124 320" preserveAspectRatio="xMaxYMid meet" aria-hidden="true" focusable="false">' +
-      '<defs><linearGradient id="tdfade-' + id + m.sfx + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="0.3" stop-color="#fff"/><stop offset="0.7" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>' +
-      '<mask id="tdmask-' + id + m.sfx + '"><rect x="0" y="0" width="124" height="320" fill="url(#tdfade-' + id + m.sfx + ')"/></mask></defs>' +
-      '<g mask="url(#tdmask-' + id + m.sfx + ')"><g class="td-ring" transform="' + tdTurn(m, set) + '">' + tdTicks(m) + '</g></g></svg></div></div>';
-  }
-  function tdModel(el) {
-    return { min: Number(el.dataset.min), max: Number(el.dataset.max), step: Number(el.dataset.step) || 1, unit: el.dataset.unit || '°' };
-  }
-  function tdSnap(m, v) { return clamp(Math.round((v - m.min) / m.step) * m.step + m.min, m.min, m.max); }
-  // Moves the ring and the readout without a full render (used while dragging).
-  function tdShow(el, v) {
-    const m = tdModel(el);
-    el.querySelector('.td-ring').setAttribute('transform', tdTurn(m, v));
-    const shown = tdSnap(m, v);
-    el.querySelector('.td-set').textContent = tdFmt(shown) + m.unit;
-    // Without a room reading, the big number is the target itself.
-    const td = el.closest('.td');
-    if (td && td.classList.contains('no-cur')) td.querySelector('.td-big').textContent = tdFmt(shown);
-    el.setAttribute('aria-valuenow', shown);
-    el.setAttribute('aria-valuetext', tdFmt(shown) + m.unit);
-  }
-  function tdCommit(el, v) {
-    const d = findDevice(el.dataset.id);
-    if (!d || !d.online) return;
-    const m = tdModel(el), val = tdSnap(m, v);
-    if (el.dataset.actTemp === 'irtemp') {
-      if (d.ir) sendIrAc(d, { power: true, temp: val });
-      return;
-    }
-    const sp = specOf(d, 'temp_set');
-    const sc = sp && typeof sp.scale === 'number' ? sp.scale : (Math.abs(d.status.temp_set) >= 60 ? 1 : 0);
-    const raw = Math.round(val * Math.pow(10, sc));
-    if (raw !== d.status.temp_set) sendSoon(d, 'temp_set', raw);
-    else render();
-  }
-  let tdDrag = null;
-  // SVG units → screen pixels, so the ticks follow the finger exactly.
-  function tdPxPerDegree(el) {
-    const svg = el.querySelector('svg'), box = svg.getBoundingClientRect();
-    const k = Math.min(box.width / 124, box.height / 320);
-    return TD.r * k * TD.deg * Math.PI / 180;
-  }
-  document.addEventListener('pointerdown', (e) => {
-    const el = e.target.closest && e.target.closest('.td-dial');
-    if (!el || el.getAttribute('aria-disabled') === 'true') return;
-    e.preventDefault();
-    el.focus({ preventScroll: true });
-    tdDrag = { el, y0: e.clientY, v0: Number(el.dataset.value), v: Number(el.dataset.value), moved: false, px: tdPxPerDegree(el) };
-    S.dragging = true;
-    el.classList.add('dragging');
-    if (el.setPointerCapture) el.setPointerCapture(e.pointerId);
-  });
-  document.addEventListener('pointermove', (e) => {
-    if (!tdDrag) return;
-    const dy = tdDrag.y0 - e.clientY;
-    if (Math.abs(dy) > 4) tdDrag.moved = true;
-    if (!tdDrag.moved) return;
-    const m = tdModel(tdDrag.el);
-    tdDrag.v = clamp(tdDrag.v0 + dy / tdDrag.px, m.min, m.max);
-    tdShow(tdDrag.el, tdDrag.v);
-  });
-  function tdEnd(e, cancelled) {
-    if (!tdDrag) return;
-    const { el, moved, v0 } = tdDrag;
-    let v = tdDrag.v;
-    tdDrag = null; S.dragging = false;
-    el.classList.remove('dragging');
-    if (cancelled) { tdShow(el, v0); render(); return; }
-    if (!moved) {
-      // A tap above the pointer warms by one step, below it cools by one.
-      const box = el.getBoundingClientRect(), m = tdModel(el);
-      v = clamp(v0 + (e.clientY < box.top + box.height / 2 ? m.step : -m.step), m.min, m.max);
-    }
-    tdShow(el, tdSnap(tdModel(el), v));
-    tdCommit(el, v);
-  }
-  document.addEventListener('pointerup', (e) => tdEnd(e, false));
-  document.addEventListener('pointercancel', (e) => tdEnd(e, true));
-  document.addEventListener('keydown', (e) => {
-    const el = e.target.closest && e.target.closest('.td-dial');
-    if (!el || el.getAttribute('aria-disabled') === 'true') return;
-    const m = tdModel(el), dir = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1 }[e.key];
-    let v = Number(el.dataset.value);
-    if (dir) v += dir * m.step;
-    else if (e.key === 'Home') v = m.min;
-    else if (e.key === 'End') v = m.max;
-    else return;
-    e.preventDefault();
-    v = tdSnap(m, v); el.dataset.value = v;
-    tdShow(el, v); tdCommit(el, v);
-  });
-  document.addEventListener('wheel', (e) => {
-    const el = e.target.closest && e.target.closest('.td-dial');
-    if (!el || el.getAttribute('aria-disabled') === 'true' || !e.deltaY) return;
-    e.preventDefault();
-    const m = tdModel(el), v = tdSnap(m, Number(el.dataset.value) + (e.deltaY < 0 ? m.step : -m.step));
-    el.dataset.value = v;
-    tdShow(el, v);
-    clearTimeout(el._wheel); el._wheel = setTimeout(() => tdCommit(el, v), 250);
-  }, { passive: false });
-
-  // AC fan over IR: an Auto button next to a Low–Medium–High slider. The slider looks dimmed while
-  // the fan is on Auto (or the AC is off); moving it picks a fixed speed.
-  function irFanControl(d, st2, sfx) {
-    const id = esc(d.id), auto = st2.wind === 0;
-    const level = auto ? (d.ir.lastWind || 2) : st2.wind;
-    const label = !st2.power ? 'Off' : auto ? 'Auto' : IR_WIND[st2.wind];
-    return '<div class="fan-head"><span class="seg-label">Fan</span><span class="fan-value" data-live="irwind-' + id + '">' + label + '</span></div>' +
-      '<div class="fan-row">' +
-      '<button class="chip soft fan-auto" data-act="irwind" data-v="0" data-id="' + id + '" data-key="irwind-0' + sfx + '" aria-pressed="' + (st2.power && auto) + '">Auto</button>' +
-      '<div class="range fan-range' + (st2.power && !auto ? '' : ' is-auto') + '">' +
-      '<label class="sr-only" for="irwind-' + id + sfx + '">Fan speed</label>' +
-      '<input id="irwind-' + id + sfx + '" type="range" min="1" max="3" step="1" value="' + level + '" data-act="irwindr" data-id="' + id + '" data-key="irwindr' + sfx + '"' +
-      ' aria-valuetext="' + (st2.power && !auto ? IR_WIND[st2.wind] : 'Auto') + '">' +
-      '<div class="ends three"><span>Low</span><span>Medium</span><span>High</span></div></div></div>';
-  }
-
   function detailView(d, inPanel) {
     if (!d) return '<div class="empty"><strong>Pick a device</strong><p>Its controls appear here.</p></div>';
-    const on = isOn(d);
     const k = kindOf(d), st = d.status;
     const sfx = inPanel ? '-p' : '-d';
     const dis = d.online ? '' : ' disabled';
@@ -2098,7 +1697,7 @@
           '<div class="tick-row" aria-hidden="true">' + '<span></span>'.repeat(7) + '</div>' +
           '<div class="ends"><span>Off</span><span>100%</span></div></div>';
       } else {
-        hero += rockerSwitch(d); heroHasPower = true;
+        hero += powerButton(d); heroHasPower = true;
       }
       if (wc) {
         const pct = toPct(st[wc], lightRange(d, wc, true));
@@ -2109,16 +1708,10 @@
     } else if (k === 'climate' && 'temp_set' in st) {
       const set = scaled(d, 'temp_set', true);
       const cur = scaled(d, 'temp_current', true);
-      const sp = specOf(d, 'temp_set');
-      const sc = sp && typeof sp.scale === 'number' ? sp.scale : (Math.abs(st.temp_set) >= 60 ? 1 : 0);
-      const div = Math.pow(10, sc);
-      hero += tempDial(d, {
-        set, cur, on, sfx, act: 'temp',
-        min: sp && typeof sp.min === 'number' ? sp.min / div : 16,
-        max: sp && typeof sp.max === 'number' ? sp.max / div : 30,
-        step: sp && sp.step ? sp.step / div : 1,
-        unit: tempUnitOf(sp)
-      });
+      hero += '<div class="row-between">' +
+        '<button class="round-btn soft" data-act="temp" data-delta="-1" data-id="' + esc(d.id) + '" data-key="tdown' + sfx + '" aria-label="Lower temperature">' + icon('minus') + '</button>' +
+        '<div class="stack-center"><span class="big">' + fmtTemp(set) + '</span><span class="big-label">' + (cur != null ? 'Room is ' + fmtTemp(cur) : 'Target temperature') + '</span></div>' +
+        '<button class="round-btn soft" data-act="temp" data-delta="1" data-id="' + esc(d.id) + '" data-key="tup' + sfx + '" aria-label="Raise temperature">' + icon('plus') + '</button></div>';
       if ('mode' in st) {
         const sp = specOf(d, 'mode');
         const modes = (sp && Array.isArray(sp.range) && sp.range.length) ? sp.range : ['cold', 'hot', 'wind', 'auto'];
@@ -2143,20 +1736,21 @@
         '<p class="note">Live video is not available in this app yet. Open the camera in the Tuya app to watch.</p></div>';
     } else if (k === 'irac') {
       const st2 = d.ir.state || { power: false, mode: 0, temp: 24, wind: 0 };
-      // Blasters with a built-in thermometer give the room temperature.
-      const hub = d.ir.hub ? findDevice(d.ir.hub) : null;
-      const room = hub ? (scaled(hub, 'va_temperature', true) ?? scaled(hub, 'temp_current', true)) : null;
-      hero += tempDial(d, { set: st2.temp, cur: room, on: !!st2.power, sfx, act: 'irtemp', min: 16, max: 30, step: 1, unit: '°C' }) +
+      hero += '<div class="row-between">' +
+        '<button class="round-btn soft" data-act="irtemp" data-delta="-1" data-id="' + esc(d.id) + '" data-key="irdown' + sfx + '" aria-label="Lower temperature">' + icon('minus') + '</button>' +
+        '<div class="stack-center"><span class="big">' + st2.temp + '°</span><span class="big-label">' + (st2.power ? 'Target temperature' : 'Off') + '</span></div>' +
+        '<button class="round-btn soft" data-act="irtemp" data-delta="1" data-id="' + esc(d.id) + '" data-key="irup' + sfx + '" aria-label="Raise temperature">' + icon('plus') + '</button></div>' +
         '<div class="seg-label">Mode</div><div class="seg" style="--n:5" role="group" aria-label="Mode">' + IR_MODES.map((m, i) =>
           '<button class="chip soft" data-act="irmode" data-v="' + i + '" data-id="' + esc(d.id) + '" data-key="irmode-' + i + sfx + '" aria-pressed="' + (st2.power && st2.mode === i) + '">' + m + '</button>').join('') + '</div>' +
-        irFanControl(d, st2, sfx);
+        '<div class="seg-label">Fan</div><div class="seg" style="--n:4" role="group" aria-label="Fan speed">' + IR_WIND.map((w, i) =>
+          '<button class="chip soft" data-act="irwind" data-v="' + i + '" data-id="' + esc(d.id) + '" data-key="irwind-' + i + sfx + '" aria-pressed="' + (st2.power && st2.wind === i) + '">' + w + '</button>').join('') + '</div>' ;
     } else if (k === 'irremote') {
       hero += irRemotePad(d, sfx);
     } else if (k === 'multi') {
       hero += powerButton(d); heroHasPower = true;
       hero += '<p class="note">Turns every outlet on or off together. Control each one below.</p>';
     } else if (powerCode(d)) {
-      hero += rockerSwitch(d); heroHasPower = true;
+      hero += powerButton(d); heroHasPower = true;
     } else {
       hero += '<div class="stack-center"><span class="big mid">Online</span><span class="big-label">This app does not have controls for this device type yet.</span></div>';
     }
@@ -2180,113 +1774,11 @@
       (inPanel ? '' : '<button class="round-btn" data-act="back" data-key="back" aria-label="Back to devices">' + icon('back', 20) + '</button>') +
       '<span class="icon-dot head-icon">' + deviceIcon(d) + '</span>' +
       '<div><p class="sub">' + esc((d.room || 'No room') + (d.ir && d.ir.brand ? ', ' + d.ir.brand : '')) + '</p><h2 class="detail-title">' + esc(d.name) + '</h2></div></div>' +
-      // AC and thermostat screens skip the photo: the temperature dial is the picture there.
-      '<div class="hero">' + (photoOf(d) && hero.indexOf('<div class="td') === -1 ? '<div class="hero-photo ' + (on && d.online ? 'lit' : 'dim') + '" style="--glow-color:' + photoGlow(d) + '">' + photoImg(photoOf(d)) + '</div>' : '') + hero + '</div>' +
+      '<div class="hero">' + hero + '</div>' +
       '<div class="list">' + rows.join('') + '</div>' +
       (d.online ? timerSection(d) : '') +
       (d.online ? energySection(d) : '') +
       '</div>';
-  }
-
-  // ---------- Plain-language summaries of scenes and automations ----------
-  // "Ceiling light off · Floor lamp on, 29%, warm" and "Every day at 7:00 PM → Porch light on".
-  function propsPhrase(d, p) {
-    p = p || {};
-    const bits = [], keys = Object.keys(p);
-    const sw = keys.filter((k) => /^switch(_led|_\d+|_usb\d+)?$/.test(k) && typeof p[k] === 'boolean');
-    if (sw.length > 1) {
-      const on = sw.filter((k) => p[k]).length;
-      bits.push(on === sw.length ? 'all on' : on === 0 ? 'all off' : on + ' of ' + sw.length + ' on');
-    } else if (sw.length === 1) {
-      const k = sw[0], named = d && /_(usb)?\d+$/.test(k) && isMulti(d);
-      bits.push((named ? channelName(d, k) + ' ' : '') + (p[k] ? 'on' : 'off'));
-    }
-    if (typeof p.switch === 'boolean' && !sw.includes('switch')) bits.push(p.switch ? 'on' : 'off');
-    const bc = ['bright_value_v2', 'bright_value'].find((c) => typeof p[c] === 'number');
-    if (bc && d) bits.push(toPct(p[bc], lightRange(d, bc)) + '%');
-    const wc = ['temp_value_v2', 'temp_value'].find((c) => typeof p[c] === 'number');
-    if (wc && d) { const w = toPct(p[wc], lightRange(d, wc, true)); bits.push(w <= 33 ? 'warm' : w >= 67 ? 'cool' : 'neutral'); }
-    if ('colour_data_v2' in p || 'colour_data' in p) bits.push('colour');
-    if (typeof p.temp_set === 'number' && d) bits.push(fmtTemp(seTempValue(d, p.temp_set)));
-    if (typeof p.mode === 'string') bits.push(modeLabel(p.mode).toLowerCase());
-    if (p.control === 'open' || p.control === 'close' || p.control === 'stop') bits.push(p.control);
-    if (typeof p.percent_control === 'number') bits.push(p.percent_control + '% open');
-    if (typeof p.fan_speed_percent === 'number') bits.push('fan ' + p.fan_speed_percent + '%');
-    // IR remotes (standard instructions)
-    if ('PowerOff' in p) bits.push('off');
-    else if ('PowerOn' in p || 'T' in p || 'M' in p) bits.push('on');
-    if ('T' in p && !('PowerOff' in p)) bits.push(p.T + '°');
-    if ('M' in p && !('PowerOff' in p) && IR_MODES[Number(p.M)]) bits.push(IR_MODES[Number(p.M)].toLowerCase());
-    if ('F' in p && !('PowerOff' in p) && IR_WIND[Number(p.F)]) bits.push('fan ' + IR_WIND[Number(p.F)].toLowerCase());
-    const irKey = typeof p.key === 'string' ? p.key : (keys.length === 1 && d && d.ir && !d.ir.ac && !bits.length ? keys[0] : null);
-    if (irKey) bits.push('press ' + irKey);
-    return bits.length ? bits.join(', ') : 'changes';
-  }
-  function waitPhrase(p) {
-    const h = Number(p && p.hours) || 0, m = Number(p && p.minutes) || 0, sec = Number(p && p.seconds) || 0;
-    const parts = [];
-    if (h) parts.push(h + ' h'); if (m) parts.push(m + ' min'); if (sec) parts.push(sec + ' s');
-    return 'wait ' + (parts.join(' ') || '0 s');
-  }
-  // step: { executor, entity, props } (the shape scenes use)
-  function stepPhrase(step) {
-    const ex = step.executor, props = step.props || {};
-    if (ex === 'delay') return waitPhrase(props);
-    if (ex === 'ruleTrigger') {
-      const sc = S.data && S.data.scenes.find((x) => x.id === step.entity);
-      return sc ? 'run “' + sc.name + '”' : 'run a scene';
-    }
-    if (ex === 'ruleEnable' || ex === 'ruleDisable') {
-      const au = S.data && S.data.automations.find((x) => x.id === step.entity);
-      return (ex === 'ruleEnable' ? 'turn on ' : 'turn off ') + (au ? '“' + au.name + '”' : 'an automation');
-    }
-    const d = step.entity ? findDevice(step.entity) : null;
-    if (!d && !step.entity) return 'an action from the Tuya app';
-    return (d ? d.name : 'a removed device') + ' ' + propsPhrase(d, props);
-  }
-  function stepsPhrase(steps, max) {
-    const list = (steps || []).map(stepPhrase);
-    if (!list.length) return 'Does nothing yet';
-    const shown = list.slice(0, max || 3);
-    const s = shown.join(' · ') + (list.length > shown.length ? ' · +' + (list.length - shown.length) + ' more' : '');
-    return s.charAt(0).toUpperCase() + s.slice(1);
-  }
-  function daysPhrase(loops) {
-    const l = String(loops || '');
-    if (!/^[01]{7}$/.test(l) || l === '1111111') return 'Every day';
-    if (l === '0000000') return 'Once';
-    if (l === '0111110') return 'Weekdays';
-    if (l === '1000001') return 'Weekends';
-    return l.split('').map((x, i) => (x === '1' ? DAY_NAMES[i].slice(0, 3) : null)).filter(Boolean).join(', ');
-  }
-  function clockPhrase(t) {
-    const m = /^(\d{1,2}):(\d{2})$/.exec(String(t || ''));
-    if (!m) return String(t || '');
-    try { return new Date(2000, 0, 1, Number(m[1]), Number(m[2])).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
-    catch (e) { return m[0]; }
-  }
-  // c: a Tuya condition { entity_type, entity_id, display }
-  function conditionPhrase(c) {
-    const t = Number(c.entity_type), disp = c.display || {};
-    if (t === 6) return disp.date ? 'On ' + disp.date + ' at ' + clockPhrase(disp.time) : daysPhrase(disp.loops) + ' at ' + clockPhrase(disp.time);
-    if (t === 3) return 'The weather changes';
-    if (t === 15) return 'An outside trigger fires';
-    const d = findDevice(c.entity_id);
-    if (!d) return 'A device changes';
-    const opt = triggerOptions(d).find((o) => o.code === disp.code && o.op === disp.operator && (o.thresh || o.value === disp.value));
-    if (!opt) return d.name + ' changes';
-    if (opt.thresh) {
-      const v = Number(disp.value) / Math.pow(10, codeScale(d, opt.code, opt.thresh === 'temp'));
-      return d.name + ' ' + opt.label.toLowerCase() + ' ' + (Math.round(v * 10) / 10) + (opt.thresh === 'temp' ? '°' : '%');
-    }
-    return d.name + ' ' + opt.label.charAt(0).toLowerCase() + opt.label.slice(1);
-  }
-  function automationPhrase(a) {
-    const conds = a.conditions || [], acts = a.actions || [];
-    if (!conds.length && !acts.length) return '';
-    const when = conds.map(conditionPhrase).join(Number(a.match_type) === 2 ? ' and ' : ' or ');
-    const then = stepsPhrase(acts.map((x) => ({ executor: x.action_executor, entity: x.entity_id || '', props: x.executor_property || {} })), 2);
-    return (when || 'Sometimes') + ' → ' + then;
   }
 
   function scenesView(withAutomations) {
@@ -2299,10 +1791,10 @@
     } else {
       html += '<div class="grid">' + data.scenes.map((s) => {
         const state = S.sceneState[s.id];
-        const meta = state === 'running' ? 'Running…' : state === 'done' ? 'Done' : stepsPhrase(s.steps);
+        const meta = state === 'running' ? 'Running' : state === 'done' ? 'Done' : (s.actions === 1 ? '1 action' : s.actions + ' actions');
         return '<div class="scene-wrap"><button class="scene ' + (state || '') + '" data-act="scene" data-id="' + esc(s.id) + '" data-key="scene-' + esc(s.id) + '"' + (state === 'running' ? ' disabled' : '') + '>' +
           '<span class="icon-dot">' + icon(state === 'done' ? 'check' : 'play', 16) + '</span>' +
-          '<span><span class="name">' + esc(s.name) + '</span><span class="meta scene-sum">' + esc(meta) + '</span></span></button>' +
+          '<span><span class="name">' + esc(s.name) + '</span><span class="meta">' + meta + '</span></span></button>' +
           (!canEdit() ? '' : '<button class="scene-edit edit-btn" data-act="scene-open" data-id="' + esc(s.id) + '" data-key="scene-edit-' + esc(s.id) + '" aria-label="Edit ' + esc(s.name) + '">' + icon('pencil', 16) + '</button>') + '</div>';
       }).join('') + '</div>';
     }
@@ -2361,22 +1853,7 @@
       items: sc ? stepsToItems(sc.steps) : [], picking: !sc, saving: false, confirmDelete: false, error: ''
     };
     S.editor.items.forEach((it) => { if (it.type === 'device' && !S.specs[it.deviceId]) loadSpec(it.deviceId, true); });
-    S.editor.snap = editorSnap(S.editor);
   }
-
-  // Unsaved changes: the editor compares what's on screen with how it was when opened.
-  function editorSnap(E) { return JSON.stringify([E.name.trim(), E.items, E.conditions || [], E.match || 1]); }
-  function editorDirty() { const E = S.editor; return !!E && !E.saving && !E.loading && E.snap !== undefined && editorSnap(E) !== E.snap; }
-  async function leaveEditor(target) {
-    const E = S.editor;
-    if (editorDirty()) {
-      const noun = E.kind === 'auto' ? 'automation' : 'scene';
-      const ok = await confirmDialog({ icon: 'pencil', title: 'Discard changes?', body: 'Your changes to this ' + noun + ' haven\'t been saved.', confirm: 'Discard' });
-      if (!ok) return;
-    }
-    S.editor = null; go(target);
-  }
-  window.addEventListener('beforeunload', (e) => { if (inEditor() && editorDirty()) { e.preventDefault(); e.returnValue = ''; } });
 
   function seChips(i, code, options, current) {
     return '<div class="seg" style="--n:' + options.length + '">' + options.map(([label, val]) => {
@@ -2562,18 +2039,13 @@
         '<button class="pill-btn soft" data-act="se-add-delay" data-key="se-add-delay">' + icon('plus', 18) + 'Add wait</button></div>';
     }
     if (E.error) html += '<p class="error" role="alert">' + esc(E.error) + '</p>';
+    html += '<div class="se-actions">' +
+      '<button class="btn" data-act="se-save" data-key="se-save"' + (E.saving ? ' disabled' : '') + '>' + (E.saving ? 'Saving…' : 'Save ' + noun) + '</button>' +
+      '<button class="btn ghost" data-act="se-cancel" data-key="se-cancel">Cancel</button></div>';
     if (E.id) {
-      html += '<div class="list" style="margin-top:24px">' +
-        '<button class="list-row" data-act="se-dup" data-key="se-dup"' + (E.saving ? ' disabled' : '') + '><span class="label">Duplicate ' + noun + '</span><span class="value">Start a copy</span></button>' +
-        '<button class="list-row danger" data-act="se-delete" data-key="se-delete"' + (E.saving ? ' disabled' : '') + '>' +
+      html += '<div class="list" style="margin-top:20px"><button class="list-row danger" data-act="se-delete" data-key="se-delete"' + (E.saving ? ' disabled' : '') + '>' +
         '<span class="label">' + (E.confirmDelete ? 'Tap again to delete this ' + noun : 'Delete ' + noun) + '</span></button></div>';
     }
-    // Save stays in reach while scrolling a long scene.
-    const dirty = editorDirty() || !E.id;
-    html += '<div class="se-actions se-sticky">' +
-      '<button class="btn" data-act="se-save" data-key="se-save"' + (E.saving ? ' disabled' : '') + '>' + (E.saving ? 'Saving…' : E.id ? 'Save' : 'Create ' + noun) + '</button>' +
-      '<span class="se-status" aria-live="polite">' + (E.saving ? '' : E.id && dirty ? 'Unsaved changes' : E.id ? 'No changes' : '') + '</span>' +
-      '<button class="btn ghost" data-act="se-cancel" data-key="se-cancel">Cancel</button></div>';
     return html;
   }
 
@@ -2737,7 +2209,7 @@
     if (!S.data) return;
     const base = { kind: 'auto', routeId: id, id: null, name: '', match: 1, background: '', preconditions: [], conditionRule: '',
       conditions: [], items: [], picking: false, condPicking: false, saving: false, confirmDelete: false, error: '' };
-    if (id === 'new') { S.editor = Object.assign(base, { condPicking: false }); S.editor.snap = editorSnap(S.editor); return; }
+    if (id === 'new') { S.editor = Object.assign(base, { condPicking: false }); return; }
     S.editor = Object.assign(base, { loading: true });
     try {
       const a = await api('automation-edit?homeId=' + encodeURIComponent(S.data.homeId) + '&id=' + encodeURIComponent(id));
@@ -2750,7 +2222,6 @@
       });
       S.editor.items.forEach((it) => { if (it.type === 'device' && !S.specs[it.deviceId]) loadSpec(it.deviceId, true); });
       S.editor.conditions.forEach((c) => { if (c.type === 'device' && !S.specs[c.deviceId]) loadSpec(c.deviceId, true); });
-      S.editor.snap = editorSnap(S.editor);
     } catch (e) {
       if (S.editor && S.editor.routeId === id) Object.assign(S.editor, { loading: false, error: e.message });
     }
@@ -2863,8 +2334,7 @@
     const a = S.data ? S.data.automations : [];
     if (!a.length) return '<div class="empty"><strong>No automations yet</strong><p>' + (canEdit() ? 'Tap New automation to make one, like turning on a light when a door opens. ' : '') + 'Automations from the Tuya app show up here too.</p></div>';
     return '<div class="list">' + a.map((x) =>
-      '<div class="list-row auto-row' + (x.enabled ? '' : ' auto-off') + '"><span class="auto-text"><span class="label">' + esc(x.name) + '</span>' +
-      (automationPhrase(x) ? '<span class="auto-sum">' + esc(automationPhrase(x)) + '</span>' : '') + '</span><span class="user-actions">' +
+      '<div class="list-row"><span class="label">' + esc(x.name) + '</span><span class="user-actions">' +
       (canEdit() ? '<button class="edit-btn" data-act="auto-open" data-id="' + esc(x.id) + '" data-key="auto-edit-' + esc(x.id) + '" aria-label="Edit ' + esc(x.name) + '">' + icon('pencil', 16) + '</button>' : '') +
       '<button class="switch" role="switch" aria-checked="' + x.enabled + '" aria-label="' + esc(x.name) + '" data-act="auto" data-id="' + esc(x.id) + '" data-key="auto-' + esc(x.id) + '"><span class="knob"></span></button></span></div>'
     ).join('') + '</div>';
@@ -2881,190 +2351,33 @@
       active + ' of ' + a.length + ' on</p><h2 class="detail-title">Automations</h2></div>' + newAutoButton() + '</div>' + automationsList() + '</div>';
   }
 
-  // ---------- Wall tablet mode (kiosk) ----------
-  // A full-screen dashboard for a tablet on the wall: clock, weather, sensor gauges, scenes and
-  // device buttons. Keeps the screen awake, dims itself at night, and needs a press-and-hold to leave.
-  const kiosk = { on: false, lock: null, timer: null, wokeUntil: 0, hold: null };
-  const KIOSK_NIGHT = [22, 6];   // dim from 22:00 until 06:00
-  function kioskStart() {
-    kiosk.on = true;
-    const el = document.documentElement;
-    if (el.requestFullscreen && !document.fullscreenElement) el.requestFullscreen().catch(() => {});
-    kioskWake();
-    clearInterval(kiosk.timer); kiosk.timer = setInterval(kioskTick, 10000);
-    go('kiosk');
-  }
-  function kioskStop() {
-    kiosk.on = false;
-    clearInterval(kiosk.timer); kiosk.timer = null;
-    if (kiosk.lock) { kiosk.lock.release().catch(() => {}); kiosk.lock = null; }
-    if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
-    document.documentElement.classList.remove('k-night');
-  }
-  async function kioskWake() {
-    try {
-      if ('wakeLock' in navigator && !kiosk.lock && document.visibilityState === 'visible') {
-        kiosk.lock = await navigator.wakeLock.request('screen');
-        kiosk.lock.addEventListener('release', () => { kiosk.lock = null; });
-      }
-    } catch (e) { /* not supported or refused: the screen may sleep */ }
-  }
-  document.addEventListener('visibilitychange', () => { if (kiosk.on && document.visibilityState === 'visible') kioskWake(); });
-  function kioskIsNight(now) {
-    const h = now.getHours();
-    return (h >= KIOSK_NIGHT[0] || h < KIOSK_NIGHT[1]) && Date.now() > kiosk.wokeUntil;
-  }
-  // "12:27" big with a small "PM" (when the locale uses one).
-  function kTime(now) {
-    try {
-      const parts = new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit' }).formatToParts(now);
-      const main = parts.filter((p) => p.type !== 'dayPeriod').map((p) => p.value).join('').trim();
-      const ap = parts.find((p) => p.type === 'dayPeriod');
-      return esc(main) + (ap ? '<span class="k-ampm">' + esc(ap.value) + '</span>' : '');
-    } catch (e) { return esc(now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })); }
-  }
-  const kDate = (now) => now.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
-  function kioskTick() {
-    if (!kiosk.on) return;
-    const now = new Date();
-    document.querySelectorAll('[data-kclock="time"]').forEach((n) => { n.innerHTML = kTime(now); });
-    document.querySelectorAll('[data-kclock="date"]').forEach((n) => { n.textContent = kDate(now); });
-    document.documentElement.classList.toggle('k-night', kioskIsNight(now));
-  }
-  function kioskTile(d) {
-    const on = isOn(d), busy = isPending(d.id);
-    return '<button class="k-tile' + (on && d.online ? ' on' : '') + (busy ? ' pending' : '') + '" data-act="toggle" data-id="' + esc(d.id) + '" data-key="k-' + esc(d.id) + '"' +
-      ' aria-pressed="' + on + '" aria-label="' + esc(d.name + ', ' + statusText(d)) + '"' + (d.online ? '' : ' disabled') + '>' +
-      '<span class="k-icon">' + deviceIcon(d, 26) + '</span><span class="k-name">' + esc(d.name) + '</span><span class="k-status">' + esc(d.online ? statusText(d) : 'Offline') + '</span></button>';
-  }
-  function kioskView() {
-    const data = S.data;
-    if (!data) return '<div class="kiosk-wrap"><div class="empty"><strong>Loading…</strong></div></div>';
-    if (!kiosk.on) { kiosk.on = true; kioskWake(); clearInterval(kiosk.timer); kiosk.timer = setInterval(kioskTick, 10000); }
-    loadWeather();
-    const now = new Date();
-    document.documentElement.classList.toggle('k-night', kioskIsNight(now));
-    const readings = data.devices.filter(isReadingDevice);
-    const devices = sortByOrder(data.devices.filter((d) => !isReadingDevice(d) && hasToggle(d) && !d.ir), data.homeId).slice(0, 12);
-    const scenes = data.scenes || [];
-    let html = '<div class="kiosk-wrap">' +
-      '<header class="k-top"><div class="k-clock"><span class="k-time" data-kclock="time">' + kTime(now) + '</span>' +
-      '<span class="k-date" data-kclock="date">' + kDate(now) + '</span></div>' +
-      '<div class="k-side">' + weatherLine(data.homeId) +
-      '<button class="k-exit" data-key="k-exit" aria-label="Leave wall tablet mode (press and hold)" title="Press and hold to leave">' +
-      '<svg class="k-exit-ring" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="20"/></svg>' + icon('close', 18) + '</button></div></header>';
-    if (readings.length) html += '<div class="readings k-readings" role="group" aria-label="Readings">' + readings.map((d) => readingTile(d, true)).join('') + '</div>';
-    if (scenes.length) {
-      html += '<h2 class="k-h">Scenes</h2><div class="k-scenes">' + scenes.map((sc) => {
-        const st = S.sceneState[sc.id];
-        return '<button class="k-scene ' + (st || '') + '" data-act="scene" data-id="' + esc(sc.id) + '" data-key="ks-' + esc(sc.id) + '"' + (st === 'running' ? ' disabled' : '') + '>' +
-          '<span class="k-play">' + icon(st === 'done' ? 'check' : 'play', 18) + '</span><span>' + esc(sc.name) + '</span></button>';
-      }).join('') + '</div>';
-    }
-    if (devices.length) html += '<h2 class="k-h">Devices</h2><div class="k-devices">' + devices.map(kioskTile).join('') + '</div>';
-    html += '<button class="k-dim" data-act="kiosk-wake" data-key="k-dim" aria-label="Wake the screen" tabindex="-1"></button></div>';
-    return html;
-  }
-  // Leaving needs a 1-second press, so a passing hand (or a child) doesn't exit by accident.
-  document.addEventListener('pointerdown', (e) => {
-    const b = e.target.closest && e.target.closest('.k-exit');
-    if (!b) return;
-    e.preventDefault();
-    b.classList.add('holding');
-    kiosk.hold = setTimeout(() => { kiosk.hold = null; kioskStop(); go('me'); }, 1000);
-  });
-  const kioskHoldEnd = (e) => {
-    if (!kiosk.hold) return;
-    clearTimeout(kiosk.hold); kiosk.hold = null;
-    document.querySelectorAll('.k-exit.holding').forEach((b) => b.classList.remove('holding'));
-    if (e.type === 'pointerup') toast('Press and hold to leave wall tablet mode.');
-  };
-  document.addEventListener('pointerup', kioskHoldEnd);
-  document.addEventListener('pointercancel', kioskHoldEnd);
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && kiosk.on && route().view === 'kiosk') { kioskStop(); go('me'); } });
-
-  // ---------- Me ----------
-  // The main page keeps only what people reach for; everything else lives one tap away.
-  const chevRow = (act, tab, key, label, value) =>
-    '<button class="list-row" data-act="' + act + '"' + (tab ? ' data-tab="' + tab + '"' : '') + ' data-key="' + key + '"><span class="label">' + label + '</span>' +
-    '<span class="value icon-value">' + (value ? esc(value) : '') + icon('chevron', 16) + '</span></button>';
-  const subHead = (sub, title, back, key) =>
-    '<div class="detail-head se-head-top"><button class="round-btn" data-act="tab" data-tab="' + (back || 'me') + '" data-key="' + key + '" aria-label="Back">' + icon('back', 20) + '</button>' +
-    '<div><p class="sub">' + sub + '</p><h1 class="detail-title">' + title + '</h1></div></div>';
-  const noteBelow = (t) => '<p class="note" style="text-align:left;margin-top:10px">' + t + '</p>';
-  const isAdminView = () => S.mode === 'demo' || (S.mode === 'live' && (!S.me || S.me.role === 'admin'));
-  const pollLabel = () => ({ 2000: 'Every 2 s', 4000: 'Every 4 s', 10000: 'Every 10 s', 30000: 'Every 30 s' })[S.pollMs] || 'Every ' + Math.round(S.pollMs / 1000) + ' s';
-
   function meView() {
     const data = S.data;
     const live = S.mode === 'live';
-    const name = S.me ? S.me.name : (live ? 'Owner' : 'Sample home');
-    const role = S.me ? (S.me.owner ? 'Owner' : S.me.role === 'admin' ? 'Admin' : 'Member') : (live ? 'Connected' : 'Demo');
-    const sub = live ? (S.sync ? 'Synced across your devices' : 'This device only') : 'Sample devices';
-    let html = '<div class="head"><div><h1 class="title">Me</h1></div></div>';
-
-    html += '<div class="list me-card"><div class="list-row"><span class="me-avatar" aria-hidden="true">' + esc(name.trim().charAt(0).toUpperCase() || 'H') + '</span>' +
-      '<span class="me-who"><span class="label">' + esc(name) + '</span><span class="me-sub">' + esc((role === name ? '' : role + ' · ') + sub) + '</span></span>' +
-      (!live ? '<button class="chip" data-act="live" data-key="live">Connect</button>' : '') + '</div></div>';
-
+    const updated = data && data.at ? new Date(data.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
+    const who = S.me ? 'Signed in as ' + S.me.name + (S.me.role === 'admin' ? ' (admin)' : '') : (live ? 'Connected to Tuya Cloud' : 'Sample devices');
+    let html = '<div class="head"><div><p class="sub">' + esc(who) + '</p><h1 class="title">Me</h1></div></div>';
     html += '<div class="list">';
     if (data && data.homes && data.homes.length > 1) {
       html += '<div class="list-row"><label class="label" for="home-select">Home</label><select id="home-select" data-act="home" data-key="home-select">' +
         data.homes.map((h) => '<option value="' + esc(h.id) + '"' + (h.id === data.homeId ? ' selected' : '') + '>' + esc(h.name) + '</option>').join('') + '</select></div>';
     }
-    if (S.mode === 'demo' || S.sync) html += chevRow('tab', 'activity', 'activity-open', 'Activity', 'Who did what');
-    if (isAdminView()) {
-      const n = Array.isArray(S.users) ? S.users.length + 1 : null;
-      html += chevRow('tab', 'people', 'people-open', 'People', n ? n + (n === 1 ? ' person' : ' people') : '');
-    }
-    html += chevRow('tab', 'icons', 'icons-open', 'Device icons', '');
-    html += chevRow('kiosk-enter', null, 'kiosk-open', 'Wall tablet mode', 'Clock, scenes, devices');
-    html += '</div>';
-
-    html += '<div class="list">' +
-      chevRow('tab', 'appearance', 'appearance-open', 'Appearance', (BACKGROUNDS.find(([v]) => v === S.bg) || BACKGROUNDS[0])[1]) +
-      chevRow('tab', 'settings', 'settings-open', 'Settings', live && readVault() ? 'PIN on' : pollLabel());
-    if (data && data.warnings && data.warnings.length) {
-      html += '<button class="list-row" data-act="tab" data-tab="attention" data-key="attention-open"><span class="label attn">Needs attention</span>' +
-        '<span class="value icon-value"><span class="count-badge">' + data.warnings.length + '</span>' + icon('chevron', 16) + '</span></button>';
-    }
-    html += chevRow('tab', 'about', 'about-open', 'About', 'Version ' + APP_VERSION) + '</div>';
-
-    if (live) html += '<div class="list"><button class="list-row danger" data-act="signout" data-key="signout"><span class="label">Sign out</span><span class="value">On this device</span></button></div>';
-    if (isAdminView() && S.sync && S.users === null) loadUsers();
-    return html;
-  }
-
-  function peopleView() {
-    let html = subHead('Me', 'People', 'me', 'people-back');
-    html += usersSection().replace('<h2 class="section-title">People</h2>', '');
-    html += noteBelow('Members control devices, run scenes and switch automations. Admins can also edit scenes and automations and manage people. Everyone signs in with their own password.');
-    return html;
-  }
-
-  function appearanceView() {
-    let html = subHead('Me', 'Appearance', 'me', 'appearance-back');
-    html += '<div class="list">' +
-      chevRow('tab', 'backgrounds', 'bg-open', 'Background', (BACKGROUNDS.find(([v]) => v === S.bg) || BACKGROUNDS[0])[1]) +
-      '<div class="list-row"><label class="label" for="unit-select">Weather units</label><select id="unit-select" data-act="tempunit" data-key="unit-select">' +
-      '<option value="c"' + (S.tempUnit === 'c' ? ' selected' : '') + '>Celsius (°C)</option>' +
-      '<option value="f"' + (S.tempUnit === 'f' ? ' selected' : '') + '>Fahrenheit (°F)</option></select></div>' +
-      '<div class="list-row"><span class="label" id="dist-label">Distance from home</span>' +
-      '<button class="switch" role="switch" aria-checked="' + S.showDistance + '" aria-labelledby="dist-label" data-act="distance" data-key="distance"><span class="knob"></span></button></div></div>';
-    html += noteBelow('Distance from home shows how far you are under the greeting. Your location stays on this phone.');
-    return html;
-  }
-
-  function settingsView() {
-    const data = S.data, live = S.mode === 'live';
-    const updated = data && data.at ? new Date(data.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
-    let html = subHead('Me', 'Settings', 'me', 'settings-back');
-    html += '<h2 class="section-title">Updates</h2><div class="list">' +
-      '<div class="list-row"><label class="label" for="poll-select">Live updates</label><select id="poll-select" data-act="poll" data-key="poll-select">' +
+    html += '<div class="list-row"><label class="label" for="poll-select">Live updates</label><select id="poll-select" data-act="poll" data-key="poll-select">' +
       [[2000, 'Fastest (2 s)'], [4000, 'Fast (4 s)'], [10000, 'Normal (10 s)'], [30000, 'Saver (30 s)']].map(([ms, label]) =>
-        '<option value="' + ms + '"' + (S.pollMs === ms ? ' selected' : '') + '>' + label + '</option>').join('') + '</select></div>' +
-      '<button class="list-row" data-act="refresh" data-key="refresh"><span class="label">Refresh now</span><span class="value">' + (updated ? 'Updated ' + updated : '') + '</span></button></div>';
-    html += noteBelow('Tuya\'s free plan has a monthly allowance of API calls. Pick Normal or Saver for a wall tablet that stays on all day.');
+        '<option value="' + ms + '"' + (S.pollMs === ms ? ' selected' : '') + '>' + label + '</option>').join('') + '</select></div>';
+    if (S.mode === 'demo' || S.sync) html += '<button class="list-row" data-act="tab" data-tab="activity" data-key="activity-open"><span class="label">Activity</span><span class="value icon-value">Who did what' + icon('chevron', 16) + '</span></button>';
+    html += '<button class="list-row" data-act="tab" data-tab="icons" data-key="icons-open"><span class="label">Device icons</span><span class="value icon-value">Change' + icon('chevron', 16) + '</span></button>';
+    html += '<div class="list-row"><span class="label" id="dist-label">Distance from home</span>' +
+      '<button class="switch" role="switch" aria-checked="' + S.showDistance + '" aria-labelledby="dist-label" data-act="distance" data-key="distance"><span class="knob"></span></button></div>';
+    html += '<button class="list-row" data-act="tab" data-tab="backgrounds" data-key="bg-open"><span class="label">Background</span><span class="value icon-value">' +
+      esc((BACKGROUNDS.find(([v]) => v === S.bg) || BACKGROUNDS[0])[1]) + icon('chevron', 16) + '</span></button>';
+    html += '<div class="list-row"><label class="label" for="unit-select">Weather units</label><select id="unit-select" data-act="tempunit" data-key="unit-select">' +
+      '<option value="c"' + (S.tempUnit === 'c' ? ' selected' : '') + '>Celsius (°C)</option>' +
+      '<option value="f"' + (S.tempUnit === 'f' ? ' selected' : '') + '>Fahrenheit (°F)</option></select></div>';
+    html += '<button class="list-row" data-act="refresh" data-key="refresh"><span class="label">Refresh now</span><span class="value">' + (updated ? 'Updated ' + updated : '') + '</span></button>';
+    if (S.installPrompt) html += '<button class="list-row" data-act="install" data-key="install"><span class="label">Install app</span>' + icon('chevron', 16) + '</button>';
+    if (!live) html += '<button class="list-row" data-act="live" data-key="live"><span class="label">Connect my server</span>' + icon('chevron', 16) + '</button>';
+    html += '</div>';
     if (live) {
       const hasPin = !!readVault();
       html += '<h2 class="section-title">Security</h2><div class="list">';
@@ -3076,32 +2389,25 @@
       }
       if (S.me && !S.me.owner && S.sync) html += pwFormView();
       html += '<button class="list-row" data-act="lock" data-key="lock"><span class="label">Lock app</span><span class="value">' +
-        (hasPin ? 'Asks for your PIN' : 'Asks for the password again') + '</span></button></div>';
-      if (hasPin) html += noteBelow('Home also locks itself after 5 minutes in the background. After ' + PIN_TRIES + ' wrong PINs it asks for your password instead.');
+        (hasPin ? 'Asks for your PIN' : 'Asks for the password again') + '</span></button>' +
+        '<button class="list-row danger" data-act="signout" data-key="signout"><span class="label">Sign out</span><span class="value">On this device</span></button></div>';
+      if (hasPin) html += '<p class="note" style="text-align:left;margin-top:10px">Home also locks itself after 5 minutes in the background. After ' + PIN_TRIES + ' wrong PINs it asks for your password instead.</p>';
     }
+    const showAdmin = S.mode === 'demo' || (live && (!S.me || S.me.role === 'admin'));
+    if (showAdmin) html += usersSection();
     if (live || S.mode === 'demo') {
-      html += '<h2 class="section-title">This app</h2><div class="list"><div class="list-row"><span class="label">Sync icons across devices</span><span class="value">' + (S.sync ? 'On' : 'Off') + '</span></div>' +
-        (S.installPrompt ? '<button class="list-row" data-act="install" data-key="install"><span class="label">Install app</span>' + icon('chevron', 16) + '</button>' : '') +
-        (!live ? '<button class="list-row" data-act="live" data-key="live2"><span class="label">Connect my server</span>' + icon('chevron', 16) + '</button>' : '') + '</div>';
-      if (!S.sync) html += noteBelow('Connect a free Neon database in Vercel to sync icons and add people. See "Sync and users" in the README.');
+      html += '<h2 class="section-title">Sync</h2><div class="list"><div class="list-row"><span class="label">Icons across devices</span><span class="value">' +
+        (S.sync ? 'On' : 'Off') + '</span></div></div>' +
+        (S.sync ? '' : '<p class="note" style="text-align:left;margin-top:10px">Connect a free Neon database in Vercel to sync icons and add users. See "Sync and users" in the README.</p>');
     }
-    return html;
-  }
-
-  function aboutView() {
-    let html = subHead('Me', 'About', 'me', 'about-back');
-    html += '<div class="list">' +
-      chevRow('tab', 'changelog', 'changelog-open', 'Version', APP_VERSION + ', what\'s new') +
-      '<div class="list-row"><span class="label">Adding devices</span><span class="value">Pair them in the Tuya app</span></div></div>';
-    return html;
-  }
-
-  function attentionView() {
-    const w = (S.data && S.data.warnings) || [];
-    let html = subHead('Me', 'Needs attention', 'me', 'attention-back');
-    if (!w.length) return html + '<div class="empty"><strong>All good</strong><p>Nothing needs your attention right now.</p></div>';
-    html += '<div class="list">' + w.map((x) => '<div class="list-row"><span class="meta">' + esc(x) + '</span></div>').join('') + '</div>';
-    html += noteBelow('A permission error usually means a service is not yet authorized in your Tuya cloud project. The README explains how to add it.');
+    if (data && data.warnings && data.warnings.length) {
+      html += '<h2 class="section-title">Needs attention</h2><div class="list">' + data.warnings.map((w) =>
+        '<div class="list-row"><span class="meta">' + esc(w) + '</span></div>').join('') + '</div>' +
+        '<p class="note" style="text-align:left;margin-top:10px">A permission error usually means a service is not yet authorized in your Tuya cloud project. The README explains how to add it.</p>';
+    }
+    html += '<h2 class="section-title">About</h2><div class="list">' +
+      '<div class="list-row"><span class="label">Adding devices</span><span class="value">Pair them in the Tuya app</span></div>' +
+      '<button class="list-row" data-act="tab" data-tab="changelog" data-key="changelog-open"><span class="label">Version</span><span class="value icon-value">' + APP_VERSION + ', what\'s new' + icon('chevron', 16) + '</span></button></div>';
     return html;
   }
 
@@ -3196,7 +2502,7 @@
       : S.pinStage === 'confirm' ? 'Enter the same PIN again.' : PIN_MIN + ' to ' + PIN_MAX + ' digits. You\'ll use it instead of your password on this device.';
     const canContinue = !unlocking && S.pinStage === 'enter' && S.pinEntry.length >= PIN_MIN;
     return '<div class="gate"><div class="gate-box pin-box">' +
-      '<span class="gate-mark"><img src="/icons/logo.webp" alt="" width="64" height="64"></span>' +
+      '<span class="gate-mark">' + icon('home', 30) + '</span>' +
       '<h1 class="title">' + title + '</h1><p>' + esc(sub) + '</p>' +
       '<div class="pin-dots" aria-hidden="true">' + dots + '</div>' +
       '<p class="sr-only" aria-live="polite">' + S.pinEntry.length + ' digits entered</p>' +
@@ -3215,7 +2521,7 @@
     if (S.gate === 'pin' || S.gate === 'pin-new') return pinView();
     const setup = S.gate === 'setup';
     return '<div class="gate"><form class="gate-box" data-act="unlock" novalidate>' +
-      '<span class="gate-mark"><img src="/icons/logo.webp" alt="" width="64" height="64"></span>' +
+      '<span class="gate-mark">' + icon('home', 30) + '</span>' +
       '<h1 class="title">' + (setup ? 'Finish setting up your server' : 'Sign in to Home') + '</h1>' +
       (setup
         ? '<p>' + esc(S.gateError) + ' Add the environment variables listed in the README to your Vercel project, redeploy, then try again.</p>' +
@@ -3240,7 +2546,7 @@
 
   // Gentle page transitions: deeper screens slide in from the right, going back slides from the left,
   // switching tabs fades. Skipped after a swipe-back (it already animated) and for reduced motion.
-  const DEPTH = { devices: 1, scenes: 1, me: 1, device: 2, 'scene-edit': 2, 'auto-edit': 2, icons: 2, changelog: 3, activity: 2, backgrounds: 3, history: 2, people: 2, appearance: 2, settings: 2, about: 2, attention: 2, kiosk: 2 };
+  const DEPTH = { devices: 1, scenes: 1, me: 1, device: 2, 'scene-edit': 2, 'auto-edit': 2, icons: 2, changelog: 2, activity: 2, backgrounds: 2, history: 2 };
   let skipAnim = false;
   function animateRoute(from, to, isWide) {
     if (skipAnim) { skipAnim = false; return; }
@@ -3276,7 +2582,7 @@
 
     const r = route();
     const isWide = wide.matches;
-    const activeTab = (r.view === 'device' || r.view === 'history') ? 'devices' : (r.view === 'scene-edit' || r.view === 'auto-edit') ? 'scenes' : (r.view === 'icons' || r.view === 'changelog' || r.view === 'activity' || r.view === 'backgrounds' || r.view === 'kiosk' || ME_PAGES.includes(r.view)) ? 'me' : r.view;
+    const activeTab = (r.view === 'device' || r.view === 'history') ? 'devices' : (r.view === 'scene-edit' || r.view === 'auto-edit') ? 'scenes' : (r.view === 'icons' || r.view === 'changelog' || r.view === 'activity' || r.view === 'backgrounds') ? 'me' : r.view;
     let mainHtml, panelHtml = null;
 
     if (r.view === 'history') {
@@ -3305,18 +2611,6 @@
       mainHtml = activityView();
     } else if (r.view === 'backgrounds') {
       mainHtml = backgroundsView();
-    } else if (r.view === 'kiosk') {
-      mainHtml = kioskView();
-    } else if (r.view === 'people') {
-      mainHtml = peopleView();
-    } else if (r.view === 'appearance') {
-      mainHtml = appearanceView();
-    } else if (r.view === 'settings') {
-      mainHtml = settingsView();
-    } else if (r.view === 'about') {
-      mainHtml = aboutView();
-    } else if (r.view === 'attention') {
-      mainHtml = attentionView();
 
     } else if (activeTab === 'scenes') {
       mainHtml = scenesView(!isWide);
@@ -3330,12 +2624,8 @@
     const devicesPage = activeTab === 'devices' && !(r.view === 'device' && !isWide) && !!S.data;
     shell.main.classList.toggle('devices-view', devicesPage);
     document.documentElement.classList.toggle('lock-scroll', devicesPage);
-    if (r.view !== 'devices' && S.reorder) S.reorder = false;
-    document.documentElement.classList.toggle('kiosk', r.view === 'kiosk');
-    if (r.view !== 'kiosk' && kiosk.on) kioskStop();
-    document.documentElement.classList.toggle('in-editor', r.view === 'scene-edit' || r.view === 'auto-edit');
     shell.app.className = 'app' + (panelHtml == null ? ' no-panel' : '');
-    shell.rail.innerHTML = '<span class="mark" aria-hidden="true"><img src="/icons/logo.webp" alt="" width="48" height="48"></span>' + tabs(activeTab);
+    shell.rail.innerHTML = '<span class="mark" aria-hidden="true">' + icon('home') + '</span>' + tabs(activeTab);
     shell.tabbar.innerHTML = tabs(activeTab);
     shell.main.innerHTML = mainHtml;
     shell.panel.innerHTML = panelHtml || '';
@@ -3372,17 +2662,12 @@
     const d = id ? findDevice(id) : null;
 
     switch (act) {
-      case 'tab': if (inEditor() && editorDirty()) leaveEditor(el.dataset.tab); else go(el.dataset.tab); break;
+      case 'tab': go(el.dataset.tab); break;
       case 'room': S.room = el.dataset.room; S.allOffArmed = 0; render(); break;
       case 'open': go('device/' + encodeURIComponent(id)); break;
       case 'back': go('devices'); break;
-      case 'reorder': S.reorder = !S.reorder; render(); break;
-      case 'kiosk-enter': kioskStart(); break;
-      case 'kiosk-wake': kiosk.wokeUntil = Date.now() + 60000; kioskTick(); break;
       case 'toggle': {
         if (!d) return;
-        if (el.dataset.swiped) return;
-        if (el.classList.contains('rocker')) flipped[d.id] = Date.now();
         if (kindOf(d) === 'irac') { sendIrAc(d, { power: !isOn(d) }); break; }
         if (el.dataset.code) {
           const c = el.dataset.code;
@@ -3465,15 +2750,7 @@
       case 'scene': runScene(id); break;
       case 'scene-new': S.editor = null; go('scene/new'); break;
       case 'scene-open': S.editor = null; go('scene/' + encodeURIComponent(id)); break;
-      case 'se-cancel': leaveEditor('scenes'); break;
-      case 'se-dup': {
-        const E = S.editor;
-        if (!E || !E.id) break;
-        Object.assign(E, { id: null, routeId: 'new', name: (E.name.trim() + ' copy').slice(0, 40), confirmDelete: false, error: '', snap: '' });
-        go((E.kind === 'auto' ? 'auto' : 'scene') + '/new');
-        toast('This is a copy. Change it, then tap Create.');
-        break;
-      }
+      case 'se-cancel': S.editor = null; go('scenes'); break;
       case 'auto-new': S.editor = null; go('auto/new'); break;
       case 'auto-open': S.editor = null; go('auto/' + encodeURIComponent(id)); break;
       case 'se-pick-scene': S.editor.items.push({ type: 'scene', sceneId: id }); S.editor.picking = false; S.editor.error = ''; render(); break;
@@ -3615,12 +2892,7 @@
   const LIVE_PREFIX = { bright: 'bright-', coverpos: 'cover-', fanspeed: 'fan-' };
   document.addEventListener('input', (e) => {
     const el = e.target;
-    if (el.dataset && el.dataset.act === 'se-name' && S.editor) {
-      S.editor.name = el.value;
-      const st = document.querySelector('.se-status');
-      if (st && S.editor.id) st.textContent = editorDirty() ? 'Unsaved changes' : 'No changes';
-      return;
-    }
+    if (el.dataset && el.dataset.act === 'se-name' && S.editor) { S.editor.name = el.value; return; }
     if (el.dataset && el.dataset.act === 'uf') { S.userForm[el.dataset.field] = el.value; return; }
     if (el.dataset && el.dataset.act === 'pf') { S.pwForm[el.dataset.field] = el.value; return; }
     if (el.dataset && el.dataset.act === 'se-delay' && S.editor) {
@@ -3640,14 +2912,6 @@
     }
     if (el.dataset && el.dataset.act === 'se-range') {
       document.querySelectorAll('[data-live="se-' + el.dataset.i + '-' + CSS.escape(el.dataset.code) + '"]').forEach((n) => { n.textContent = el.value + '%'; });
-      return;
-    }
-    if (el.dataset && el.dataset.act === 'irwindr') {
-      S.dragging = true;
-      const v = Number(el.value);
-      el.setAttribute('aria-valuetext', IR_WIND[v]);
-      el.closest('.fan-range').classList.remove('is-auto');
-      document.querySelectorAll('[data-live="irwind-' + CSS.escape(el.dataset.id) + '"]').forEach((n) => { n.textContent = IR_WIND[v]; });
       return;
     }
     if (!el.dataset || !LIVE_PREFIX[el.dataset.act]) return;
@@ -3702,9 +2966,6 @@
       send(d, cmds, Object.fromEntries(cmds.map((c) => [c.code, c.value])));
     } else if (act === 'coverpos' && d) {
       send(d, [{ code: 'percent_control', value: Number(el.value) }], { percent_control: Number(el.value) });
-    } else if (act === 'irwindr' && d && d.ir) {
-      S.dragging = false;
-      sendIrAc(d, { power: true, wind: clamp(Number(el.value), 1, 3) });
     } else if (act === 'fanspeed' && d) {
       send(d, [{ code: 'fan_speed_percent', value: Number(el.value) }], { fan_speed_percent: Number(el.value) });
     } else if (act === 'home') {
@@ -3972,7 +3233,7 @@
   }
   document.addEventListener('touchstart', (e) => {
     if (S.gate || e.touches.length !== 1 || !S.data || ptr && ptr.busy) return;
-    if (e.target.closest('input, select, textarea, dialog, .arc-dial, .td-dial, .rocker, .hue-range, .switch')) return;
+    if (e.target.closest('input, select, textarea, dialog, .arc-dial, .hue-range, .switch')) return;
     const scroller = activeScroller();
     if (!scroller || scroller.scrollTop > 0) return;
     ptr = { y0: e.touches[0].clientY, x0: e.touches[0].clientX, pull: 0, scroller };
@@ -4217,7 +3478,7 @@
       pc: { cur_power: { scale: 1 }, cur_voltage: { scale: 1 }, cur_current: { scale: 0 } }
     };
     const names = { dev12: { switch_1: 'Monitor', switch_2: 'Laptop charger' } };
-    const demoIcons = { dev2: 'photocolumn', dev11: 'photodonut', dev8: 'phototable' };
+    const demoIcons = {};
     const demoTimers = {};
     const demoAct = [
       { at: Date.now() - 5 * 60000, who: 'Sam', text: 'turned off Kettle plug', home: true },
