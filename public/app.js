@@ -5,6 +5,18 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.40.0",
+      "items": [
+        "Device cards on the home screen now match the wall tablet: glass when off, and bright white with a yellow round icon when on."
+      ]
+    },
+    {
+      "v": "2.39.1",
+      "items": [
+        "Wall tablet mode shows temperature and humidity the same way: Climate and Humidity summary capsules above the scenes (tap to see each sensor when there are several)."
+      ]
+    },
+    {
       "v": "2.39.0",
       "items": [
         "Temperature and humidity on the home screen now look like the Home app's summaries: capsule buttons at the top with an icon, \"Climate\" or \"Humidity\" and the reading (a range like 24–26° when you have several sensors). Tap one to see each sensor, or its history if you only have one."
@@ -817,23 +829,27 @@
     const lo = Math.min(...vals), hi = Math.max(...vals);
     return Math.round(lo) === Math.round(hi) ? fmt(lo) : fmt(lo).replace(/[^\d.\-]+$/, '') + '–' + fmt(hi);
   }
-  function climateSummaries(readings) {
+  function climateSummaries(readings, inKiosk) {
     const live = readings.filter((d) => d.online).map((d) => ({ d, r: readingsOf(d) }));
     const temps = live.map((x) => x.r.temp).filter((v) => v != null);
     const hums = live.map((x) => x.r.hum).filter((v) => v != null);
     const low = readings.some((d) => typeof d.status.battery_percentage === 'number' && d.status.battery_percentage <= 20);
     const one = readings.length === 1 ? readings[0] : null;
-    const act = one ? 'data-act="open-history" data-id="' + esc(one.id) + '"' : 'data-act="climate-toggle"';
+    // In wall tablet mode nothing navigates away: one sensor is just shown, several expand in place.
+    const still = inKiosk && one;
+    const act = one ? (inKiosk ? '' : 'data-act="open-history" data-id="' + esc(one.id) + '"') : 'data-act="climate-toggle"';
     const pressed = one ? '' : ' aria-expanded="' + !!S.climateOpen + '"';
+    const tag = still ? 'div' : 'button';
     const btn = (key, kind, title, value, label) =>
-      '<button class="summary" ' + act + pressed + ' data-key="sum-' + key + '" aria-label="' + esc(label) + '">' +
+      '<' + tag + ' class="summary" ' + act + pressed + ' data-key="sum-' + key + '"' + (still ? ' role="img"' : '') + ' aria-label="' + esc(label) + '">' +
       '<span class="sum-icon ' + kind + '">' + icon(kind === 'temp' ? 'thermo' : 'drop', 18) + '</span>' +
-      '<span class="sum-text"><span class="sum-title">' + title + '</span><span class="sum-value">' + esc(value) + '</span></span></button>';
+      '<span class="sum-text"><span class="sum-title">' + title + '</span><span class="sum-value">' + esc(value) + '</span></span></' + tag + '>';
     let html = '<div class="summaries" role="group" aria-label="Climate">';
     const t = rangeText(temps, (v) => fmtTemp(Math.round(v)));
     const h = rangeText(hums, (v) => Math.round(v) + '%');
-    if (t) html += btn('temp', 'temp', 'Climate', t, 'Temperature ' + t + (one ? ', show history' : ''));
-    if (h) html += btn('hum', 'hum', 'Humidity', h, 'Humidity ' + h + (one ? ', show history' : ''));
+    const hint = one && !inKiosk ? ', show history' : '';
+    if (t) html += btn('temp', 'temp', 'Climate', t, 'Temperature ' + t + hint);
+    if (h) html += btn('hum', 'hum', 'Humidity', h, 'Humidity ' + h + hint);
     if (!t && !h) html += btn('off', 'temp', 'Climate', 'Offline', 'Climate sensors offline');
     if (low) html += '<span class="sum-warn" role="status">' + icon('alert', 14) + 'Sensor battery low</span>';
     html += '</div>';
@@ -842,9 +858,10 @@
       html += '<div class="list climate-list">' + readings.map((d) => {
         const r = readingsOf(d);
         const vals = !d.online ? 'Offline' : [r.temp != null ? fmtTemp(r.temp) : null, r.hum != null ? Math.round(r.hum) + '%' : null].filter(Boolean).join(' · ');
-        return '<button class="list-row" data-act="open-history" data-id="' + esc(d.id) + '" data-key="clim-' + esc(d.id) + '">' +
-          '<span class="label">' + esc(d.name) + (d.room ? '<span class="clim-room">' + esc(d.room) + '</span>' : '') + '</span>' +
-          '<span class="value icon-value">' + esc(vals) + icon('chevron', 16) + '</span></button>';
+        const inner = '<span class="label">' + esc(d.name) + (d.room ? '<span class="clim-room">' + esc(d.room) + '</span>' : '') + '</span>' +
+          '<span class="value icon-value">' + esc(vals) + (inKiosk ? '' : icon('chevron', 16)) + '</span>';
+        return inKiosk ? '<div class="list-row">' + inner + '</div>'
+          : '<button class="list-row" data-act="open-history" data-id="' + esc(d.id) + '" data-key="clim-' + esc(d.id) + '">' + inner + '</button>';
       }).join('') + '</div>';
     }
     return html;
@@ -3142,6 +3159,8 @@
       '<div class="k-time" data-kclock="time">' + kTime(now) + '</div>' +
       '<button class="k-exit" data-key="k-exit" aria-label="Leave wall tablet mode (press and hold)" title="Press and hold to leave">' +
       '<svg class="k-exit-ring" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="20"/></svg>' + icon('close', 18) + '</button></header>';
+    // Temperature and humidity as Home app summaries.
+    if (readings.length) html += '<div class="k-climate">' + climateSummaries(readings, true) + '</div>';
     // Scenes as a row of capsules, like the Home app.
     if (scenes.length) {
       html += '<div class="k-scenes26" role="group" aria-label="Scenes">' + scenes.map((sc) => {
@@ -3152,7 +3171,7 @@
     }
     // Widgets: sensors (small), air conditioners (large) and device controls (small), packed tightly.
     html += '<div class="k-grid" role="group" aria-label="Home">' +
-      readings.map(kioskSensor).join('') + acs.map(kioskAcCard).join('') + devices.map(kioskTile).join('') + '</div>';
+      acs.map(kioskAcCard).join('') + devices.map(kioskTile).join('') + '</div>';
     html += '<button class="k-dim" data-act="kiosk-wake" data-key="k-dim" aria-label="Wake the screen" tabindex="-1"></button></div>';
     return html;
   }

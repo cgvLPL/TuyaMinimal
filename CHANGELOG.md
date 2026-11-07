@@ -2,6 +2,14 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.40.0
+
+- Device cards on the home screen now match the wall tablet: glass when off, and bright white with a yellow round icon when on.
+
+## 2.39.1
+
+- Wall tablet mode shows temperature and humidity the same way: Climate and Humidity summary capsules above the scenes (tap to see each sensor when there are several).
+
 ## 2.39.0
 
 - Temperature and humidity on the home screen now look like the Home app's summaries: capsule buttons at the top with an icon, "Climate" or "Humidity" and the reading (a range like 24–26° when you have several sensors). Tap one to see each sensor, or its history if you only have one.
