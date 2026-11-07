@@ -2081,3 +2081,7 @@ html[data-bg] .grid > .card:not(.active) .icon-dot { background: rgba(255, 255, 
 
 /* Arrange: an icon button like the power button beside it */
 .section-head .arrange-btn.on { background: var(--ink); color: var(--on-ink); box-shadow: none; }
+
+/* No visible scroll bars anywhere (scrolling still works: swipe, wheel, keyboard) */
+* { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { display: none; width: 0; height: 0; background: transparent; }

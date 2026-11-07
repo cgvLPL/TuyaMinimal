@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.41.2
+
+- Scroll bars are hidden throughout the app; scrolling works as before.
+
 ## 2.41.1
 
 - The Arrange button above the devices is now an icon (two arrows); it turns into a checkmark while you're arranging.

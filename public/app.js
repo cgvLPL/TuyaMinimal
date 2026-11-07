@@ -5,6 +5,12 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.41.2",
+      "items": [
+        "Scroll bars are hidden throughout the app; scrolling works as before."
+      ]
+    },
+    {
       "v": "2.41.1",
       "items": [
         "The Arrange button above the devices is now an icon (two arrows); it turns into a checkmark while you're arranging."
