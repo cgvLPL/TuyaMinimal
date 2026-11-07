@@ -5,6 +5,20 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.43.0",
+      "items": [
+        "Tidier switch-group screen: the list under the rockers is now just \"Switch names\" (tap one to rename it), without repeating the on/off switches.",
+        "Faster cold starts: with the database connected, the server remembers your homes, rooms, which devices are in which room and your IR remotes (IDs and names only), so opening the app after a quiet spell asks Tuya for half as much. In tests the first load went from 0.7 s to 0.3 s. New devices still appear straight away, and Refresh now forgets the remembered details."
+      ]
+    },
+    {
+      "v": "2.42.0",
+      "items": [
+        "Devices with several switches (2- and 3-gang wall switches, power strips) now show a rocker for each switch, like the Home app: \"1 On • 2 Off\" at the top, two per row with the name under each, and a Turn all on/off button. Tap a rocker or swipe it up or down. The list below still lets you rename each switch.",
+        "Rocker switches now light up yellow with a white icon when on, like the Home app."
+      ]
+    },
+    {
       "v": "2.41.2",
       "items": [
         "Scroll bars are hidden throughout the app; scrolling works as before."
@@ -1747,6 +1761,28 @@
       '<button class="rocker' + anim + (busy ? ' pending' : '') + '" role="switch" aria-checked="' + on + '" aria-label="' + esc(d.name) + '" data-act="toggle" data-id="' + esc(d.id) + '" data-key="rocker-' + esc(d.id) + '"' + (busy ? ' aria-busy="true"' : '') + (d.online ? '' : ' disabled') + '>' +
       '<span class="rocker-knob">' + icon(iconKeyOf(d), 30) + '</span></button></div>';
   }
+  // Several switches in one device (2- and 3-gang wall switches, power strips): a rocker for each,
+  // like the Home app's switch groups, with "1 On • 2 Off" above and the switch names below.
+  function multiRockers(d) {
+    const codes = channelCodes(d), n = codes.filter((c) => d.status[c]).length, busy = isPending(d.id);
+    // Wall switches get a bulb (they usually run lights); power strips and USB ports get a plug.
+    const outlets = ['pc', 'cz'].includes(d.category);
+    const items = codes.map((c) => {
+      const on = !!d.status[c], key = d.id + ':' + c;
+      const glyph = outlets || /usb/.test(c) ? 'plug' : 'light';
+      const anim = flipped[key] && Date.now() - flipped[key] < 500 ? (on ? ' flip-up' : ' flip-down') : '';
+      const name = channelName(d, c);
+      return '<div class="mr-item"><button class="rocker mr' + anim + (busy ? ' pending' : '') + '" role="switch" aria-checked="' + on + '" aria-label="' + esc(name) + '"' +
+        ' data-act="toggle" data-id="' + esc(d.id) + '" data-code="' + esc(c) + '" data-key="mr-' + esc(d.id) + '-' + esc(c) + '"' + (d.online ? '' : ' disabled') + '>' +
+        '<span class="rocker-knob">' + icon(glyph, 30) + '</span></button>' +
+        '<span class="mr-name">' + esc(name) + '</span></div>';
+    }).join('');
+    return '<div class="mr-wrap">' +
+      '<span class="rocker-state' + (n ? ' on' : '') + '">' + n + ' On • ' + (codes.length - n) + ' Off</span>' +
+      '<div class="mr-grid' + (codes.length % 2 ? ' odd' : '') + '">' + items + '</div>' +
+      '<button class="chip soft mr-all" data-act="toggle" data-id="' + esc(d.id) + '" data-key="mr-all-' + esc(d.id) + '"' + (d.online ? '' : ' disabled') + '>' +
+      (n ? 'Turn all off' : 'Turn all on') + '</button></div>';
+  }
   let rockerDrag = null;
   document.addEventListener('pointerdown', (e) => {
     const el = e.target.closest && e.target.closest('.rocker');
@@ -2069,9 +2105,9 @@
         '<button type="submit" class="chip soft" data-key="rn-save-' + rk + '">Save</button>' +
         '<button type="button" class="chip soft" data-act="rename-cancel" data-key="rn-cancel-' + rk + '">Cancel</button></form>';
     }
-    return '<div class="list-row"><span class="channel"><span class="label">' + esc(name) + '</span>' +
-      '<button class="edit-btn" data-act="rename" data-id="' + esc(d.id) + '" data-code="' + esc(code) + '" data-key="rn-edit-' + rk + '" aria-label="Rename ' + esc(name) + '"' + (d.online ? '' : ' disabled') + '>' + icon('pencil', 16) + '</button></span>' +
-      switchBtn(d, sfx, code) + '</div>';
+    // The rockers above switch them; this list is only for names. Tap a row to rename it.
+    return '<button class="list-row rename-row" data-act="rename" data-id="' + esc(d.id) + '" data-code="' + esc(code) + '" data-key="rn-edit-' + rk + '" aria-label="Rename ' + esc(name) + '"' + (d.online ? '' : ' disabled') + '>' +
+      '<span class="label">' + esc(name) + '</span><span class="value icon-value">' + icon('pencil', 16) + '</span></button>';
   }
 
   // ---------- Temperature dial (ACs and thermostats) ----------
@@ -2312,8 +2348,7 @@
     } else if (k === 'irremote') {
       hero += irRemotePad(d, sfx);
     } else if (k === 'multi') {
-      hero += powerButton(d); heroHasPower = true;
-      hero += '<p class="note">Turns every outlet on or off together. Control each one below.</p>';
+      hero += multiRockers(d); heroHasPower = true;
     } else if (powerCode(d)) {
       hero += rockerSwitch(d); heroHasPower = true;
     } else {
@@ -2321,7 +2356,7 @@
     }
 
     const rows = [];
-    if (k === 'multi' && d.online) channelCodes(d).forEach((c) => rows.push(channelRow(d, c, sfx)));
+    const nameRows = k === 'multi' && d.online ? channelCodes(d).map((c) => channelRow(d, c, sfx)) : [];
     if (hasToggle(d) && !heroHasPower) {
       rows.push('<div class="list-row"><span class="label">Power</span>' + switchBtn(d, sfx) + '</div>');
     }
@@ -2341,6 +2376,7 @@
       '<div><p class="sub">' + esc((d.room || 'No room') + (d.ir && d.ir.brand ? ', ' + d.ir.brand : '')) + '</p><h2 class="detail-title">' + esc(d.name) + '</h2></div></div>' +
       // AC and thermostat screens skip the photo: the temperature dial is the picture there.
       '<div class="hero">' + (photoOf(d) && hero.indexOf('<div class="td') === -1 ? '<div class="hero-photo ' + (on && d.online ? 'lit' : 'dim') + '" style="--glow-color:' + photoGlow(d) + '">' + photoImg(photoOf(d)) + '</div>' : '') + hero + '</div>' +
+      (nameRows.length ? '<h3 class="section-title">Switch names</h3><div class="list names-list">' + nameRows.join('') + '</div>' : '') +
       '<div class="list">' + rows.join('') + '</div>' +
       (d.online ? timerSection(d) : '') +
       (d.online ? energySection(d) : '') +
@@ -3619,7 +3655,7 @@
       case 'toggle': {
         if (!d) return;
         if (el.dataset.swiped) return;
-        if (el.classList.contains('rocker')) flipped[d.id] = Date.now();
+        if (el.classList.contains('rocker')) flipped[d.id + (el.dataset.code ? ':' + el.dataset.code : '')] = Date.now();
         if (kindOf(d) === 'irac') { sendIrAc(d, { power: !isOn(d) }); break; }
         if (el.dataset.code) {
           const c = el.dataset.code;
@@ -3627,7 +3663,7 @@
           break;
         }
         if (isMulti(d)) {
-          const target = !isOn(d);
+          const target = !channelCodes(d).some((c) => d.status[c]);
           const cmds = channelCodes(d).map((c) => ({ code: c, value: target }));
           send(d, cmds, Object.fromEntries(cmds.map((c) => [c.code, c.value])));
           break;

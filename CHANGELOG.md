@@ -2,6 +2,16 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.43.0
+
+- Tidier switch-group screen: the list under the rockers is now just "Switch names" (tap one to rename it), without repeating the on/off switches.
+- Faster cold starts: with the database connected, the server remembers your homes, rooms, which devices are in which room and your IR remotes (IDs and names only), so opening the app after a quiet spell asks Tuya for half as much. In tests the first load went from 0.7 s to 0.3 s. New devices still appear straight away, and Refresh now forgets the remembered details.
+
+## 2.42.0
+
+- Devices with several switches (2- and 3-gang wall switches, power strips) now show a rocker for each switch, like the Home app: "1 On • 2 Off" at the top, two per row with the name under each, and a Turn all on/off button. Tap a rocker or swipe it up or down. The list below still lets you rename each switch.
+- Rocker switches now light up yellow with a white icon when on, like the Home app.
+
 ## 2.41.2
 
 - Scroll bars are hidden throughout the app; scrolling works as before.

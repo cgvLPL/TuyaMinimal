@@ -57,7 +57,7 @@ async function expandIrRemotes(list, warnings) {
   await Promise.all(hubs.map(async (hub) => {
     let remotes;
     try {
-      remotes = await cached('remotes:' + hub.id, SLOW, () => call('GET', `/v2.0/infrareds/${hub.id}/remotes`));
+      remotes = await remotesOf(hub.id);
     } catch (e) {
       if (sure(hub)) warnings.push('IR remotes for ' + hub.name + ': ' + e.message + '. Authorize the IR Control Hub service in your cloud project.');
       return;
@@ -112,7 +112,7 @@ function prefetchIr(list) {
   const hubs = list.filter((d) => IR_HUBS.includes(d.category) || forced.includes(d.id) ||
     (hasRemotes && !NOT_HUBS.includes(d.category) && !String(d.category || '').startsWith('infrared'))).slice(0, 10);
   for (const hub of hubs) {
-    cached('remotes:' + hub.id, SLOW, () => call('GET', `/v2.0/infrareds/${hub.id}/remotes`))
+    remotesOf(hub.id)
       .then((remotes) => {
         for (const r of Array.isArray(remotes) ? remotes : []) {
           if (Number(r.category_id) === IR_AC_CATEGORY) acStatus(hub.id, String(r.remote_id)).catch(() => {});
@@ -134,7 +134,13 @@ function attachHubless(list) {
 
 // Rooms, room membership, home membership and IR remote lists rarely change, so a warm server
 // keeps them for a minute (shared with the access checks). That makes the full refresh faster.
-const { cached, SLOW, clear: clearCache } = require('../_lib/cache');
+const { cached, SLOW, clear: clearCache, persisted, forget, persistedKeys, flushPersisted } = require('../_lib/cache');
+// How long remembered lookups stay good (they're also refreshed whenever they turn out wrong).
+const KEEP_HOMES = 6 * 3600 * 1000, KEEP_ROOMS = 30 * 60 * 1000, KEEP_REMOTES = 6 * 3600 * 1000;
+const ids = (list) => (Array.isArray(list) ? list : []).map((d) => ({ id: String(d.id || d.dev_id) }));
+const remotesOf = (hubId) => persisted('p:remotes:' + hubId, KEEP_REMOTES, () => call('GET', `/v2.0/infrareds/${hubId}/remotes`)
+  .then((list) => (Array.isArray(list) ? list : []).map((r) => ({ remote_id: r.remote_id, category_id: r.category_id,
+    remote_index: r.remote_index, brand_name: r.brand_name, remote_name: r.remote_name }))));
 const access = require('../_lib/access');
 
 async function settle(promise, fallback) {
@@ -146,16 +152,17 @@ let lastFresh = 0;
 // One home's devices, rooms (with each room's devices), scenes and automations, all started at once.
 // Rooms are followed straight away by their device lists, without waiting for scenes.
 function homeCalls(homeId) {
-  const rooms = settle(cached('rooms:' + homeId, SLOW, () => call('GET', `/v1.0/homes/${homeId}/rooms`)), {})
+  const rooms = settle(persisted('p:rooms:' + homeId, KEEP_ROOMS, () => call('GET', `/v1.0/homes/${homeId}/rooms`)
+    .then((r) => ({ rooms: (Array.isArray(r) ? r : (r && r.rooms) || []).map((x) => ({ room_id: x.room_id, name: x.name })) }))), {})
     .then(async (res) => {
       const raw = Array.isArray(res.value) ? res.value : ((res.value && res.value.rooms) || []);
       const list = raw.map((r) => ({ id: String(r.room_id), name: r.name }));
       const lists = await Promise.all(list.map((r) =>
-        settle(cached('roomdevs:' + homeId + ':' + r.id, SLOW, () => call('GET', `/v1.0/homes/${homeId}/rooms/${r.id}/devices`)), [])));
+        settle(persisted('p:roomdevs:' + homeId + ':' + r.id, KEEP_ROOMS, () => call('GET', `/v1.0/homes/${homeId}/rooms/${r.id}/devices`).then(ids)), [])));
       return { res, rooms: list, lists };
     });
   return {
-    homeDevs: settle(cached('homedevs:' + homeId, SLOW, () => call('GET', `/v1.0/homes/${homeId}/devices`)), null),
+    homeDevs: settle(persisted('p:homedevs:' + homeId, KEEP_ROOMS, () => call('GET', `/v1.0/homes/${homeId}/devices`).then(ids)), null),
     rooms,
     scenes: settle(call('GET', `/v1.0/homes/${homeId}/scenes`), []),
     autos: settle(call('GET', `/v1.0/homes/${homeId}/automations`), [])
@@ -176,9 +183,19 @@ module.exports = handler(['GET'], async (req) => {
     ? store.getJSON('settings', { icons: {} }).then((v) => ({ value: v }), (e) => ({ error: e.message }))
     : Promise.resolve(null);
   const early = wanted && access.homeAllowed(req.user, wanted) ? homeCalls(wanted) : null;
+  // Remembered IR remotes let the AC settings be fetched right away, not after two other lookups.
+  persistedKeys('p:remotes:').then((list) => {
+    for (const [key, remotes] of list) {
+      const hubId = key.slice('p:remotes:'.length);
+      for (const r of Array.isArray(remotes) ? remotes : []) {
+        if (Number(r.category_id) === IR_AC_CATEGORY) acStatus(hubId, String(r.remote_id)).catch(() => {});
+      }
+    }
+  }).catch(() => {});
   const [devices, homesRes] = await Promise.all([
     call('GET', `/v1.0/users/${uid}/devices`),
-    settle(cached('homes', SLOW, () => call('GET', `/v1.0/users/${uid}/homes`)), [])
+    settle(persisted('p:homes', KEEP_HOMES, () => call('GET', `/v1.0/users/${uid}/homes`)
+      .then((list) => (Array.isArray(list) ? list : []).map((h) => ({ home_id: h.home_id, name: h.name })))), [])
   ]);
   prefetchIr(devices || []);
   const homes = (homesRes.value || []).map((h) => ({ id: String(h.home_id), name: h.name }))
@@ -201,6 +218,17 @@ module.exports = handler(['GET'], async (req) => {
     rooms = roomData.rooms;
     lists.forEach((l, i) => { for (const d of l.value || []) roomOf[d.id || d.dev_id] = rooms[i].name; });
 
+    // A remembered home device list can be out of date (a device added in the Tuya app since).
+    // If a live device isn't in any home we know of, look this home's list up again.
+    if (Array.isArray(homeDevsRes.value)) {
+      const known = new Set(homeDevsRes.value.map((d) => d.id || d.dev_id));
+      for (const [, list] of await persistedKeys('p:homedevs:')) for (const d of Array.isArray(list) ? list : []) known.add(d.id);
+      if ((devices || []).some((d) => !known.has(d.id) && !String(d.category || '').startsWith('infrared'))) {
+        forget('p:homedevs:' + home.id);
+        const again = await settle(persisted('p:homedevs:' + home.id, KEEP_ROOMS, () => call('GET', `/v1.0/homes/${home.id}/devices`).then(ids)), null);
+        if (Array.isArray(again.value)) homeDevsRes.value = again.value;
+      }
+    }
     // The user's device list covers every home, so keep only this home's devices.
     if (Array.isArray(homeDevsRes.value)) {
       inHome = new Set(homeDevsRes.value.map((d) => d.id || d.dev_id));
@@ -260,6 +288,7 @@ module.exports = handler(['GET'], async (req) => {
     settings.order = home && Array.isArray(all[home.id]) ? { [home.id]: all[home.id] } : {};
   }
 
+  await flushPersisted();
   return {
     me: req.user,
     sync: store.enabled(),
