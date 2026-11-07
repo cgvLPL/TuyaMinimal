@@ -1826,3 +1826,153 @@ html[data-bg] {
 .k-ac-fan { display: flex; flex-direction: column; gap: 14px; }
 .k-ac-fan .fan-head { margin-bottom: 0; }
 .k-ac-fan .seg-label { margin-bottom: 0; }
+
+/* Installed on iPhone, the clock and battery are drawn in white over the app's own background.
+   On the light theme (no photo background) a soft shade behind them keeps them readable. */
+@media (display-mode: standalone) and (prefers-color-scheme: light) {
+  html:not([data-bg])::after {
+    content: ""; position: fixed; top: 0; left: 0; right: 0; z-index: 30; pointer-events: none;
+    height: calc(var(--safe-top) + 8px);
+    background: linear-gradient(rgba(0, 0, 0, 0.32), rgba(0, 0, 0, 0.12) 70%, transparent);
+  }
+}
+
+
+/* =========================================================
+   Wall tablet mode, iOS 26 style
+   Lock Screen clock (date and weather above a large glass clock), Home-app scene capsules, and a
+   grid of Liquid Glass widgets: sensors (small), air conditioners (large) and Control Center-style
+   device tiles (small). Always dark, like StandBy; at night only a dim red clock stays on.
+   ========================================================= */
+html.kiosk:not([data-bg]) { background: #05060a; }
+html.kiosk:not([data-bg])::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(120% 80% at 15% 0%, #2a3f73 0%, transparent 55%),
+    radial-gradient(90% 70% at 100% 30%, #5b2a63 0%, transparent 60%),
+    radial-gradient(100% 80% at 40% 110%, #10324a 0%, transparent 60%),
+    #05060a;
+}
+.k26 {
+  --text: #fff; --muted: rgba(255, 255, 255, 0.62); --surface: #1c1c22;
+  --kg: rgba(28, 28, 36, 0.36);
+  --kg-rim: inset 0 1px 0 rgba(255, 255, 255, 0.26), inset 0 -1px 0 rgba(255, 255, 255, 0.06), inset 0 0 0 1px rgba(255, 255, 255, 0.10);
+  --kg-shadow: 0 12px 34px rgba(0, 0, 0, 0.35);
+  --kfill: rgba(255, 255, 255, 0.14);       /* controls inside a widget: a plain fill, not more glass */
+  --kr: 30px; --kpad: 18px;
+  color: var(--text); gap: 22px; min-height: calc(100dvh - 60px);
+}
+.k26 .k-w, .k26 .k-cap, .k26 .k-exit {
+  background: var(--kg);
+  -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: var(--kg-shadow), var(--kg-rim);
+  border: 0; color: var(--text);
+}
+
+/* Lock Screen header */
+.k26 .k-lock { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; padding-top: 4px; }
+.k26 .k-dateline { display: flex; align-items: center; gap: 12px; font-size: clamp(17px, 2.1vw, 24px); font-weight: 600; color: rgba(255, 255, 255, 0.86); }
+.k26 .k-wx { display: inline-flex; align-items: center; gap: 6px; }
+.k26 .k-wx svg { width: 1.1em; height: 1.1em; }
+.k26 .k-time {
+  font-size: clamp(104px, 17vw, 220px); font-weight: 700; line-height: .92; letter-spacing: -0.035em; margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.78) 55%, rgba(255, 255, 255, 0.62) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 2px 14px rgba(0, 0, 0, 0.28));
+}
+.k26 .k-ampm { font-size: .22em; font-weight: 600; margin-left: .12em; vertical-align: .9em; -webkit-text-fill-color: rgba(255, 255, 255, 0.7); }
+.k26 .k-exit { position: absolute; top: 0; right: 0; width: 44px; height: 44px; border-radius: 22px; opacity: .75; }
+.k26 .k-exit-ring circle { stroke: #fff; }
+
+/* Scene capsules */
+.k26 .k-scenes26 { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+.k26 .k-cap {
+  height: 60px; border-radius: 999px; padding: 0 22px 0 8px; display: inline-flex; align-items: center; gap: 12px;
+  font-size: 17px; font-weight: 700; max-width: 100%;
+}
+.k26 .k-cap-dot { width: 44px; height: 44px; border-radius: 999px; flex: none; display: flex; align-items: center; justify-content: center; background: #fff; color: #111; }
+.k26 .k-cap-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.k26 .k-cap.running .k-cap-dot { animation: k-pulse 1s ease-in-out infinite alternate; }
+.k26 .k-cap.done .k-cap-dot { background: #30d158; color: #fff; }
+@keyframes k-pulse { from { transform: scale(.88); opacity: .7; } to { transform: scale(1); opacity: 1; } }
+
+/* Widget grid */
+.k26 .k-grid {
+  display: grid; gap: 16px; grid-auto-flow: dense;
+  grid-template-columns: repeat(auto-fill, minmax(164px, 1fr)); grid-auto-rows: 164px;
+}
+.k26 .k-w { border-radius: var(--kr); padding: var(--kpad); text-align: left; min-width: 0; position: relative; overflow: hidden; }
+.k26 .k-w.l { grid-column: span 2; grid-row: span 2; }
+.k26 .k-name { font-size: 16px; font-weight: 700; line-height: 1.2; color: inherit; }
+.k26 .k-status { font-size: 14px; font-weight: 600; color: var(--muted); }
+
+/* Sensor widget */
+.k26 .k-sensor { display: flex; flex-direction: column; gap: 10px; cursor: pointer; }
+.k26 .k-wname { font-size: 13px; font-weight: 700; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.k26 .k-low { color: #ff9f0a; }
+.k26 .k-gauges { display: flex; flex-direction: column; gap: 8px; }
+.k26 .gauge { gap: 10px; color: #fff; }
+.k26 .gauge-ring { width: 46px; height: 46px; }
+.k26 .gauge-dot { fill: #1c1c22; }
+.k26 .gauge-label { font-size: 12px; font-weight: 700; color: var(--muted); }
+.k26 .gauge-value { font-size: 20px; font-weight: 600; }
+
+/* Control Center-style device tile */
+.k26 .k-ctl { display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; cursor: pointer;
+  transition: transform .45s var(--spring, ease), background-color .25s ease, color .25s ease; }
+.k26 .k-glyph { width: 48px; height: 48px; border-radius: 999px; display: flex; align-items: center; justify-content: center; background: var(--kfill); color: #fff; overflow: hidden; }
+.k26 .k-glyph img { width: 100%; height: 100%; object-fit: contain; }
+.k26 .k-ctl-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; max-width: 100%; }
+.k26 .k-ctl .k-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.k26 .k-ctl.on { background: rgba(255, 255, 255, 0.94); color: #111; box-shadow: var(--kg-shadow), 0 0 28px rgba(255, 214, 10, 0.18); }
+.k26 .k-ctl.on .k-status { color: rgba(0, 0, 0, 0.55); }
+.k26 .k-ctl.on .k-glyph { background: #ffd60a; color: #111; }
+.k26 .k-ctl:active, .k26 .k-cap:active, .k26 .k-sensor:active { transform: scale(.95); }
+.k26 .k-ctl:disabled { opacity: .45; }
+.k26 .k-ctl.pending { opacity: .8; }
+
+/* Air conditioner widget (large) */
+.k26 .k-ac { display: flex; flex-direction: column; gap: 12px; padding: var(--kpad); }
+.k26 .k-ac .k-icon { width: 44px; height: 44px; background: var(--kfill); }
+.k26 .k-ac-power { width: 48px; height: 48px; background: var(--kfill); color: #fff; }
+.k26 .k-ac-power[aria-pressed="true"] { background: #fff; color: #111; }
+.k26 .k-ac-temp { flex: 1; }
+.k26 .k-ac-step { width: 56px; height: 56px; background: var(--kfill); color: #fff; }
+.k26 .k-ac-num { font-size: 76px; font-weight: 300; color: #fff; }
+.k26 .k-ac:not(.on) .k-ac-num { color: var(--muted); }
+.k26 .k-ac-row .chip { background: var(--kfill); color: #fff; height: 38px; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.k26 .k-ac-row .chip[aria-pressed="true"] { background: #fff; color: #111; }
+.k26 .k-ac-fan { gap: 10px; }
+.k26 .k-ac-fan .chip { background: var(--kfill); color: #fff; height: 38px; min-width: 64px; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.k26 .k-ac-fan .chip[aria-pressed="true"] { background: #fff; color: #111; }
+.k26 .k-ac-fan .seg-label, .k26 .k-ac-fan .fan-value { color: var(--muted); font-size: 13px; }
+.k26 .k-ac-fan input[type="range"] { accent-color: #fff; }
+.k26 .k-ac-fan .ends { color: var(--muted); }
+
+/* Night: StandBy-style, only a dim red clock and date; tap anywhere to wake */
+html.k-night.kiosk::before { opacity: 0; }
+html.k-night.kiosk, html.k-night.kiosk body { background: #000 !important; }
+html.k-night .k26 > :not(.k-lock):not(.k-dim) { visibility: hidden; }
+html.k-night .k26 .k-exit { visibility: hidden; }
+html.k-night .k26 .k-time { background: none; -webkit-text-fill-color: rgba(255, 45, 35, 0.78); color: rgba(255, 45, 35, 0.78); filter: none; }
+html.k-night .k26 .k-ampm { -webkit-text-fill-color: rgba(255, 45, 35, 0.6); }
+html.k-night .k26 .k-dateline { color: rgba(255, 45, 35, 0.6); }
+html.k-night .k26 .k-lock { margin-top: 18vh; }
+.k26 .k-dim { background: transparent; }
+html.k-night .k26 .k-dim { opacity: 1; pointer-events: auto; background: transparent; }
+
+@media (max-width: 600px) {
+  .k26 .k-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(156px, auto); gap: 12px; }
+  .k26 .k-cap { height: 54px; font-size: 15px; }
+  .k26 .k-cap-dot { width: 38px; height: 38px; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .k26 .k-w, .k26 .k-cap, .k26 .k-exit { background: #1c1c22; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media (prefers-contrast: more) {
+  .k26 .k-w, .k26 .k-cap { box-shadow: inset 0 0 0 1.5px #fff; }
+  .k26 .k-time { background: none; -webkit-text-fill-color: #fff; }
+}
+@media (prefers-reduced-motion: reduce) { .k26 .k-cap.running .k-cap-dot { animation: none; } }
+html.kiosk body, html.kiosk .app, html.kiosk .main { background: transparent !important; }

@@ -5,6 +5,19 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.38.0",
+      "items": [
+        "Wall tablet mode redesigned in the iOS 26 style. A Lock Screen-style clock sits at the top, with the date and weather above it. Scenes are capsules like the Home app. Below is a grid of glass widgets: sensors with gauges, large AC widgets, and Control Center-style device tiles that turn bright when on.",
+        "At night (22:00–06:00) wall tablet mode now works like StandBy: only a dim red clock stays on a black screen. Tap anywhere to bring everything back for a minute."
+      ]
+    },
+    {
+      "v": "2.37.1",
+      "items": [
+        "On iPhone the background now runs all the way to the top, behind the clock and battery, instead of a black bar. If the bar is still there after updating, remove Home from the home screen and add it again (iOS reads this setting when the app is added)."
+      ]
+    },
+    {
       "v": "2.37.0",
       "items": [
         "Opening the app is faster: the server now starts all its Tuya requests side by side instead of in four or five waves, gets the Tuya sign-in ready while it checks your session, and looks up IR remotes alongside everything else. In tests with typical cross-region delays the first load went from 1.2 s to 0.7 s.",
@@ -3004,11 +3017,27 @@
     document.querySelectorAll('[data-kclock="date"]').forEach((n) => { n.textContent = kDate(now); });
     document.documentElement.classList.toggle('k-night', kioskIsNight(now));
   }
+  // A Control Center-style tile: glyph in a circle at the top, name and state at the bottom.
+  // Off it's glass; on it turns bright, like accessories in the Home app.
   function kioskTile(d) {
-    const on = isOn(d), busy = isPending(d.id);
-    return '<button class="k-tile' + (on && d.online ? ' on' : '') + (busy ? ' pending' : '') + '" data-act="toggle" data-id="' + esc(d.id) + '" data-key="k-' + esc(d.id) + '"' +
-      ' aria-pressed="' + on + '" aria-label="' + esc(d.name + ', ' + statusText(d)) + '"' + (d.online ? '' : ' disabled') + '>' +
-      '<span class="k-icon">' + deviceIcon(d, 26) + '</span><span class="k-name">' + esc(d.name) + '</span><span class="k-status">' + esc(d.online ? statusText(d) : 'Offline') + '</span></button>';
+    const on = isOn(d) && d.online, busy = isPending(d.id);
+    return '<button class="k-w s k-ctl' + (on ? ' on' : '') + (busy ? ' pending' : '') + '" data-act="toggle" data-id="' + esc(d.id) + '" data-key="k-' + esc(d.id) + '"' +
+      ' aria-pressed="' + isOn(d) + '" aria-label="' + esc(d.name + ', ' + (d.online ? statusText(d) : 'Offline')) + '"' + (d.online ? '' : ' disabled') + '>' +
+      '<span class="k-glyph">' + deviceIcon(d, 24) + '</span>' +
+      '<span class="k-ctl-text"><span class="k-name">' + esc(d.name) + '</span><span class="k-status">' + esc(d.online ? statusText(d) : 'Offline') + '</span></span></button>';
+  }
+  // A small widget per sensor: its name, then temperature and humidity gauges.
+  function kioskSensor(d) {
+    const r = readingsOf(d);
+    let g = '';
+    if (!d.online) g = '<span class="k-status">Offline</span>';
+    else {
+      if (r.temp != null) g += gauge('temp', 'Temperature', fmtTemp(r.temp), (r.temp - GAUGE_TEMP[0]) / (GAUGE_TEMP[1] - GAUGE_TEMP[0]));
+      if (r.hum != null) g += gauge('hum', 'Humidity', Math.round(r.hum) + '%', r.hum / 100);
+    }
+    const low = typeof d.status.battery_percentage === 'number' && d.status.battery_percentage <= 20;
+    return '<button class="k-w s k-sensor" data-act="open-history" data-id="' + esc(d.id) + '" data-key="ksn-' + esc(d.id) + '" aria-label="' + esc(d.name + ', show history') + '">' +
+      '<span class="k-wname">' + esc(d.name) + (low ? '<span class="k-low"> · Battery low</span>' : '') + '</span><span class="k-gauges">' + g + '</span></button>';
   }
   // Air conditioners and thermostats get their own card: power, target temperature, mode (and fan for IR).
   const isKioskAc = (d) => kindOf(d) === 'irac' || (kindOf(d) === 'climate' && 'temp_set' in d.status);
@@ -3034,7 +3063,7 @@
     }
     const act = ir ? 'irtemp' : 'temp';
     const sub = !d.online ? 'Offline' : (on ? 'On' : 'Off') + (room != null ? ' · Room ' + fmtTemp(room) : '');
-    return '<section class="k-ac' + (on && d.online ? ' on' : '') + '" aria-label="' + esc(d.name) + '">' +
+    return '<section class="k-w l k-ac' + (on && d.online ? ' on' : '') + '" aria-label="' + esc(d.name) + '">' +
       '<div class="k-ac-head"><span class="k-icon">' + deviceIcon(d, 24) + '</span>' +
       '<span class="k-ac-title"><span class="k-name">' + esc(d.name) + '</span><span class="k-status">' + esc(sub) + '</span></span>' +
       '<button class="k-ac-power" data-act="toggle" data-id="' + id + '" data-key="kap-' + id + '" aria-pressed="' + on + '" aria-label="' + esc(d.name) + ' power"' + dis + '>' + icon('power', 22) + '</button></div>' +
@@ -3048,7 +3077,7 @@
   }
   function kioskView() {
     const data = S.data;
-    if (!data) return '<div class="kiosk-wrap"><div class="empty"><strong>Loading…</strong></div></div>';
+    if (!data) return '<div class="kiosk-wrap k26"><div class="k-lock"><div class="k-time">…</div></div></div>';
     if (!kiosk.on) { kiosk.on = true; kioskWake(); clearInterval(kiosk.timer); kiosk.timer = setInterval(kioskTick, 10000); }
     loadWeather();
     const now = new Date();
@@ -3057,22 +3086,27 @@
     const acs = sortByOrder(data.devices.filter(isKioskAc), data.homeId);
     const devices = sortByOrder(data.devices.filter((d) => !isReadingDevice(d) && !isKioskAc(d) && hasToggle(d) && !d.ir), data.homeId).slice(0, 12);
     const scenes = data.scenes || [];
-    let html = '<div class="kiosk-wrap">' +
-      '<header class="k-top"><div class="k-clock"><span class="k-time" data-kclock="time">' + kTime(now) + '</span>' +
-      '<span class="k-date" data-kclock="date">' + kDate(now) + '</span></div>' +
-      '<div class="k-side">' + weatherLine(data.homeId) +
+    const w = S.weather;
+    const wx = w && w.available && w.homeId === data.homeId && w.unit === S.tempUnit
+      ? (() => { const [ic, desc] = weatherInfo(w.code, w.isDay); return '<span class="k-wx" aria-label="' + esc(desc + ', ' + w.temp + w.unitLabel) + '">' + icon(ic, 20) + '<span>' + w.temp + '°</span></span>'; })()
+      : '';
+    // Like the Lock Screen: date (with the weather) above a large clock.
+    let html = '<div class="kiosk-wrap k26">' +
+      '<header class="k-lock"><div class="k-dateline"><span data-kclock="date">' + kDate(now) + '</span>' + wx + '</div>' +
+      '<div class="k-time" data-kclock="time">' + kTime(now) + '</div>' +
       '<button class="k-exit" data-key="k-exit" aria-label="Leave wall tablet mode (press and hold)" title="Press and hold to leave">' +
-      '<svg class="k-exit-ring" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="20"/></svg>' + icon('close', 18) + '</button></div></header>';
-    if (readings.length) html += '<div class="readings k-readings" role="group" aria-label="Readings">' + readings.map((d) => readingTile(d, true)).join('') + '</div>';
+      '<svg class="k-exit-ring" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="20"/></svg>' + icon('close', 18) + '</button></header>';
+    // Scenes as a row of capsules, like the Home app.
     if (scenes.length) {
-      html += '<h2 class="k-h">Scenes</h2><div class="k-scenes">' + scenes.map((sc) => {
+      html += '<div class="k-scenes26" role="group" aria-label="Scenes">' + scenes.map((sc) => {
         const st = S.sceneState[sc.id];
-        return '<button class="k-scene ' + (st || '') + '" data-act="scene" data-id="' + esc(sc.id) + '" data-key="ks-' + esc(sc.id) + '"' + (st === 'running' ? ' disabled' : '') + '>' +
-          '<span class="k-play">' + icon(st === 'done' ? 'check' : 'play', 18) + '</span><span>' + esc(sc.name) + '</span></button>';
+        return '<button class="k-cap ' + (st || '') + '" data-act="scene" data-id="' + esc(sc.id) + '" data-key="ks-' + esc(sc.id) + '"' + (st === 'running' ? ' disabled' : '') + '>' +
+          '<span class="k-cap-dot">' + icon(st === 'done' ? 'check' : 'play', 16) + '</span><span class="k-cap-name">' + esc(sc.name) + '</span></button>';
       }).join('') + '</div>';
     }
-    if (acs.length) html += '<h2 class="k-h">' + (acs.length === 1 ? 'Air conditioner' : 'Air conditioners') + '</h2><div class="k-acs">' + acs.map(kioskAcCard).join('') + '</div>';
-    if (devices.length) html += '<h2 class="k-h">Devices</h2><div class="k-devices">' + devices.map(kioskTile).join('') + '</div>';
+    // Widgets: sensors (small), air conditioners (large) and device controls (small), packed tightly.
+    html += '<div class="k-grid" role="group" aria-label="Home">' +
+      readings.map(kioskSensor).join('') + acs.map(kioskAcCard).join('') + devices.map(kioskTile).join('') + '</div>';
     html += '<button class="k-dim" data-act="kiosk-wake" data-key="k-dim" aria-label="Wake the screen" tabindex="-1"></button></div>';
     return html;
   }

@@ -2,6 +2,15 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.38.0
+
+- Wall tablet mode redesigned in the iOS 26 style. A Lock Screen-style clock sits at the top, with the date and weather above it. Scenes are capsules like the Home app. Below is a grid of glass widgets: sensors with gauges, large AC widgets, and Control Center-style device tiles that turn bright when on.
+- At night (22:00–06:00) wall tablet mode now works like StandBy: only a dim red clock stays on a black screen. Tap anywhere to bring everything back for a minute.
+
+## 2.37.1
+
+- On iPhone the background now runs all the way to the top, behind the clock and battery, instead of a black bar. If the bar is still there after updating, remove Home from the home screen and add it again (iOS reads this setting when the app is added).
+
 ## 2.37.0
 
 - Opening the app is faster: the server now starts all its Tuya requests side by side instead of in four or five waves, gets the Tuya sign-in ready while it checks your session, and looks up IR remotes alongside everything else. In tests with typical cross-region delays the first load went from 1.2 s to 0.7 s.
