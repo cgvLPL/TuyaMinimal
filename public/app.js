@@ -5,6 +5,32 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.30.0",
+      "items": [
+        "Scenes and automations explain themselves: scene cards say what they do (\"Ceiling light off · Floor lamp on, 29%\") and automations show when and what (\"Every day at 7:00 PM → Porch light on\").",
+        "Scene and automation editor: Save stays at the bottom of the screen while you scroll, it shows when there are unsaved changes, and it asks before throwing them away. Duplicate a scene or automation to start a copy.",
+        "A tidier Me tab: your profile, then Home, Activity, People and Device icons. Appearance (background, weather units, distance), Settings (live updates, PIN, sync) and About each have their own page."
+      ]
+    },
+    {
+      "v": "2.29.0",
+      "items": [
+        "AC fan speed is now a slider (Low, Medium, High) with an Auto button beside it. The slider is dimmed while the fan is on Auto."
+      ]
+    },
+    {
+      "v": "2.28.0",
+      "items": [
+        "New AC and thermostat screen: a large room temperature on the left (with an arrow when it's warming or cooling) and a dial on the right. Drag the dial up for warmer or down for cooler, tap above or below the pointer to change by one degree, or use the arrow keys. IR remotes show the blaster's own thermometer when it has one."
+      ]
+    },
+    {
+      "v": "2.27.0",
+      "items": [
+        "More device photos: a white air conditioner, a paper lantern lamp and an orange star lamp, in Me > Device icons."
+      ]
+    },
+    {
       "v": "2.26.0",
       "items": [
         "Device photos: choose a black desk lamp, white column lamp, orange donut lamp or blue table lamp in Me > Device icons. The photo shows on the device card and its screen, with a warm glow (in the light's colour) when it is on and a muted look when it is off."
@@ -410,10 +436,12 @@
     if (h === 'changelog') return { view: 'changelog' };
     if (h === 'activity') return { view: 'activity' };
     if (h === 'backgrounds') return { view: 'backgrounds' };
+    if (ME_PAGES.includes(h)) return { view: h };
     if (h.startsWith('history/')) return { view: 'history', id: decodeURIComponent(h.slice(8)) };
     if (h === 'scenes' || h === 'me') return { view: h };
     return { view: 'devices' };
   }
+  const ME_PAGES = ['people', 'appearance', 'settings', 'about', 'attention'];
   function inEditor() { const v = route().view; return v === 'scene-edit' || v === 'auto-edit'; }
   function go(hash) {
     if (location.hash === '#' + hash) render(); else location.hash = hash;
@@ -1064,7 +1092,10 @@
     photodesk:   { src: '/devices/desk.webp',   name: 'Black desk lamp' },
     photocolumn: { src: '/devices/column.webp', name: 'White column lamp' },
     photodonut:  { src: '/devices/donut.webp',  name: 'Orange donut lamp' },
-    phototable:  { src: '/devices/table.webp',  name: 'Blue table lamp' }
+    phototable:  { src: '/devices/table.webp',  name: 'Blue table lamp' },
+    photoac:      { src: '/devices/ac.webp',      name: 'White air conditioner' },
+    photolantern: { src: '/devices/lantern.webp', name: 'Paper lantern lamp' },
+    photostar:    { src: '/devices/star.webp',    name: 'Orange star lamp' }
   };
   const photoOf = (d) => PHOTOS[iconKeyOf(d)] || null;
   const photoImg = (ph) => '<img class="dev-photo" src="' + ph.src + '" alt="" draggable="false" decoding="async">';
@@ -1303,7 +1334,7 @@
         dlg.setAttribute('aria-describedby', 'confirm-body');
         document.body.appendChild(dlg);
       }
-      dlg.innerHTML = '<span class="confirm-icon" aria-hidden="true">' + icon('power', 26) + '</span>' +
+      dlg.innerHTML = '<span class="confirm-icon" aria-hidden="true">' + icon(opts.icon || 'power', 26) + '</span>' +
         '<h2 id="confirm-title">' + esc(opts.title) + '</h2>' +
         '<p id="confirm-body">' + esc(opts.body) + '</p>' +
         '<div class="confirm-actions">' +
@@ -1555,7 +1586,7 @@
   }
 
   function backgroundsView() {
-    let html = '<div class="detail-head se-head-top"><button class="round-btn" data-act="tab" data-tab="me" data-key="bg-back" aria-label="Back to Me">' + icon('back', 20) + '</button>' +
+    let html = '<div class="detail-head se-head-top"><button class="round-btn" data-act="tab" data-tab="appearance" data-key="bg-back" aria-label="Back to Appearance">' + icon('back', 20) + '</button>' +
       '<div><p class="sub">Display</p><h1 class="detail-title">Background</h1></div></div>';
     html += '<div class="bg-grid" role="radiogroup" aria-label="Background">' + BACKGROUNDS.map(([v, n]) =>
       '<button class="bg-choice" role="radio" aria-checked="' + (S.bg === v) + '" data-act="bg-set" data-v="' + v + '" data-key="bg-' + v + '">' +
@@ -1566,7 +1597,7 @@
   }
 
   function changelogView() {
-    let html = '<div class="detail-head se-head-top"><button class="round-btn" data-act="tab" data-tab="me" data-key="cl-back" aria-label="Back to Me">' + icon('back', 20) + '</button>' +
+    let html = '<div class="detail-head se-head-top"><button class="round-btn" data-act="tab" data-tab="about" data-key="cl-back" aria-label="Back to About">' + icon('back', 20) + '</button>' +
       '<div><p class="sub">Version ' + APP_VERSION + '</p><h1 class="detail-title">What\'s new</h1></div></div>';
     html += CHANGELOG.map((c, i) =>
       '<section class="cl-entry"><h2 class="cl-version">' + esc(c.v) + (i === 0 ? '<span class="cl-badge">Current</span>' : '') + '</h2>' +
@@ -1673,6 +1704,7 @@
     const st2 = d.ir.state || (d.ir.state = { power: false, mode: 0, temp: 24, wind: 0 });
     if (!irPending[d.id]) irPending[d.id] = { before: Object.assign({}, st2), changed: new Set() };
     for (const k of Object.keys(patch)) if (st2[k] !== patch[k]) irPending[d.id].changed.add(k);
+    if (patch.wind) d.ir.lastWind = patch.wind;
     Object.assign(st2, patch);
     render();
     clearTimeout(irPending[d.id].t);
@@ -1711,6 +1743,164 @@
       switchBtn(d, sfx, code) + '</div>';
   }
 
+  // ---------- Temperature dial (ACs and thermostats) ----------
+  // A big reading on the left and a ring of ticks on the right edge. The ticks turn under a fixed
+  // pointer: drag them up for warmer, down for cooler (or use the arrow keys or the scroll wheel).
+  const TD = { cx: 176, cy: 160, r: 150, deg: 7 };  // ring geometry (SVG units) and degrees per 1°
+  function tempUnitOf(sp) {
+    const u = String((sp && sp.unit) || '');
+    return /f/i.test(u) ? '°F' : /c|℃/i.test(u) || !u ? '°C' : '°';
+  }
+  const tdFmt = (v) => String(Math.round(v * 10) / 10);
+  function tdTicks(m) {
+    let out = '';
+    for (let v = m.min, i = 0; v <= m.max + 1e-9; v = Math.round((v + 0.5) * 10) / 10, i++) {
+      const whole = Math.abs(v - Math.round(v)) < 1e-9;
+      const major = whole && Math.round(v) % 5 === 0;
+      const len = major ? 22 : whole ? 15 : 9;
+      const a = (180 - (v - m.min) * TD.deg) * Math.PI / 180;
+      const x1 = TD.cx + TD.r * Math.cos(a), y1 = TD.cy + TD.r * Math.sin(a);
+      const x2 = TD.cx + (TD.r + len) * Math.cos(a), y2 = TD.cy + (TD.r + len) * Math.sin(a);
+      out += '<line class="' + (major ? 'tk-major' : whole ? 'tk' : 'tk-minor') + '" x1="' + x1.toFixed(1) + '" y1="' + y1.toFixed(1) + '" x2="' + x2.toFixed(1) + '" y2="' + y2.toFixed(1) + '"/>';
+    }
+    return out;
+  }
+  const tdTurn = (m, v) => 'rotate(' + ((v - m.min) * TD.deg).toFixed(2) + ' ' + TD.cx + ' ' + TD.cy + ')';
+  function tempDial(d, m) {
+    const set = m.set == null ? m.min : clamp(m.set, m.min, m.max);
+    const big = m.cur != null ? m.cur : set;
+    const cap = m.cur != null ? 'Currently' : m.on ? 'Target' : 'Off';
+    let trend = '';
+    if (m.on && m.cur != null && Math.abs(set - m.cur) >= 0.5) {
+      const up = set > m.cur;
+      trend = '<span class="td-trend' + (up ? ' up' : ' down') + '" role="img" aria-label="' + (up ? 'Warming' : 'Cooling') + ' to ' + tdFmt(set) + m.unit + '">' +
+        '<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="' + (up ? 'M5 2 L9 8 H1 Z' : 'M5 8 L9 2 H1 Z') + '"/></svg></span>';
+    }
+    const id = esc(d.id);
+    return '<div class="td' + (m.on ? '' : ' is-off') + (m.cur != null ? '' : ' no-cur') + '">' +
+      '<div class="td-now"><div class="td-num"><span class="td-big">' + tdFmt(big) + '</span><span class="td-side"><span class="td-unit">' + m.unit + '</span>' + trend + '</span></div>' +
+      '<span class="td-cap">' + cap + '</span></div>' +
+      '<div class="td-dial" role="slider" tabindex="0" aria-label="Target temperature" aria-valuemin="' + m.min + '" aria-valuemax="' + m.max + '" aria-valuenow="' + set + '"' +
+      ' aria-valuetext="' + esc(tdFmt(set) + m.unit + (m.on ? '' : ', off')) + '" data-id="' + id + '" data-act-temp="' + m.act + '"' +
+      ' data-min="' + m.min + '" data-max="' + m.max + '" data-step="' + m.step + '" data-value="' + set + '" data-unit="' + esc(m.unit) + '" data-key="tdial-' + id + m.sfx + '"' + (d.online ? '' : ' aria-disabled="true"') + '>' +
+      '<span class="td-target"><span class="td-set">' + tdFmt(set) + m.unit + '</span><i aria-hidden="true"></i></span>' +
+      '<svg viewBox="0 0 124 320" preserveAspectRatio="xMaxYMid meet" aria-hidden="true" focusable="false">' +
+      '<defs><linearGradient id="tdfade-' + id + m.sfx + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="0.3" stop-color="#fff"/><stop offset="0.7" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>' +
+      '<mask id="tdmask-' + id + m.sfx + '"><rect x="0" y="0" width="124" height="320" fill="url(#tdfade-' + id + m.sfx + ')"/></mask></defs>' +
+      '<g mask="url(#tdmask-' + id + m.sfx + ')"><g class="td-ring" transform="' + tdTurn(m, set) + '">' + tdTicks(m) + '</g></g></svg></div></div>';
+  }
+  function tdModel(el) {
+    return { min: Number(el.dataset.min), max: Number(el.dataset.max), step: Number(el.dataset.step) || 1, unit: el.dataset.unit || '°' };
+  }
+  function tdSnap(m, v) { return clamp(Math.round((v - m.min) / m.step) * m.step + m.min, m.min, m.max); }
+  // Moves the ring and the readout without a full render (used while dragging).
+  function tdShow(el, v) {
+    const m = tdModel(el);
+    el.querySelector('.td-ring').setAttribute('transform', tdTurn(m, v));
+    const shown = tdSnap(m, v);
+    el.querySelector('.td-set').textContent = tdFmt(shown) + m.unit;
+    // Without a room reading, the big number is the target itself.
+    const td = el.closest('.td');
+    if (td && td.classList.contains('no-cur')) td.querySelector('.td-big').textContent = tdFmt(shown);
+    el.setAttribute('aria-valuenow', shown);
+    el.setAttribute('aria-valuetext', tdFmt(shown) + m.unit);
+  }
+  function tdCommit(el, v) {
+    const d = findDevice(el.dataset.id);
+    if (!d || !d.online) return;
+    const m = tdModel(el), val = tdSnap(m, v);
+    if (el.dataset.actTemp === 'irtemp') {
+      if (d.ir) sendIrAc(d, { power: true, temp: val });
+      return;
+    }
+    const sp = specOf(d, 'temp_set');
+    const sc = sp && typeof sp.scale === 'number' ? sp.scale : (Math.abs(d.status.temp_set) >= 60 ? 1 : 0);
+    const raw = Math.round(val * Math.pow(10, sc));
+    if (raw !== d.status.temp_set) sendSoon(d, 'temp_set', raw);
+    else render();
+  }
+  let tdDrag = null;
+  // SVG units → screen pixels, so the ticks follow the finger exactly.
+  function tdPxPerDegree(el) {
+    const svg = el.querySelector('svg'), box = svg.getBoundingClientRect();
+    const k = Math.min(box.width / 124, box.height / 320);
+    return TD.r * k * TD.deg * Math.PI / 180;
+  }
+  document.addEventListener('pointerdown', (e) => {
+    const el = e.target.closest && e.target.closest('.td-dial');
+    if (!el || el.getAttribute('aria-disabled') === 'true') return;
+    e.preventDefault();
+    el.focus({ preventScroll: true });
+    tdDrag = { el, y0: e.clientY, v0: Number(el.dataset.value), v: Number(el.dataset.value), moved: false, px: tdPxPerDegree(el) };
+    S.dragging = true;
+    el.classList.add('dragging');
+    if (el.setPointerCapture) el.setPointerCapture(e.pointerId);
+  });
+  document.addEventListener('pointermove', (e) => {
+    if (!tdDrag) return;
+    const dy = tdDrag.y0 - e.clientY;
+    if (Math.abs(dy) > 4) tdDrag.moved = true;
+    if (!tdDrag.moved) return;
+    const m = tdModel(tdDrag.el);
+    tdDrag.v = clamp(tdDrag.v0 + dy / tdDrag.px, m.min, m.max);
+    tdShow(tdDrag.el, tdDrag.v);
+  });
+  function tdEnd(e, cancelled) {
+    if (!tdDrag) return;
+    const { el, moved, v0 } = tdDrag;
+    let v = tdDrag.v;
+    tdDrag = null; S.dragging = false;
+    el.classList.remove('dragging');
+    if (cancelled) { tdShow(el, v0); render(); return; }
+    if (!moved) {
+      // A tap above the pointer warms by one step, below it cools by one.
+      const box = el.getBoundingClientRect(), m = tdModel(el);
+      v = clamp(v0 + (e.clientY < box.top + box.height / 2 ? m.step : -m.step), m.min, m.max);
+    }
+    tdShow(el, tdSnap(tdModel(el), v));
+    tdCommit(el, v);
+  }
+  document.addEventListener('pointerup', (e) => tdEnd(e, false));
+  document.addEventListener('pointercancel', (e) => tdEnd(e, true));
+  document.addEventListener('keydown', (e) => {
+    const el = e.target.closest && e.target.closest('.td-dial');
+    if (!el || el.getAttribute('aria-disabled') === 'true') return;
+    const m = tdModel(el), dir = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1 }[e.key];
+    let v = Number(el.dataset.value);
+    if (dir) v += dir * m.step;
+    else if (e.key === 'Home') v = m.min;
+    else if (e.key === 'End') v = m.max;
+    else return;
+    e.preventDefault();
+    v = tdSnap(m, v); el.dataset.value = v;
+    tdShow(el, v); tdCommit(el, v);
+  });
+  document.addEventListener('wheel', (e) => {
+    const el = e.target.closest && e.target.closest('.td-dial');
+    if (!el || el.getAttribute('aria-disabled') === 'true' || !e.deltaY) return;
+    e.preventDefault();
+    const m = tdModel(el), v = tdSnap(m, Number(el.dataset.value) + (e.deltaY < 0 ? m.step : -m.step));
+    el.dataset.value = v;
+    tdShow(el, v);
+    clearTimeout(el._wheel); el._wheel = setTimeout(() => tdCommit(el, v), 250);
+  }, { passive: false });
+
+  // AC fan over IR: an Auto button next to a Low–Medium–High slider. The slider looks dimmed while
+  // the fan is on Auto (or the AC is off); moving it picks a fixed speed.
+  function irFanControl(d, st2, sfx) {
+    const id = esc(d.id), auto = st2.wind === 0;
+    const level = auto ? (d.ir.lastWind || 2) : st2.wind;
+    const label = !st2.power ? 'Off' : auto ? 'Auto' : IR_WIND[st2.wind];
+    return '<div class="fan-head"><span class="seg-label">Fan</span><span class="fan-value" data-live="irwind-' + id + '">' + label + '</span></div>' +
+      '<div class="fan-row">' +
+      '<button class="chip soft fan-auto" data-act="irwind" data-v="0" data-id="' + id + '" data-key="irwind-0' + sfx + '" aria-pressed="' + (st2.power && auto) + '">Auto</button>' +
+      '<div class="range fan-range' + (st2.power && !auto ? '' : ' is-auto') + '">' +
+      '<label class="sr-only" for="irwind-' + id + sfx + '">Fan speed</label>' +
+      '<input id="irwind-' + id + sfx + '" type="range" min="1" max="3" step="1" value="' + level + '" data-act="irwindr" data-id="' + id + '" data-key="irwindr' + sfx + '"' +
+      ' aria-valuetext="' + (st2.power && !auto ? IR_WIND[st2.wind] : 'Auto') + '">' +
+      '<div class="ends three"><span>Low</span><span>Medium</span><span>High</span></div></div></div>';
+  }
+
   function detailView(d, inPanel) {
     if (!d) return '<div class="empty"><strong>Pick a device</strong><p>Its controls appear here.</p></div>';
     const on = isOn(d);
@@ -1747,10 +1937,16 @@
     } else if (k === 'climate' && 'temp_set' in st) {
       const set = scaled(d, 'temp_set', true);
       const cur = scaled(d, 'temp_current', true);
-      hero += '<div class="row-between">' +
-        '<button class="round-btn soft" data-act="temp" data-delta="-1" data-id="' + esc(d.id) + '" data-key="tdown' + sfx + '" aria-label="Lower temperature">' + icon('minus') + '</button>' +
-        '<div class="stack-center"><span class="big">' + fmtTemp(set) + '</span><span class="big-label">' + (cur != null ? 'Room is ' + fmtTemp(cur) : 'Target temperature') + '</span></div>' +
-        '<button class="round-btn soft" data-act="temp" data-delta="1" data-id="' + esc(d.id) + '" data-key="tup' + sfx + '" aria-label="Raise temperature">' + icon('plus') + '</button></div>';
+      const sp = specOf(d, 'temp_set');
+      const sc = sp && typeof sp.scale === 'number' ? sp.scale : (Math.abs(st.temp_set) >= 60 ? 1 : 0);
+      const div = Math.pow(10, sc);
+      hero += tempDial(d, {
+        set, cur, on, sfx, act: 'temp',
+        min: sp && typeof sp.min === 'number' ? sp.min / div : 16,
+        max: sp && typeof sp.max === 'number' ? sp.max / div : 30,
+        step: sp && sp.step ? sp.step / div : 1,
+        unit: tempUnitOf(sp)
+      });
       if ('mode' in st) {
         const sp = specOf(d, 'mode');
         const modes = (sp && Array.isArray(sp.range) && sp.range.length) ? sp.range : ['cold', 'hot', 'wind', 'auto'];
@@ -1775,14 +1971,13 @@
         '<p class="note">Live video is not available in this app yet. Open the camera in the Tuya app to watch.</p></div>';
     } else if (k === 'irac') {
       const st2 = d.ir.state || { power: false, mode: 0, temp: 24, wind: 0 };
-      hero += '<div class="row-between">' +
-        '<button class="round-btn soft" data-act="irtemp" data-delta="-1" data-id="' + esc(d.id) + '" data-key="irdown' + sfx + '" aria-label="Lower temperature">' + icon('minus') + '</button>' +
-        '<div class="stack-center"><span class="big">' + st2.temp + '°</span><span class="big-label">' + (st2.power ? 'Target temperature' : 'Off') + '</span></div>' +
-        '<button class="round-btn soft" data-act="irtemp" data-delta="1" data-id="' + esc(d.id) + '" data-key="irup' + sfx + '" aria-label="Raise temperature">' + icon('plus') + '</button></div>' +
+      // Blasters with a built-in thermometer give the room temperature.
+      const hub = d.ir.hub ? findDevice(d.ir.hub) : null;
+      const room = hub ? (scaled(hub, 'va_temperature', true) ?? scaled(hub, 'temp_current', true)) : null;
+      hero += tempDial(d, { set: st2.temp, cur: room, on: !!st2.power, sfx, act: 'irtemp', min: 16, max: 30, step: 1, unit: '°C' }) +
         '<div class="seg-label">Mode</div><div class="seg" style="--n:5" role="group" aria-label="Mode">' + IR_MODES.map((m, i) =>
           '<button class="chip soft" data-act="irmode" data-v="' + i + '" data-id="' + esc(d.id) + '" data-key="irmode-' + i + sfx + '" aria-pressed="' + (st2.power && st2.mode === i) + '">' + m + '</button>').join('') + '</div>' +
-        '<div class="seg-label">Fan</div><div class="seg" style="--n:4" role="group" aria-label="Fan speed">' + IR_WIND.map((w, i) =>
-          '<button class="chip soft" data-act="irwind" data-v="' + i + '" data-id="' + esc(d.id) + '" data-key="irwind-' + i + sfx + '" aria-pressed="' + (st2.power && st2.wind === i) + '">' + w + '</button>').join('') + '</div>' ;
+        irFanControl(d, st2, sfx);
     } else if (k === 'irremote') {
       hero += irRemotePad(d, sfx);
     } else if (k === 'multi') {
@@ -1820,6 +2015,107 @@
       '</div>';
   }
 
+  // ---------- Plain-language summaries of scenes and automations ----------
+  // "Ceiling light off · Floor lamp on, 29%, warm" and "Every day at 7:00 PM → Porch light on".
+  function propsPhrase(d, p) {
+    p = p || {};
+    const bits = [], keys = Object.keys(p);
+    const sw = keys.filter((k) => /^switch(_led|_\d+|_usb\d+)?$/.test(k) && typeof p[k] === 'boolean');
+    if (sw.length > 1) {
+      const on = sw.filter((k) => p[k]).length;
+      bits.push(on === sw.length ? 'all on' : on === 0 ? 'all off' : on + ' of ' + sw.length + ' on');
+    } else if (sw.length === 1) {
+      const k = sw[0], named = d && /_(usb)?\d+$/.test(k) && isMulti(d);
+      bits.push((named ? channelName(d, k) + ' ' : '') + (p[k] ? 'on' : 'off'));
+    }
+    if (typeof p.switch === 'boolean' && !sw.includes('switch')) bits.push(p.switch ? 'on' : 'off');
+    const bc = ['bright_value_v2', 'bright_value'].find((c) => typeof p[c] === 'number');
+    if (bc && d) bits.push(toPct(p[bc], lightRange(d, bc)) + '%');
+    const wc = ['temp_value_v2', 'temp_value'].find((c) => typeof p[c] === 'number');
+    if (wc && d) { const w = toPct(p[wc], lightRange(d, wc, true)); bits.push(w <= 33 ? 'warm' : w >= 67 ? 'cool' : 'neutral'); }
+    if ('colour_data_v2' in p || 'colour_data' in p) bits.push('colour');
+    if (typeof p.temp_set === 'number' && d) bits.push(fmtTemp(seTempValue(d, p.temp_set)));
+    if (typeof p.mode === 'string') bits.push(modeLabel(p.mode).toLowerCase());
+    if (p.control === 'open' || p.control === 'close' || p.control === 'stop') bits.push(p.control);
+    if (typeof p.percent_control === 'number') bits.push(p.percent_control + '% open');
+    if (typeof p.fan_speed_percent === 'number') bits.push('fan ' + p.fan_speed_percent + '%');
+    // IR remotes (standard instructions)
+    if ('PowerOff' in p) bits.push('off');
+    else if ('PowerOn' in p || 'T' in p || 'M' in p) bits.push('on');
+    if ('T' in p && !('PowerOff' in p)) bits.push(p.T + '°');
+    if ('M' in p && !('PowerOff' in p) && IR_MODES[Number(p.M)]) bits.push(IR_MODES[Number(p.M)].toLowerCase());
+    if ('F' in p && !('PowerOff' in p) && IR_WIND[Number(p.F)]) bits.push('fan ' + IR_WIND[Number(p.F)].toLowerCase());
+    const irKey = typeof p.key === 'string' ? p.key : (keys.length === 1 && d && d.ir && !d.ir.ac && !bits.length ? keys[0] : null);
+    if (irKey) bits.push('press ' + irKey);
+    return bits.length ? bits.join(', ') : 'changes';
+  }
+  function waitPhrase(p) {
+    const h = Number(p && p.hours) || 0, m = Number(p && p.minutes) || 0, sec = Number(p && p.seconds) || 0;
+    const parts = [];
+    if (h) parts.push(h + ' h'); if (m) parts.push(m + ' min'); if (sec) parts.push(sec + ' s');
+    return 'wait ' + (parts.join(' ') || '0 s');
+  }
+  // step: { executor, entity, props } (the shape scenes use)
+  function stepPhrase(step) {
+    const ex = step.executor, props = step.props || {};
+    if (ex === 'delay') return waitPhrase(props);
+    if (ex === 'ruleTrigger') {
+      const sc = S.data && S.data.scenes.find((x) => x.id === step.entity);
+      return sc ? 'run “' + sc.name + '”' : 'run a scene';
+    }
+    if (ex === 'ruleEnable' || ex === 'ruleDisable') {
+      const au = S.data && S.data.automations.find((x) => x.id === step.entity);
+      return (ex === 'ruleEnable' ? 'turn on ' : 'turn off ') + (au ? '“' + au.name + '”' : 'an automation');
+    }
+    const d = step.entity ? findDevice(step.entity) : null;
+    if (!d && !step.entity) return 'an action from the Tuya app';
+    return (d ? d.name : 'a removed device') + ' ' + propsPhrase(d, props);
+  }
+  function stepsPhrase(steps, max) {
+    const list = (steps || []).map(stepPhrase);
+    if (!list.length) return 'Does nothing yet';
+    const shown = list.slice(0, max || 3);
+    const s = shown.join(' · ') + (list.length > shown.length ? ' · +' + (list.length - shown.length) + ' more' : '');
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+  function daysPhrase(loops) {
+    const l = String(loops || '');
+    if (!/^[01]{7}$/.test(l) || l === '1111111') return 'Every day';
+    if (l === '0000000') return 'Once';
+    if (l === '0111110') return 'Weekdays';
+    if (l === '1000001') return 'Weekends';
+    return l.split('').map((x, i) => (x === '1' ? DAY_NAMES[i].slice(0, 3) : null)).filter(Boolean).join(', ');
+  }
+  function clockPhrase(t) {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(String(t || ''));
+    if (!m) return String(t || '');
+    try { return new Date(2000, 0, 1, Number(m[1]), Number(m[2])).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
+    catch (e) { return m[0]; }
+  }
+  // c: a Tuya condition { entity_type, entity_id, display }
+  function conditionPhrase(c) {
+    const t = Number(c.entity_type), disp = c.display || {};
+    if (t === 6) return disp.date ? 'On ' + disp.date + ' at ' + clockPhrase(disp.time) : daysPhrase(disp.loops) + ' at ' + clockPhrase(disp.time);
+    if (t === 3) return 'The weather changes';
+    if (t === 15) return 'An outside trigger fires';
+    const d = findDevice(c.entity_id);
+    if (!d) return 'A device changes';
+    const opt = triggerOptions(d).find((o) => o.code === disp.code && o.op === disp.operator && (o.thresh || o.value === disp.value));
+    if (!opt) return d.name + ' changes';
+    if (opt.thresh) {
+      const v = Number(disp.value) / Math.pow(10, codeScale(d, opt.code, opt.thresh === 'temp'));
+      return d.name + ' ' + opt.label.toLowerCase() + ' ' + (Math.round(v * 10) / 10) + (opt.thresh === 'temp' ? '°' : '%');
+    }
+    return d.name + ' ' + opt.label.charAt(0).toLowerCase() + opt.label.slice(1);
+  }
+  function automationPhrase(a) {
+    const conds = a.conditions || [], acts = a.actions || [];
+    if (!conds.length && !acts.length) return '';
+    const when = conds.map(conditionPhrase).join(Number(a.match_type) === 2 ? ' and ' : ' or ');
+    const then = stepsPhrase(acts.map((x) => ({ executor: x.action_executor, entity: x.entity_id || '', props: x.executor_property || {} })), 2);
+    return (when || 'Sometimes') + ' → ' + then;
+  }
+
   function scenesView(withAutomations) {
     const data = S.data;
     if (!data) return loadingView();
@@ -1830,10 +2126,10 @@
     } else {
       html += '<div class="grid">' + data.scenes.map((s) => {
         const state = S.sceneState[s.id];
-        const meta = state === 'running' ? 'Running' : state === 'done' ? 'Done' : (s.actions === 1 ? '1 action' : s.actions + ' actions');
+        const meta = state === 'running' ? 'Running…' : state === 'done' ? 'Done' : stepsPhrase(s.steps);
         return '<div class="scene-wrap"><button class="scene ' + (state || '') + '" data-act="scene" data-id="' + esc(s.id) + '" data-key="scene-' + esc(s.id) + '"' + (state === 'running' ? ' disabled' : '') + '>' +
           '<span class="icon-dot">' + icon(state === 'done' ? 'check' : 'play', 16) + '</span>' +
-          '<span><span class="name">' + esc(s.name) + '</span><span class="meta">' + meta + '</span></span></button>' +
+          '<span><span class="name">' + esc(s.name) + '</span><span class="meta scene-sum">' + esc(meta) + '</span></span></button>' +
           (!canEdit() ? '' : '<button class="scene-edit edit-btn" data-act="scene-open" data-id="' + esc(s.id) + '" data-key="scene-edit-' + esc(s.id) + '" aria-label="Edit ' + esc(s.name) + '">' + icon('pencil', 16) + '</button>') + '</div>';
       }).join('') + '</div>';
     }
@@ -1892,7 +2188,22 @@
       items: sc ? stepsToItems(sc.steps) : [], picking: !sc, saving: false, confirmDelete: false, error: ''
     };
     S.editor.items.forEach((it) => { if (it.type === 'device' && !S.specs[it.deviceId]) loadSpec(it.deviceId, true); });
+    S.editor.snap = editorSnap(S.editor);
   }
+
+  // Unsaved changes: the editor compares what's on screen with how it was when opened.
+  function editorSnap(E) { return JSON.stringify([E.name.trim(), E.items, E.conditions || [], E.match || 1]); }
+  function editorDirty() { const E = S.editor; return !!E && !E.saving && !E.loading && E.snap !== undefined && editorSnap(E) !== E.snap; }
+  async function leaveEditor(target) {
+    const E = S.editor;
+    if (editorDirty()) {
+      const noun = E.kind === 'auto' ? 'automation' : 'scene';
+      const ok = await confirmDialog({ icon: 'pencil', title: 'Discard changes?', body: 'Your changes to this ' + noun + ' haven\'t been saved.', confirm: 'Discard' });
+      if (!ok) return;
+    }
+    S.editor = null; go(target);
+  }
+  window.addEventListener('beforeunload', (e) => { if (inEditor() && editorDirty()) { e.preventDefault(); e.returnValue = ''; } });
 
   function seChips(i, code, options, current) {
     return '<div class="seg" style="--n:' + options.length + '">' + options.map(([label, val]) => {
@@ -2078,13 +2389,18 @@
         '<button class="pill-btn soft" data-act="se-add-delay" data-key="se-add-delay">' + icon('plus', 18) + 'Add wait</button></div>';
     }
     if (E.error) html += '<p class="error" role="alert">' + esc(E.error) + '</p>';
-    html += '<div class="se-actions">' +
-      '<button class="btn" data-act="se-save" data-key="se-save"' + (E.saving ? ' disabled' : '') + '>' + (E.saving ? 'Saving…' : 'Save ' + noun) + '</button>' +
-      '<button class="btn ghost" data-act="se-cancel" data-key="se-cancel">Cancel</button></div>';
     if (E.id) {
-      html += '<div class="list" style="margin-top:20px"><button class="list-row danger" data-act="se-delete" data-key="se-delete"' + (E.saving ? ' disabled' : '') + '>' +
+      html += '<div class="list" style="margin-top:24px">' +
+        '<button class="list-row" data-act="se-dup" data-key="se-dup"' + (E.saving ? ' disabled' : '') + '><span class="label">Duplicate ' + noun + '</span><span class="value">Start a copy</span></button>' +
+        '<button class="list-row danger" data-act="se-delete" data-key="se-delete"' + (E.saving ? ' disabled' : '') + '>' +
         '<span class="label">' + (E.confirmDelete ? 'Tap again to delete this ' + noun : 'Delete ' + noun) + '</span></button></div>';
     }
+    // Save stays in reach while scrolling a long scene.
+    const dirty = editorDirty() || !E.id;
+    html += '<div class="se-actions se-sticky">' +
+      '<button class="btn" data-act="se-save" data-key="se-save"' + (E.saving ? ' disabled' : '') + '>' + (E.saving ? 'Saving…' : E.id ? 'Save' : 'Create ' + noun) + '</button>' +
+      '<span class="se-status" aria-live="polite">' + (E.saving ? '' : E.id && dirty ? 'Unsaved changes' : E.id ? 'No changes' : '') + '</span>' +
+      '<button class="btn ghost" data-act="se-cancel" data-key="se-cancel">Cancel</button></div>';
     return html;
   }
 
@@ -2248,7 +2564,7 @@
     if (!S.data) return;
     const base = { kind: 'auto', routeId: id, id: null, name: '', match: 1, background: '', preconditions: [], conditionRule: '',
       conditions: [], items: [], picking: false, condPicking: false, saving: false, confirmDelete: false, error: '' };
-    if (id === 'new') { S.editor = Object.assign(base, { condPicking: false }); return; }
+    if (id === 'new') { S.editor = Object.assign(base, { condPicking: false }); S.editor.snap = editorSnap(S.editor); return; }
     S.editor = Object.assign(base, { loading: true });
     try {
       const a = await api('automation-edit?homeId=' + encodeURIComponent(S.data.homeId) + '&id=' + encodeURIComponent(id));
@@ -2261,6 +2577,7 @@
       });
       S.editor.items.forEach((it) => { if (it.type === 'device' && !S.specs[it.deviceId]) loadSpec(it.deviceId, true); });
       S.editor.conditions.forEach((c) => { if (c.type === 'device' && !S.specs[c.deviceId]) loadSpec(c.deviceId, true); });
+      S.editor.snap = editorSnap(S.editor);
     } catch (e) {
       if (S.editor && S.editor.routeId === id) Object.assign(S.editor, { loading: false, error: e.message });
     }
@@ -2373,7 +2690,8 @@
     const a = S.data ? S.data.automations : [];
     if (!a.length) return '<div class="empty"><strong>No automations yet</strong><p>' + (canEdit() ? 'Tap New automation to make one, like turning on a light when a door opens. ' : '') + 'Automations from the Tuya app show up here too.</p></div>';
     return '<div class="list">' + a.map((x) =>
-      '<div class="list-row"><span class="label">' + esc(x.name) + '</span><span class="user-actions">' +
+      '<div class="list-row auto-row' + (x.enabled ? '' : ' auto-off') + '"><span class="auto-text"><span class="label">' + esc(x.name) + '</span>' +
+      (automationPhrase(x) ? '<span class="auto-sum">' + esc(automationPhrase(x)) + '</span>' : '') + '</span><span class="user-actions">' +
       (canEdit() ? '<button class="edit-btn" data-act="auto-open" data-id="' + esc(x.id) + '" data-key="auto-edit-' + esc(x.id) + '" aria-label="Edit ' + esc(x.name) + '">' + icon('pencil', 16) + '</button>' : '') +
       '<button class="switch" role="switch" aria-checked="' + x.enabled + '" aria-label="' + esc(x.name) + '" data-act="auto" data-id="' + esc(x.id) + '" data-key="auto-' + esc(x.id) + '"><span class="knob"></span></button></span></div>'
     ).join('') + '</div>';
@@ -2390,33 +2708,87 @@
       active + ' of ' + a.length + ' on</p><h2 class="detail-title">Automations</h2></div>' + newAutoButton() + '</div>' + automationsList() + '</div>';
   }
 
+  // ---------- Me ----------
+  // The main page keeps only what people reach for; everything else lives one tap away.
+  const chevRow = (act, tab, key, label, value) =>
+    '<button class="list-row" data-act="' + act + '"' + (tab ? ' data-tab="' + tab + '"' : '') + ' data-key="' + key + '"><span class="label">' + label + '</span>' +
+    '<span class="value icon-value">' + (value ? esc(value) : '') + icon('chevron', 16) + '</span></button>';
+  const subHead = (sub, title, back, key) =>
+    '<div class="detail-head se-head-top"><button class="round-btn" data-act="tab" data-tab="' + (back || 'me') + '" data-key="' + key + '" aria-label="Back">' + icon('back', 20) + '</button>' +
+    '<div><p class="sub">' + sub + '</p><h1 class="detail-title">' + title + '</h1></div></div>';
+  const noteBelow = (t) => '<p class="note" style="text-align:left;margin-top:10px">' + t + '</p>';
+  const isAdminView = () => S.mode === 'demo' || (S.mode === 'live' && (!S.me || S.me.role === 'admin'));
+  const pollLabel = () => ({ 2000: 'Every 2 s', 4000: 'Every 4 s', 10000: 'Every 10 s', 30000: 'Every 30 s' })[S.pollMs] || 'Every ' + Math.round(S.pollMs / 1000) + ' s';
+
   function meView() {
     const data = S.data;
     const live = S.mode === 'live';
-    const updated = data && data.at ? new Date(data.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
-    const who = S.me ? 'Signed in as ' + S.me.name + (S.me.role === 'admin' ? ' (admin)' : '') : (live ? 'Connected to Tuya Cloud' : 'Sample devices');
-    let html = '<div class="head"><div><p class="sub">' + esc(who) + '</p><h1 class="title">Me</h1></div></div>';
+    const name = S.me ? S.me.name : (live ? 'Owner' : 'Sample home');
+    const role = S.me ? (S.me.owner ? 'Owner' : S.me.role === 'admin' ? 'Admin' : 'Member') : (live ? 'Connected' : 'Demo');
+    const sub = live ? (S.sync ? 'Synced across your devices' : 'This device only') : 'Sample devices';
+    let html = '<div class="head"><div><h1 class="title">Me</h1></div></div>';
+
+    html += '<div class="list me-card"><div class="list-row"><span class="me-avatar" aria-hidden="true">' + esc(name.trim().charAt(0).toUpperCase() || 'H') + '</span>' +
+      '<span class="me-who"><span class="label">' + esc(name) + '</span><span class="me-sub">' + esc((role === name ? '' : role + ' · ') + sub) + '</span></span>' +
+      (!live ? '<button class="chip" data-act="live" data-key="live">Connect</button>' : '') + '</div></div>';
+
     html += '<div class="list">';
     if (data && data.homes && data.homes.length > 1) {
       html += '<div class="list-row"><label class="label" for="home-select">Home</label><select id="home-select" data-act="home" data-key="home-select">' +
         data.homes.map((h) => '<option value="' + esc(h.id) + '"' + (h.id === data.homeId ? ' selected' : '') + '>' + esc(h.name) + '</option>').join('') + '</select></div>';
     }
-    html += '<div class="list-row"><label class="label" for="poll-select">Live updates</label><select id="poll-select" data-act="poll" data-key="poll-select">' +
-      [[2000, 'Fastest (2 s)'], [4000, 'Fast (4 s)'], [10000, 'Normal (10 s)'], [30000, 'Saver (30 s)']].map(([ms, label]) =>
-        '<option value="' + ms + '"' + (S.pollMs === ms ? ' selected' : '') + '>' + label + '</option>').join('') + '</select></div>';
-    if (S.mode === 'demo' || S.sync) html += '<button class="list-row" data-act="tab" data-tab="activity" data-key="activity-open"><span class="label">Activity</span><span class="value icon-value">Who did what' + icon('chevron', 16) + '</span></button>';
-    html += '<button class="list-row" data-act="tab" data-tab="icons" data-key="icons-open"><span class="label">Device icons</span><span class="value icon-value">Change' + icon('chevron', 16) + '</span></button>';
-    html += '<div class="list-row"><span class="label" id="dist-label">Distance from home</span>' +
-      '<button class="switch" role="switch" aria-checked="' + S.showDistance + '" aria-labelledby="dist-label" data-act="distance" data-key="distance"><span class="knob"></span></button></div>';
-    html += '<button class="list-row" data-act="tab" data-tab="backgrounds" data-key="bg-open"><span class="label">Background</span><span class="value icon-value">' +
-      esc((BACKGROUNDS.find(([v]) => v === S.bg) || BACKGROUNDS[0])[1]) + icon('chevron', 16) + '</span></button>';
-    html += '<div class="list-row"><label class="label" for="unit-select">Weather units</label><select id="unit-select" data-act="tempunit" data-key="unit-select">' +
-      '<option value="c"' + (S.tempUnit === 'c' ? ' selected' : '') + '>Celsius (°C)</option>' +
-      '<option value="f"' + (S.tempUnit === 'f' ? ' selected' : '') + '>Fahrenheit (°F)</option></select></div>';
-    html += '<button class="list-row" data-act="refresh" data-key="refresh"><span class="label">Refresh now</span><span class="value">' + (updated ? 'Updated ' + updated : '') + '</span></button>';
-    if (S.installPrompt) html += '<button class="list-row" data-act="install" data-key="install"><span class="label">Install app</span>' + icon('chevron', 16) + '</button>';
-    if (!live) html += '<button class="list-row" data-act="live" data-key="live"><span class="label">Connect my server</span>' + icon('chevron', 16) + '</button>';
+    if (S.mode === 'demo' || S.sync) html += chevRow('tab', 'activity', 'activity-open', 'Activity', 'Who did what');
+    if (isAdminView()) {
+      const n = Array.isArray(S.users) ? S.users.length + 1 : null;
+      html += chevRow('tab', 'people', 'people-open', 'People', n ? n + (n === 1 ? ' person' : ' people') : '');
+    }
+    html += chevRow('tab', 'icons', 'icons-open', 'Device icons', '');
     html += '</div>';
+
+    html += '<div class="list">' +
+      chevRow('tab', 'appearance', 'appearance-open', 'Appearance', (BACKGROUNDS.find(([v]) => v === S.bg) || BACKGROUNDS[0])[1]) +
+      chevRow('tab', 'settings', 'settings-open', 'Settings', live && readVault() ? 'PIN on' : pollLabel());
+    if (data && data.warnings && data.warnings.length) {
+      html += '<button class="list-row" data-act="tab" data-tab="attention" data-key="attention-open"><span class="label attn">Needs attention</span>' +
+        '<span class="value icon-value"><span class="count-badge">' + data.warnings.length + '</span>' + icon('chevron', 16) + '</span></button>';
+    }
+    html += chevRow('tab', 'about', 'about-open', 'About', 'Version ' + APP_VERSION) + '</div>';
+
+    if (live) html += '<div class="list"><button class="list-row danger" data-act="signout" data-key="signout"><span class="label">Sign out</span><span class="value">On this device</span></button></div>';
+    if (isAdminView() && S.sync && S.users === null) loadUsers();
+    return html;
+  }
+
+  function peopleView() {
+    let html = subHead('Me', 'People', 'me', 'people-back');
+    html += usersSection().replace('<h2 class="section-title">People</h2>', '');
+    html += noteBelow('Members control devices, run scenes and switch automations. Admins can also edit scenes and automations and manage people. Everyone signs in with their own password.');
+    return html;
+  }
+
+  function appearanceView() {
+    let html = subHead('Me', 'Appearance', 'me', 'appearance-back');
+    html += '<div class="list">' +
+      chevRow('tab', 'backgrounds', 'bg-open', 'Background', (BACKGROUNDS.find(([v]) => v === S.bg) || BACKGROUNDS[0])[1]) +
+      '<div class="list-row"><label class="label" for="unit-select">Weather units</label><select id="unit-select" data-act="tempunit" data-key="unit-select">' +
+      '<option value="c"' + (S.tempUnit === 'c' ? ' selected' : '') + '>Celsius (°C)</option>' +
+      '<option value="f"' + (S.tempUnit === 'f' ? ' selected' : '') + '>Fahrenheit (°F)</option></select></div>' +
+      '<div class="list-row"><span class="label" id="dist-label">Distance from home</span>' +
+      '<button class="switch" role="switch" aria-checked="' + S.showDistance + '" aria-labelledby="dist-label" data-act="distance" data-key="distance"><span class="knob"></span></button></div></div>';
+    html += noteBelow('Distance from home shows how far you are under the greeting. Your location stays on this phone.');
+    return html;
+  }
+
+  function settingsView() {
+    const data = S.data, live = S.mode === 'live';
+    const updated = data && data.at ? new Date(data.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
+    let html = subHead('Me', 'Settings', 'me', 'settings-back');
+    html += '<h2 class="section-title">Updates</h2><div class="list">' +
+      '<div class="list-row"><label class="label" for="poll-select">Live updates</label><select id="poll-select" data-act="poll" data-key="poll-select">' +
+      [[2000, 'Fastest (2 s)'], [4000, 'Fast (4 s)'], [10000, 'Normal (10 s)'], [30000, 'Saver (30 s)']].map(([ms, label]) =>
+        '<option value="' + ms + '"' + (S.pollMs === ms ? ' selected' : '') + '>' + label + '</option>').join('') + '</select></div>' +
+      '<button class="list-row" data-act="refresh" data-key="refresh"><span class="label">Refresh now</span><span class="value">' + (updated ? 'Updated ' + updated : '') + '</span></button></div>';
+    html += noteBelow('Tuya\'s free plan has a monthly allowance of API calls. Pick Normal or Saver for a wall tablet that stays on all day.');
     if (live) {
       const hasPin = !!readVault();
       html += '<h2 class="section-title">Security</h2><div class="list">';
@@ -2428,25 +2800,32 @@
       }
       if (S.me && !S.me.owner && S.sync) html += pwFormView();
       html += '<button class="list-row" data-act="lock" data-key="lock"><span class="label">Lock app</span><span class="value">' +
-        (hasPin ? 'Asks for your PIN' : 'Asks for the password again') + '</span></button>' +
-        '<button class="list-row danger" data-act="signout" data-key="signout"><span class="label">Sign out</span><span class="value">On this device</span></button></div>';
-      if (hasPin) html += '<p class="note" style="text-align:left;margin-top:10px">Home also locks itself after 5 minutes in the background. After ' + PIN_TRIES + ' wrong PINs it asks for your password instead.</p>';
+        (hasPin ? 'Asks for your PIN' : 'Asks for the password again') + '</span></button></div>';
+      if (hasPin) html += noteBelow('Home also locks itself after 5 minutes in the background. After ' + PIN_TRIES + ' wrong PINs it asks for your password instead.');
     }
-    const showAdmin = S.mode === 'demo' || (live && (!S.me || S.me.role === 'admin'));
-    if (showAdmin) html += usersSection();
     if (live || S.mode === 'demo') {
-      html += '<h2 class="section-title">Sync</h2><div class="list"><div class="list-row"><span class="label">Icons across devices</span><span class="value">' +
-        (S.sync ? 'On' : 'Off') + '</span></div></div>' +
-        (S.sync ? '' : '<p class="note" style="text-align:left;margin-top:10px">Connect a free Neon database in Vercel to sync icons and add users. See "Sync and users" in the README.</p>');
+      html += '<h2 class="section-title">This app</h2><div class="list"><div class="list-row"><span class="label">Sync icons across devices</span><span class="value">' + (S.sync ? 'On' : 'Off') + '</span></div>' +
+        (S.installPrompt ? '<button class="list-row" data-act="install" data-key="install"><span class="label">Install app</span>' + icon('chevron', 16) + '</button>' : '') +
+        (!live ? '<button class="list-row" data-act="live" data-key="live2"><span class="label">Connect my server</span>' + icon('chevron', 16) + '</button>' : '') + '</div>';
+      if (!S.sync) html += noteBelow('Connect a free Neon database in Vercel to sync icons and add people. See "Sync and users" in the README.');
     }
-    if (data && data.warnings && data.warnings.length) {
-      html += '<h2 class="section-title">Needs attention</h2><div class="list">' + data.warnings.map((w) =>
-        '<div class="list-row"><span class="meta">' + esc(w) + '</span></div>').join('') + '</div>' +
-        '<p class="note" style="text-align:left;margin-top:10px">A permission error usually means a service is not yet authorized in your Tuya cloud project. The README explains how to add it.</p>';
-    }
-    html += '<h2 class="section-title">About</h2><div class="list">' +
-      '<div class="list-row"><span class="label">Adding devices</span><span class="value">Pair them in the Tuya app</span></div>' +
-      '<button class="list-row" data-act="tab" data-tab="changelog" data-key="changelog-open"><span class="label">Version</span><span class="value icon-value">' + APP_VERSION + ', what\'s new' + icon('chevron', 16) + '</span></button></div>';
+    return html;
+  }
+
+  function aboutView() {
+    let html = subHead('Me', 'About', 'me', 'about-back');
+    html += '<div class="list">' +
+      chevRow('tab', 'changelog', 'changelog-open', 'Version', APP_VERSION + ', what\'s new') +
+      '<div class="list-row"><span class="label">Adding devices</span><span class="value">Pair them in the Tuya app</span></div></div>';
+    return html;
+  }
+
+  function attentionView() {
+    const w = (S.data && S.data.warnings) || [];
+    let html = subHead('Me', 'Needs attention', 'me', 'attention-back');
+    if (!w.length) return html + '<div class="empty"><strong>All good</strong><p>Nothing needs your attention right now.</p></div>';
+    html += '<div class="list">' + w.map((x) => '<div class="list-row"><span class="meta">' + esc(x) + '</span></div>').join('') + '</div>';
+    html += noteBelow('A permission error usually means a service is not yet authorized in your Tuya cloud project. The README explains how to add it.');
     return html;
   }
 
@@ -2585,7 +2964,7 @@
 
   // Gentle page transitions: deeper screens slide in from the right, going back slides from the left,
   // switching tabs fades. Skipped after a swipe-back (it already animated) and for reduced motion.
-  const DEPTH = { devices: 1, scenes: 1, me: 1, device: 2, 'scene-edit': 2, 'auto-edit': 2, icons: 2, changelog: 2, activity: 2, backgrounds: 2, history: 2 };
+  const DEPTH = { devices: 1, scenes: 1, me: 1, device: 2, 'scene-edit': 2, 'auto-edit': 2, icons: 2, changelog: 3, activity: 2, backgrounds: 3, history: 2, people: 2, appearance: 2, settings: 2, about: 2, attention: 2 };
   let skipAnim = false;
   function animateRoute(from, to, isWide) {
     if (skipAnim) { skipAnim = false; return; }
@@ -2621,7 +3000,7 @@
 
     const r = route();
     const isWide = wide.matches;
-    const activeTab = (r.view === 'device' || r.view === 'history') ? 'devices' : (r.view === 'scene-edit' || r.view === 'auto-edit') ? 'scenes' : (r.view === 'icons' || r.view === 'changelog' || r.view === 'activity' || r.view === 'backgrounds') ? 'me' : r.view;
+    const activeTab = (r.view === 'device' || r.view === 'history') ? 'devices' : (r.view === 'scene-edit' || r.view === 'auto-edit') ? 'scenes' : (r.view === 'icons' || r.view === 'changelog' || r.view === 'activity' || r.view === 'backgrounds' || ME_PAGES.includes(r.view)) ? 'me' : r.view;
     let mainHtml, panelHtml = null;
 
     if (r.view === 'history') {
@@ -2650,6 +3029,16 @@
       mainHtml = activityView();
     } else if (r.view === 'backgrounds') {
       mainHtml = backgroundsView();
+    } else if (r.view === 'people') {
+      mainHtml = peopleView();
+    } else if (r.view === 'appearance') {
+      mainHtml = appearanceView();
+    } else if (r.view === 'settings') {
+      mainHtml = settingsView();
+    } else if (r.view === 'about') {
+      mainHtml = aboutView();
+    } else if (r.view === 'attention') {
+      mainHtml = attentionView();
 
     } else if (activeTab === 'scenes') {
       mainHtml = scenesView(!isWide);
@@ -2663,6 +3052,7 @@
     const devicesPage = activeTab === 'devices' && !(r.view === 'device' && !isWide) && !!S.data;
     shell.main.classList.toggle('devices-view', devicesPage);
     document.documentElement.classList.toggle('lock-scroll', devicesPage);
+    document.documentElement.classList.toggle('in-editor', r.view === 'scene-edit' || r.view === 'auto-edit');
     shell.app.className = 'app' + (panelHtml == null ? ' no-panel' : '');
     shell.rail.innerHTML = '<span class="mark" aria-hidden="true">' + icon('home') + '</span>' + tabs(activeTab);
     shell.tabbar.innerHTML = tabs(activeTab);
@@ -2701,7 +3091,7 @@
     const d = id ? findDevice(id) : null;
 
     switch (act) {
-      case 'tab': go(el.dataset.tab); break;
+      case 'tab': if (inEditor() && editorDirty()) leaveEditor(el.dataset.tab); else go(el.dataset.tab); break;
       case 'room': S.room = el.dataset.room; S.allOffArmed = 0; render(); break;
       case 'open': go('device/' + encodeURIComponent(id)); break;
       case 'back': go('devices'); break;
@@ -2789,7 +3179,15 @@
       case 'scene': runScene(id); break;
       case 'scene-new': S.editor = null; go('scene/new'); break;
       case 'scene-open': S.editor = null; go('scene/' + encodeURIComponent(id)); break;
-      case 'se-cancel': S.editor = null; go('scenes'); break;
+      case 'se-cancel': leaveEditor('scenes'); break;
+      case 'se-dup': {
+        const E = S.editor;
+        if (!E || !E.id) break;
+        Object.assign(E, { id: null, routeId: 'new', name: (E.name.trim() + ' copy').slice(0, 40), confirmDelete: false, error: '', snap: '' });
+        go((E.kind === 'auto' ? 'auto' : 'scene') + '/new');
+        toast('This is a copy. Change it, then tap Create.');
+        break;
+      }
       case 'auto-new': S.editor = null; go('auto/new'); break;
       case 'auto-open': S.editor = null; go('auto/' + encodeURIComponent(id)); break;
       case 'se-pick-scene': S.editor.items.push({ type: 'scene', sceneId: id }); S.editor.picking = false; S.editor.error = ''; render(); break;
@@ -2931,7 +3329,12 @@
   const LIVE_PREFIX = { bright: 'bright-', coverpos: 'cover-', fanspeed: 'fan-' };
   document.addEventListener('input', (e) => {
     const el = e.target;
-    if (el.dataset && el.dataset.act === 'se-name' && S.editor) { S.editor.name = el.value; return; }
+    if (el.dataset && el.dataset.act === 'se-name' && S.editor) {
+      S.editor.name = el.value;
+      const st = document.querySelector('.se-status');
+      if (st && S.editor.id) st.textContent = editorDirty() ? 'Unsaved changes' : 'No changes';
+      return;
+    }
     if (el.dataset && el.dataset.act === 'uf') { S.userForm[el.dataset.field] = el.value; return; }
     if (el.dataset && el.dataset.act === 'pf') { S.pwForm[el.dataset.field] = el.value; return; }
     if (el.dataset && el.dataset.act === 'se-delay' && S.editor) {
@@ -2951,6 +3354,14 @@
     }
     if (el.dataset && el.dataset.act === 'se-range') {
       document.querySelectorAll('[data-live="se-' + el.dataset.i + '-' + CSS.escape(el.dataset.code) + '"]').forEach((n) => { n.textContent = el.value + '%'; });
+      return;
+    }
+    if (el.dataset && el.dataset.act === 'irwindr') {
+      S.dragging = true;
+      const v = Number(el.value);
+      el.setAttribute('aria-valuetext', IR_WIND[v]);
+      el.closest('.fan-range').classList.remove('is-auto');
+      document.querySelectorAll('[data-live="irwind-' + CSS.escape(el.dataset.id) + '"]').forEach((n) => { n.textContent = IR_WIND[v]; });
       return;
     }
     if (!el.dataset || !LIVE_PREFIX[el.dataset.act]) return;
@@ -3005,6 +3416,9 @@
       send(d, cmds, Object.fromEntries(cmds.map((c) => [c.code, c.value])));
     } else if (act === 'coverpos' && d) {
       send(d, [{ code: 'percent_control', value: Number(el.value) }], { percent_control: Number(el.value) });
+    } else if (act === 'irwindr' && d && d.ir) {
+      S.dragging = false;
+      sendIrAc(d, { power: true, wind: clamp(Number(el.value), 1, 3) });
     } else if (act === 'fanspeed' && d) {
       send(d, [{ code: 'fan_speed_percent', value: Number(el.value) }], { fan_speed_percent: Number(el.value) });
     } else if (act === 'home') {
@@ -3272,7 +3686,7 @@
   }
   document.addEventListener('touchstart', (e) => {
     if (S.gate || e.touches.length !== 1 || !S.data || ptr && ptr.busy) return;
-    if (e.target.closest('input, select, textarea, dialog, .arc-dial, .hue-range, .switch')) return;
+    if (e.target.closest('input, select, textarea, dialog, .arc-dial, .td-dial, .hue-range, .switch')) return;
     const scroller = activeScroller();
     if (!scroller || scroller.scrollTop > 0) return;
     ptr = { y0: e.touches[0].clientY, x0: e.touches[0].clientX, pull: 0, scroller };

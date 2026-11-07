@@ -2,6 +2,24 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.30.0
+
+- Scenes and automations explain themselves: scene cards say what they do ("Ceiling light off · Floor lamp on, 29%") and automations show when and what ("Every day at 7:00 PM → Porch light on").
+- Scene and automation editor: Save stays at the bottom of the screen while you scroll, it shows when there are unsaved changes, and it asks before throwing them away. Duplicate a scene or automation to start a copy.
+- A tidier Me tab: your profile, then Home, Activity, People and Device icons. Appearance (background, weather units, distance), Settings (live updates, PIN, sync) and About each have their own page.
+
+## 2.29.0
+
+- AC fan speed is now a slider (Low, Medium, High) with an Auto button beside it. The slider is dimmed while the fan is on Auto.
+
+## 2.28.0
+
+- New AC and thermostat screen: a large room temperature on the left (with an arrow when it's warming or cooling) and a dial on the right. Drag the dial up for warmer or down for cooler, tap above or below the pointer to change by one degree, or use the arrow keys. IR remotes show the blaster's own thermometer when it has one.
+
+## 2.27.0
+
+- More device photos: a white air conditioner, a paper lantern lamp and an orange star lamp, in Me > Device icons.
+
 ## 2.26.0
 
 - Device photos: choose a black desk lamp, white column lamp, orange donut lamp or blue table lamp in Me > Device icons. The photo shows on the device card and its screen, with a warm glow (in the light's colour) when it is on and a muted look when it is off.

@@ -175,8 +175,18 @@ module.exports = handler(['GET'], async (req) => {
         props: a.executor_property && typeof a.executor_property === 'object' ? a.executor_property : {}
       }))
     }));
+    // Conditions and actions come along (when Tuya includes them) so the app can say what each one does.
     automations = (autosRes.value || []).map((a) => ({
-      id: String(a.automation_id), name: a.name, enabled: !!a.enabled
+      id: String(a.automation_id), name: a.name, enabled: !!a.enabled,
+      match_type: Number(a.match_type) || 1,
+      conditions: (Array.isArray(a.conditions) ? a.conditions : []).slice(0, 10).map((c) => ({
+        entity_type: Number(c.entity_type), entity_id: c.entity_id || '',
+        display: c.display && typeof c.display === 'object' ? c.display : {}
+      })),
+      actions: (Array.isArray(a.actions) ? a.actions : []).slice(0, 40).map((x) => ({
+        action_executor: x.action_executor, entity_id: x.entity_id || '',
+        executor_property: x.executor_property && typeof x.executor_property === 'object' ? x.executor_property : {}
+      }))
     }));
   }
 

@@ -1428,3 +1428,108 @@ html[data-bg] { --photo-stage: linear-gradient(180deg, #DCDBD6 0%, #CBCAC4 100%)
 .photo-thumb .dev-photo { max-height: 100%; max-width: 80%; }
 .photo-choice[aria-checked="true"] .photo-thumb { box-shadow: 0 0 0 2px var(--on-ink); }
 @media (min-width: 600px) { .photo-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+/* ---------- Temperature dial (ACs and thermostats) ---------- */
+.td {
+  position: relative; width: calc(100% + 24px); margin-right: -24px; align-self: flex-start;
+  display: flex; align-items: center; min-height: 236px; container-type: inline-size;
+}
+.td-now { position: relative; z-index: 2; display: flex; flex-direction: column; gap: 6px; padding-top: 8px; }
+.td-num { display: flex; align-items: flex-start; }
+.td-big {
+  font-size: clamp(56px, 23cqw, 92px); font-weight: 300; line-height: 0.9; letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums; color: var(--text);
+}
+.td-side { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 4px 0 0 4px; }
+.td-unit { font-size: 22px; font-weight: 600; color: var(--text); }
+.td-trend {
+  width: 22px; height: 22px; border-radius: 11px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--chip); fill: var(--muted);
+}
+.td-cap { font-size: 13px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); }
+.td-dial {
+  position: absolute; top: 50%; right: 0; transform: translateY(-50%);
+  height: 260px; display: flex; align-items: center; justify-content: flex-end;
+  touch-action: none; cursor: ns-resize; outline: none; border-radius: 18px;
+  -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+}
+.td-dial:focus-visible { box-shadow: inset 0 0 0 2px var(--ink); }
+.td-dial[aria-disabled="true"] { cursor: default; opacity: 0.5; }
+.td-dial svg { height: 100%; width: auto; display: block; overflow: hidden; flex: none; }
+.td-ring { transition: transform 0.25s ease; }
+.td-dial.dragging .td-ring { transition: none; }
+.td-ring line { stroke-linecap: round; }
+.td-ring .tk-minor { stroke: var(--track-off); stroke-width: 1.4; }
+.td-ring .tk { stroke: var(--muted); stroke-opacity: 0.55; stroke-width: 1.6; }
+.td-ring .tk-major { stroke: var(--text); stroke-opacity: 0.8; stroke-width: 2.2; }
+.td-target { display: flex; align-items: center; gap: 8px; margin-right: 2px; pointer-events: none; flex: none; }
+.td-set { font-size: 22px; font-weight: 600; letter-spacing: -0.3px; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.td-target i { display: block; width: 26px; height: 2px; border-radius: 1px; background: var(--text); }
+.td.is-off .td-big, .td.is-off .td-unit, .td.is-off .td-set { color: var(--muted); }
+.td.is-off .td-target i { background: var(--muted); }
+.td.is-off .td-ring { opacity: 0.55; }
+.td.no-cur .td-set { display: none; }
+@container (max-width: 330px) {
+  .td-dial { height: 220px; }
+  .td-set { font-size: 18px; }
+  .td-target { gap: 6px; }
+  .td-target i { width: 16px; }
+}
+.td.no-cur .td-target i { width: 34px; }
+@media (prefers-reduced-motion: reduce) { .td-ring { transition: none; } }
+
+/* ---------- AC fan: Auto button + speed slider ---------- */
+.fan-head { display: flex; align-items: baseline; justify-content: space-between; width: 100%; margin-bottom: -10px; }
+.fan-head .seg-label { margin-bottom: 0; }
+.fan-value { font-size: 13px; font-weight: 700; color: var(--text); }
+.fan-row { display: flex; align-items: center; gap: 14px; width: 100%; }
+.fan-auto { flex: none; min-width: 76px; }
+.fan-range { flex: 1; min-width: 0; }
+.fan-range .ends.three span { flex: 1; text-align: center; }
+.fan-range .ends.three span:first-child { text-align: left; }
+.fan-range .ends.three span:last-child { text-align: right; }
+.fan-range.is-auto input { opacity: 0.4; filter: grayscale(1); }
+.fan-range.is-auto .ends { opacity: 0.6; }
+
+/* ---------- Scene and automation summaries ---------- */
+.scene .scene-sum { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 2px; line-height: 1.35; }
+.auto-row { align-items: center; gap: 12px; }
+.auto-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.auto-sum { font-size: 13px; font-weight: 500; color: var(--muted); line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.auto-row.auto-off .label, .auto-row.auto-off .auto-sum { opacity: 0.6; }
+
+/* ---------- Editor: sticky save bar ---------- */
+.se-sticky {
+  position: sticky; z-index: 5; bottom: calc(var(--safe-bottom) + 88px);
+  margin-top: 20px; padding: 8px 8px 8px 8px; border-radius: 26px;
+  background: var(--glass-strong, var(--surface)); box-shadow: var(--glass-shadow, 0 6px 20px rgba(0,0,0,.12));
+  -webkit-backdrop-filter: var(--blur, none); backdrop-filter: var(--blur, none);
+}
+.se-sticky .btn { flex: 0 0 auto; min-width: 120px; }
+.se-sticky .se-status { flex: 1; font-size: 13px; font-weight: 600; color: var(--muted); text-align: center; }
+.se-sticky .btn.ghost { padding: 0 14px; }
+@media (min-width: 900px) { .se-sticky { bottom: 16px; } }
+/* In the editor the phone tab bar steps aside; the editor has its own back button and Save bar. */
+@media (max-width: 899px) {
+  .in-editor .tabbar { display: none; }
+  .in-editor .se-sticky { bottom: calc(var(--safe-bottom) + 12px); }
+  .in-editor .main { padding-bottom: calc(var(--safe-bottom) + 24px); }
+}
+
+/* ---------- Me ---------- */
+.me-card .list-row { gap: 14px; padding-top: 14px; padding-bottom: 14px; }
+.me-avatar {
+  flex: none; width: 48px; height: 48px; border-radius: 24px; background: var(--ink); color: var(--on-ink);
+  display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800;
+}
+.me-who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.me-who .label { font-size: 17px; font-weight: 800; }
+.me-sub { font-size: 13px; font-weight: 600; color: var(--muted); }
+.count-badge {
+  min-width: 22px; height: 22px; padding: 0 7px; border-radius: 11px; background: var(--danger); color: #fff;
+  font-size: 12px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center;
+}
+.label.attn { color: var(--danger); }
+.main > .list + .list { margin-top: 16px; }
