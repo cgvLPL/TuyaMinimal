@@ -2,6 +2,16 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.57.1
+
+- Laptops and tablets: the top edge of the first row of device tiles no longer gets faded or cut off, including the ring around a selected tile.
+- README: new screenshots of the current look, plus animated GIFs of quick control, the thermostat, tile switching and the tab bar.
+
+## 2.57.0
+
+- Long-press a device tile (on Home or the wall tablet) for a quick control, like the Home app. The tile grows into a tall control over the blurred screen. Switches and plugs get a knob that slides up and fills with colour when on. Dimmable lights get a brightness pill: drag up or down to set the brightness, drag to the bottom or tap to turn off. The gear opens all the device's controls. Tap outside, press Back or press Escape to close, and it shrinks back into its tile. A normal tap still switches the device as before.
+- Wall tablet mode: AC cards are a quarter shorter, with the name and current temperature on one line and a bigger dial, so there's no empty space and more tiles fit on screen.
+
 ## 2.56.2
 
 - Fixed: IR air conditioners now show changes made on another phone, the wall tablet or the Tuya app within about 12 seconds (temperature, mode, fan, on/off) on the tile, the AC screen and wall tablet mode. Before, it could take up to a minute, or five when idle. Your own changes aren't undone while they're being sent. To save Tuya API calls, AC settings are checked on every third update and shared between open screens.

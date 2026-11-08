@@ -36,6 +36,19 @@
 
 <p align="center"><sub>Screenshots from demo mode (<code>/?demo</code>), which uses sample devices.</sub></p>
 
+## See it move
+
+<table>
+  <tr>
+    <td align="center" width="50%"><img src="docs/gifs/quick.gif" width="270" alt="Long-pressing a plug opens a tall switch whose knob slides up and fills orange; long-pressing a light opens a brightness pill that fills as you drag"><br><sub><b>Long-press a tile</b> for a quick control: a sliding switch, or a brightness pill for dimmable lights</sub></td>
+    <td align="center" width="50%"><img src="docs/gifs/thermo.gif" width="320" alt="Dragging the thermostat arc from 24 to 27 degrees, then switching between heat, auto and cool"><br><sub><b>Thermostat</b>: drag the arc; the colour follows the mode</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/gifs/tiles.gif" width="340" alt="Tiles lighting up and dimming as devices are switched on and off"><br><sub><b>Switching</b> lights up the tile and fills the icon with colour</sub></td>
+    <td align="center"><img src="docs/gifs/tabs.gif" width="340" alt="The glass capsule of the tab bar gliding between tabs"><br><sub><b>Tab bar</b>: the glass capsule glides between tabs</sub></td>
+  </tr>
+</table>
+
 ## Features
 
 - Phone layout with bottom tabs, tablet layout with a side rail and a controls panel
@@ -69,6 +82,7 @@
 - Several homes: switch between them from the home name at the top of Devices
 - Custom device icons in Me → Device icons (synced when the database is set up)
 - Arrange device cards: tap the **arrows** button above the cards, drag the handles, tap **✓** (saved per home, synced when the database is set up)
+- Home app-style tiles: solid icons coloured by kind of device, thermostat tiles with the temperature in large numbers, and a long press for a quick control.
 - Wall tablet mode (Me → Wall tablet mode): a full-screen clock, weather, climate readings, scenes, room pills, thermostat-style AC controls (drag the arc, pick a mode by symbol) and device buttons. It keeps the screen awake (where the browser allows), shows only a dim red clock from 22:00 to 06:00, like StandBy (tap to wake), and you press and hold the ✕ for a second to leave. Bookmark `/#kiosk` to open straight into it.
 - Optional PIN unlock per device instead of typing the password (Me → Settings → Security)
 - Light and dark mode, offline app shell, installable from Chrome or Safari

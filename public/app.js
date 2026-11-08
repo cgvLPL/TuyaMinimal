@@ -5,6 +5,19 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.57.1",
+      "items": [
+        "Laptops and tablets: the top edge of the first row of device tiles no longer gets faded or cut off, including the ring around a selected tile."
+      ]
+    },
+    {
+      "v": "2.57.0",
+      "items": [
+        "Long-press a device tile (on Home or the wall tablet) for a quick control, like the Home app. The tile grows into a tall control over the blurred screen. Switches and plugs get a knob that slides up and fills with colour when on. Dimmable lights get a brightness pill: drag up or down to set the brightness, drag to the bottom or tap to turn off. The gear opens all the device's controls. Tap outside, press Back or press Escape to close, and it shrinks back into its tile. A normal tap still switches the device as before.",
+        "Wall tablet mode: AC cards are a quarter shorter, with the name and current temperature on one line and a bigger dial, so there's no empty space and more tiles fit on screen."
+      ]
+    },
+    {
       "v": "2.56.2",
       "items": [
         "Fixed: IR air conditioners now show changes made on another phone, the wall tablet or the Tuya app within about 12 seconds (temperature, mode, fan, on/off) on the tile, the AC screen and wall tablet mode. Before, it could take up to a minute, or five when idle. Your own changes aren't undone while they're being sent. To save Tuya API calls, AC settings are checked on every third update and shared between open screens."
@@ -1621,6 +1634,165 @@
     me: '<circle cx="12" cy="7.5" r="4.5"/><path d="M3.5 21c0-4.6 3.8-7.5 8.5-7.5s8.5 2.9 8.5 7.5z"/>'
   };
   const tabGlyph = (k) => '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" aria-hidden="true">' + TAB_GLYPHS[k] + '</svg>';
+  // ---------- Quick control: long-press a tile, like the Home app ----------
+  // The tile grows into a tall control over the blurred screen. Switches get a knob that slides up
+  // and fills with colour; dimmable lights get a brightness pill you drag. It shrinks back on close.
+  let qc = null;
+  const GEAR = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
+  const qcCanOpen = (d) => d && d.online && hasToggle(d) && !isKioskAc(d) && kindOf(d) !== 'cover' && channelCodes(d).length <= 1;
+  const qcDimmable = (d) => kindOf(d) === 'light' && !!brightCode(d) && !!powerCode(d);
+  const qcMotion = () => !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  function qcTileOf(id) {
+    return document.querySelector('.grid > .card[data-card-id="' + CSS.escape(id) + '"]') || document.querySelector('.k26 .k-ctl[data-id="' + CSS.escape(id) + '"]');
+  }
+  function qcOpen(d, tile) {
+    if (qc) qcClose(true);
+    const dim = qcDimmable(d);
+    const el = document.createElement('div');
+    el.className = 'qc hue-' + hueOf(d) + (dim ? ' qc-dim' : '');
+    el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', d.name);
+    el.innerHTML = '<div class="qc-bg"></div>' +
+      '<div class="qc-head"><div class="qc-name">' + esc(d.name) + '</div><div class="qc-status" aria-live="polite"></div></div>' +
+      (dim
+        ? '<div class="qc-pill qc-slider" role="slider" tabindex="0" aria-label="' + esc(d.name) + ' brightness" aria-valuemin="0" aria-valuemax="100"><span class="qc-fill"></span><span class="qc-ico">' + glyph(iconKeyOf(d), 34) + '</span></div>'
+        : '<button class="qc-pill qc-switch" role="switch" aria-label="' + esc(d.name) + '" data-act="toggle" data-id="' + esc(d.id) + '"><span class="qc-knob">' + glyph(iconKeyOf(d), 34) + '</span></button>') +
+      '<button class="qc-gear" aria-label="All controls for ' + esc(d.name) + '">' + GEAR + '</button>';
+    shell.app.appendChild(el);
+    qc = { id: d.id, el, last: null, drag: null, focusBack: document.activeElement };
+    qcSync(true);
+    try { history.pushState({ qc: 1 }, '', location.href); qc.pushed = true; } catch (e) { /* fine without */ }
+    const pill = el.querySelector('.qc-pill');
+    el.querySelector('.qc-bg').addEventListener('click', () => qcClose());
+    el.querySelector('.qc-gear').addEventListener('click', () => { const id = qc.id; qcClose(true); go('device/' + encodeURIComponent(id)); });
+    if (dim) qcSliderEvents(pill);
+    if (qcMotion() && tile && pill.animate) {
+      const a = tile.getBoundingClientRect(), b = pill.getBoundingClientRect();
+      if (a.width && b.width) {
+        pill.animate([
+          { transform: 'translate(' + (a.left + a.width / 2 - b.left - b.width / 2) + 'px,' + (a.top + a.height / 2 - b.top - b.height / 2) + 'px) scale(' + (a.width / b.width) + ',' + (a.height / b.height) + ')', opacity: .6 },
+          { transform: 'none', opacity: 1 }
+        ], { duration: 520, easing: 'cubic-bezier(.3, 1.18, .4, 1)' });
+      }
+      el.querySelector('.qc-bg').animate([{ opacity: 0 }, { opacity: 1 }], { duration: 320, easing: 'ease-out' });
+      [el.querySelector('.qc-head'), el.querySelector('.qc-gear')].forEach((n) => n.animate([{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 360, delay: 120, easing: 'ease-out', fill: 'backwards' }));
+    }
+    setTimeout(() => { if (qc && qc.el === el) pill.focus({ preventScroll: true }); }, 60);
+  }
+  function qcClose(instant) {
+    if (!qc) return;
+    const { el, id, pushed, focusBack } = qc;
+    qc = null;
+    if (pushed && history.state && history.state.qc) { qcSkipPop = true; history.back(); }
+    const done = () => el.remove();
+    const pill = el.querySelector('.qc-pill'), tile = qcTileOf(id);
+    if (instant || !qcMotion() || !pill.animate) { done(); }
+    else {
+      el.style.pointerEvents = 'none';
+      if (tile) {
+        const a = tile.getBoundingClientRect(), b = pill.getBoundingClientRect();
+        pill.animate([{ transform: 'none', opacity: 1 }, { transform: 'translate(' + (a.left + a.width / 2 - b.left - b.width / 2) + 'px,' + (a.top + a.height / 2 - b.top - b.height / 2) + 'px) scale(' + (a.width / b.width) + ',' + (a.height / b.height) + ')', opacity: 0 }],
+          { duration: 360, easing: 'cubic-bezier(.4, 0, .2, 1)', fill: 'forwards' });
+      } else pill.animate([{ transform: 'none', opacity: 1 }, { transform: 'scale(.85)', opacity: 0 }], { duration: 260, fill: 'forwards' });
+      [el.querySelector('.qc-head'), el.querySelector('.qc-gear')].forEach((n) => n.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, fill: 'forwards' }));
+      el.querySelector('.qc-bg').animate([{ opacity: 1 }, { opacity: 0 }], { duration: 340, fill: 'forwards' }).onfinish = done;
+      setTimeout(done, 600);
+    }
+    if (focusBack && focusBack.focus && document.contains(focusBack)) focusBack.focus({ preventScroll: true });
+  }
+  let qcSkipPop = false;
+  window.addEventListener('popstate', () => { if (qcSkipPop) { qcSkipPop = false; return; } if (qc) { qc.pushed = false; qcClose(); } });
+  // Keeps the open control in step with the device (also after changes from elsewhere).
+  function qcSync(first) {
+    if (!qc) return;
+    const d = findDevice(qc.id);
+    if (!d) { qcClose(true); return; }
+    const on = isOn(d) && d.online, el = qc.el;
+    el.classList.toggle('on', on);
+    el.querySelector('.qc-status').textContent = d.online ? (qc.drag ? qc.drag.pct + '%' : statusText(d)) : 'No Response';
+    const sw = el.querySelector('.qc-switch');
+    if (sw) {
+      sw.setAttribute('aria-checked', String(on));
+      if (!first && qc.last !== null && qc.last !== on && qcMotion()) {
+        el.querySelector('.qc-knob').animate([{ transform: 'none' }, { transform: 'scale(.94, 1.14)', offset: .35 }, { transform: 'scale(1.03, .97)', offset: .7 }, { transform: 'none' }], { duration: 520, easing: 'ease-out' });
+      }
+    }
+    const sl = el.querySelector('.qc-slider');
+    if (sl && !qc.drag) {
+      const bc = brightCode(d), pct = on && bc ? toPct(d.status[bc], lightRange(d, bc)) : 0;
+      sl.style.setProperty('--qc-pct', pct + '%');
+      sl.setAttribute('aria-valuenow', String(pct)); sl.setAttribute('aria-valuetext', on ? pct + '%' : 'Off');
+    }
+    qc.last = on;
+  }
+  function qcSliderEvents(sl) {
+    const setPct = (pct) => {
+      qc.drag.pct = pct;
+      sl.style.setProperty('--qc-pct', pct + '%');
+      qc.el.classList.toggle('on', pct > 0);
+      qc.el.querySelector('.qc-status').textContent = pct > 0 ? pct + '%' : 'Off';
+    };
+    const commit = (d, pct) => {
+      const pc = powerCode(d), bc = brightCode(d);
+      if (pct <= 0) { if (d.status[pc]) send(d, [{ code: pc, value: false }], { [pc]: false }); return; }
+      const cmds = [{ code: bc, value: fromPct(pct, lightRange(d, bc)) }];
+      if (!d.status[pc]) cmds.unshift({ code: pc, value: true });
+      send(d, cmds, Object.fromEntries(cmds.map((c) => [c.code, c.value])));
+    };
+    sl.addEventListener('pointerdown', (e) => {
+      const d = findDevice(qc.id); if (!d) return;
+      const bc = brightCode(d), start = isOn(d) ? toPct(d.status[bc], lightRange(d, bc)) : 0;
+      qc.drag = { y0: e.clientY, start, pct: start, moved: false, h: sl.getBoundingClientRect().height };
+      S.dragging = true;
+      try { sl.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    });
+    sl.addEventListener('pointermove', (e) => {
+      if (!qc || !qc.drag) return;
+      const dy = e.clientY - qc.drag.y0;
+      if (!qc.drag.moved && Math.abs(dy) < 6) return;
+      qc.drag.moved = true;
+      sl.classList.add('dragging');
+      setPct(clamp(Math.round(qc.drag.start - (dy / qc.drag.h) * 100), 0, 100));
+    });
+    const end = () => {
+      if (!qc || !qc.drag) return;
+      const { moved, pct } = qc.drag; qc.drag = null; S.dragging = false;
+      sl.classList.remove('dragging');
+      const d = findDevice(qc.id); if (!d) return;
+      if (moved) commit(d, pct);
+      else { const pc = powerCode(d); send(d, [{ code: pc, value: !d.status[pc] }], { [pc]: !d.status[pc] }); }
+      qcSync();
+    };
+    sl.addEventListener('pointerup', end);
+    sl.addEventListener('pointercancel', end);
+    sl.addEventListener('keydown', (e) => {
+      const d = findDevice(qc.id); if (!d) return;
+      const bc = brightCode(d), cur = isOn(d) ? toPct(d.status[bc], lightRange(d, bc)) : 0;
+      const step = { ArrowUp: 10, ArrowRight: 10, ArrowDown: -10, ArrowLeft: -10 }[e.key];
+      if (step) { e.preventDefault(); commit(d, clamp(cur + step, 0, 100)); }
+      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); const pc = powerCode(d); send(d, [{ code: pc, value: !d.status[pc] }], { [pc]: !d.status[pc] }); }
+    });
+  }
+  document.addEventListener('keydown', (e) => { if (qc && e.key === 'Escape') { e.preventDefault(); qcClose(); } });
+  // Long press (about half a second) on a device tile opens it; a normal tap still switches it.
+  let lp = null, lpFired = 0;
+  const lpCancel = () => { if (lp) { clearTimeout(lp.t); lp.tile.classList.remove('lp-hold'); lp = null; } };
+  document.addEventListener('pointerdown', (e) => {
+    if (e.button > 0 || S.reorder || qc) return;
+    const tile = e.target.closest && e.target.closest('.grid > .card.compact, .k26 .k-ctl');
+    if (!tile) return;
+    const d = findDevice(tile.dataset.cardId || tile.dataset.id);
+    if (!qcCanOpen(d)) return;
+    tile.classList.add('lp-hold');
+    lp = { tile, x: e.clientX, y: e.clientY, t: setTimeout(() => {
+      const t = lp && lp.tile; lpCancel(); lpFired = Date.now();
+      if (navigator.vibrate) { try { navigator.vibrate(8); } catch (err) { /* ignore */ } }
+      qcOpen(d, t);
+    }, 460) };
+  }, { passive: true });
+  document.addEventListener('pointermove', (e) => { if (lp && Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > 10) lpCancel(); }, { passive: true });
+  ['pointerup', 'pointercancel', 'scroll'].forEach((t) => document.addEventListener(t, lpCancel, { passive: true, capture: t === 'scroll' }));
+  document.addEventListener('click', (e) => { if (Date.now() - lpFired < 700 && !(e.target.closest && e.target.closest('.qc'))) { e.stopPropagation(); e.preventDefault(); } }, true);
+
   // iOS 26 tab bar: when the tab changes, the glass capsule glides from the old tab to the new one,
   // stretching like a droplet on the way and springing into place.
   document.addEventListener('touchstart', () => {}, { passive: true });   // lets :active (the press effect) work on iPhone
@@ -4187,6 +4359,7 @@
     const glassWas = shell.tabbar.querySelector('.tab-glass'), glassRect = glassWas && glassWas.getBoundingClientRect();
     shell.tabbar.innerHTML = tabs(activeTab);
     glassGlide(glassRect);
+    qcSync();
     shell.main.innerHTML = mainHtml;
     shell.panel.innerHTML = panelHtml || '';
     shell.main.scrollTop = mainTop;
@@ -4214,6 +4387,7 @@
     }
     replayMotion();
     restoreRows(rowScroll);
+    qcSync();
   }
   function restoreRows(saved) {
     document.querySelectorAll('.ka-icons[data-key]').forEach((n) => {

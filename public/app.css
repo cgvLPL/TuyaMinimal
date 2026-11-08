@@ -2535,3 +2535,56 @@ html input, html textarea, html select, html [contenteditable], html [contentedi
   -webkit-user-select: text; user-select: text;
   -webkit-touch-callout: default;
 }
+/* 2.57: quick control (long-press a device tile), like the Home app */
+.lp-hold { transform: scale(.97); transition: transform .45s cubic-bezier(.2, .8, .3, 1); }
+.qc { position: fixed; inset: 0; z-index: 400; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 34px;
+  color: #fff; padding: calc(env(safe-area-inset-top) + 24px) 24px calc(env(safe-area-inset-bottom) + 24px); }
+.qc-bg { position: absolute; inset: 0; background: rgba(20, 16, 24, 0.42); -webkit-backdrop-filter: blur(34px) saturate(150%); backdrop-filter: blur(34px) saturate(150%); }
+.qc-head { position: relative; text-align: center; }
+.qc-name { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+.qc-status { font-size: 15px; font-weight: 600; color: rgba(255, 255, 255, 0.6); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.qc-pill { position: relative; width: min(132px, 34vw); height: min(340px, 44vh); border-radius: 40px; border: 0; padding: 0; cursor: pointer; overflow: hidden;
+  background: rgba(255, 255, 255, 0.13); -webkit-backdrop-filter: blur(20px) saturate(160%); backdrop-filter: blur(20px) saturate(160%);
+  box-shadow: inset 0 10px 18px -12px rgba(255, 255, 255, 0.4), inset 0 -10px 18px -12px rgba(0, 0, 0, 0.35), 0 18px 40px rgba(0, 0, 0, 0.3);
+  touch-action: none; -webkit-tap-highlight-color: transparent; font: inherit; color: inherit; }
+.qc-pill:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
+/* Switch: the knob slides up and fills with colour */
+.qc-knob { position: absolute; left: 9px; right: 9px; height: calc(50% - 13px); top: calc(50% + 4px); border-radius: 32px;
+  display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.26); color: var(--hue, #ffd60a);
+  transition: top .5s cubic-bezier(.3, 1.25, .5, 1), background-color .35s ease, color .35s ease; }
+.qc.on .qc-knob { top: 9px; background: var(--hue, #ffd60a); color: rgba(0, 0, 0, 0.55); }
+.qc-knob svg, .qc-ico svg { width: 36px; height: 36px; }
+/* Brightness: the colour fills from the bottom */
+.qc-fill { position: absolute; left: 0; right: 0; bottom: 0; height: var(--qc-pct, 0%); background: var(--hue, #ffd60a); transition: height .35s cubic-bezier(.3, 1.1, .5, 1); }
+.qc-slider.dragging .qc-fill { transition: none; }
+.qc-ico { position: absolute; left: 0; right: 0; bottom: 26px; display: flex; justify-content: center; color: var(--hue, #ffd60a); transition: color .3s ease; }
+.qc.on .qc-ico { color: rgba(0, 0, 0, 0.55); }
+.qc-gear { position: absolute; right: 22px; bottom: calc(env(safe-area-inset-bottom) + 22px); width: 48px; height: 48px; border-radius: 50%; border: 0;
+  display: flex; align-items: center; justify-content: center; color: #fff; cursor: pointer;
+  background: rgba(255, 255, 255, 0.16); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+@media (prefers-reduced-motion: reduce) { .qc-knob, .qc-fill, .lp-hold { transition: none; } }
+@media (prefers-reduced-transparency: reduce) { .qc-bg { background: rgba(10, 10, 14, 0.92); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+/* 2.57: compact wall tablet AC cards. Three rows tall instead of four; name and reading on one line;
+   the dial and controls fill the card instead of floating in empty space. */
+@media (min-width: 601px) {
+  .k26 .k-grid .k-ac.ka { grid-row: span 3; padding: 14px 18px; gap: 4px; }
+  .k26 .k-grid .k-ac.ka .ka-head { flex-direction: row; align-items: baseline; justify-content: space-between; text-align: left; gap: 10px; }
+  .k26 .k-grid .k-ac.ka .ka-head .k-name { font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .k26 .k-grid .k-ac.ka .ka-sub { font-size: 14px; white-space: nowrap; }
+  .k26 .k-grid .k-ac.ka .ka-body { gap: 14px; align-items: center; }
+  .k26 .k-grid .k-ac.ka .ka-dial { width: min(204px, 45%); }
+  .k26 .k-grid .k-ac.ka .ka-side { justify-content: center; gap: 6px; }
+  .k26 .k-grid .k-ac.ka .ka-mode-name { margin-top: 0; font-size: 14px; }
+  .k26 .k-grid .k-ac.ka .k-ac-fan { gap: 2px; }
+  .k26 .k-grid .k-ac.ka .k-ac-fan .fan-row { margin-top: 0; }
+}
+
+/* 2.57.1: the first row of tiles was fading/clipping at its top edge (selection ring, press scale).
+   No top fade at rest; fade only while the list is scrolled. Extra room for the ring and the lit-up scale. */
+.dv-scroll { padding-top: 16px;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 8px), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 8px), transparent 100%); }
+.dv-scroll.scrolled {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 16px, #000 calc(100% - 8px), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 16px, #000 calc(100% - 8px), transparent 100%); }
+@media (prefers-contrast: more) { .dv-scroll, .dv-scroll.scrolled { -webkit-mask-image: none; mask-image: none; } }
