@@ -2378,3 +2378,6 @@ html .grid > .card.ac-tile.active .card-status { color: rgba(0, 0, 0, 0.55); }
 .k26 .k-ac .ka-dial { width: min(240px, 47%); }
 .k26 .k-ac .ka-side .ka-menu.ka-icons { gap: 8px; padding: 4px 10px; }
 @media (max-width: 600px) { .k26 .k-ac .ka-dial { width: min(260px, 80%); } }
+/* 2.52.2: the fan's Auto button is a round symbol */
+.fan-row .chip.fan-auto-ico, .k26 .k-ac-fan .chip.fan-auto-ico { width: 46px; min-width: 46px; height: 46px; padding: 0; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center; }
+.fan-row .chip.fan-auto-ico svg, .k26 .k-ac-fan .chip.fan-auto-ico svg { width: 26px; height: 26px; }

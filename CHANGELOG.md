@@ -2,6 +2,22 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.52.5
+
+- Temperature sensors show their exact reading with one decimal everywhere: the Climate summary ("19.8–21.5°" instead of "20–22°"), each sensor, the gauges, sensor screens and history, wall tablet mode, and "Current" on AC screens. Set temperatures ("Cooling to 24°") stay whole numbers.
+
+## 2.52.4
+
+- AC tiles: when the big number is the set temperature (IR remotes without a thermometer), the line underneath says only what the AC is doing ("Cooling", "Heating", "Auto", "Fan only", "Drying", "Off") instead of repeating "Cooling to 21°".
+
+## 2.52.3
+
+- AC tiles: when an AC can't measure the room (for example an IR remote whose blaster has no thermometer), the big number shows the temperature it's set to, coloured by mode, instead of an icon.
+
+## 2.52.2
+
+- AC fan: the Auto button is now a round symbol (a fan with a small A) instead of the word "Auto", on AC screens and in wall tablet mode. It's filled while the fan is on automatic, and the label above the slider still says Auto, Low, Medium or High.
+
 ## 2.52.1
 
 - Wall tablet mode: AC mode symbols are in one row that slides sideways, like on the AC screen, instead of wrapping onto two lines. The next symbol fades in at the edge, the selected mode stays in view, and the row keeps its position after a tap.

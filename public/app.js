@@ -5,6 +5,30 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.52.5",
+      "items": [
+        "Temperature sensors show their exact reading with one decimal everywhere: the Climate summary (\"19.8–21.5°\" instead of \"20–22°\"), each sensor, the gauges, sensor screens and history, wall tablet mode, and \"Current\" on AC screens. Set temperatures (\"Cooling to 24°\") stay whole numbers."
+      ]
+    },
+    {
+      "v": "2.52.4",
+      "items": [
+        "AC tiles: when the big number is the set temperature (IR remotes without a thermometer), the line underneath says only what the AC is doing (\"Cooling\", \"Heating\", \"Auto\", \"Fan only\", \"Drying\", \"Off\") instead of repeating \"Cooling to 21°\"."
+      ]
+    },
+    {
+      "v": "2.52.3",
+      "items": [
+        "AC tiles: when an AC can't measure the room (for example an IR remote whose blaster has no thermometer), the big number shows the temperature it's set to, coloured by mode, instead of an icon."
+      ]
+    },
+    {
+      "v": "2.52.2",
+      "items": [
+        "AC fan: the Auto button is now a round symbol (a fan with a small A) instead of the word \"Auto\", on AC screens and in wall tablet mode. It's filled while the fan is on automatic, and the label above the slider still says Auto, Low, Medium or High."
+      ]
+    },
+    {
       "v": "2.52.1",
       "items": [
         "Wall tablet mode: AC mode symbols are in one row that slides sideways, like on the AC screen, instead of wrapping onto two lines. The next symbol fades in at the edge, the selected mode stays in view, and the row keeps its position after a tap."
@@ -896,6 +920,8 @@
   const MODE_LABELS = { cold: 'Cool', cool: 'Cool', hot: 'Heat', heat: 'Heat', wind: 'Fan', fan: 'Fan', auto: 'Auto', wet: 'Dry', dehumidification: 'Dry', eco: 'Eco', manual: 'Manual', smart: 'Smart', sleep: 'Sleep' };
   const modeLabel = (m) => MODE_LABELS[m] || (String(m).charAt(0).toUpperCase() + String(m).slice(1));
   const fmtTemp = (t) => (t == null ? '–' : (Math.round(t * 10) / 10) + '°');
+  // Measured temperatures (sensors, "Current"): always one decimal, e.g. 23.4°, 23.0°.
+  const fmtReading = (t) => (t == null || !isFinite(t) ? '–' : (Math.round(t * 10) / 10).toFixed(1) + '°');
 
   function isOn(d) {
     if (d.ir) return !!(d.ir.ac && d.ir.state && d.ir.state.power);
@@ -912,8 +938,8 @@
     if ('gas_sensor_status' in st) return st.gas_sensor_status === 'alarm' ? 'Gas detected' : 'Clear';
     const t = scaled(d, 'va_temperature', true) ?? scaled(d, 'temp_current', true);
     const h = scaled(d, 'va_humidity', false) ?? scaled(d, 'humidity_value', false);
-    if (t != null && h != null) return fmtTemp(t) + ' and ' + Math.round(h) + '%';
-    if (t != null) return fmtTemp(t);
+    if (t != null && h != null) return fmtReading(t) + ' and ' + Math.round(h) + '%';
+    if (t != null) return fmtReading(t);
     if (h != null) return Math.round(h) + '% humidity';
     return 'Online';
   }
@@ -960,7 +986,7 @@
   function rangeText(vals, fmt) {
     if (!vals.length) return null;
     const lo = Math.min(...vals), hi = Math.max(...vals);
-    return Math.round(lo) === Math.round(hi) ? fmt(lo) : fmt(lo).replace(/[^\d.\-]+$/, '') + '–' + fmt(hi);
+    return fmt(lo) === fmt(hi) ? fmt(lo) : fmt(lo).replace(/[^\d.\-]+$/, '') + '–' + fmt(hi);
   }
   function climateSummaries(readings, inKiosk) {
     const live = readings.filter((d) => d.online).map((d) => ({ d, r: readingsOf(d) }));
@@ -978,7 +1004,7 @@
       '<span class="sum-icon ' + kind + '">' + icon(kind === 'temp' ? 'thermo' : 'drop', 18) + '</span>' +
       '<span class="sum-text"><span class="sum-title">' + title + '</span><span class="sum-value">' + esc(value) + '</span></span></' + tag + '>';
     let html = '<div class="summaries" role="group" aria-label="Climate">';
-    const t = rangeText(temps, (v) => fmtTemp(Math.round(v)));
+    const t = rangeText(temps, fmtReading);
     const h = rangeText(hums, (v) => Math.round(v) + '%');
     const hint = one && !inKiosk ? ', show history' : '';
     if (t) html += btn('temp', 'temp', 'Climate', t, 'Temperature ' + t + hint);
@@ -990,7 +1016,7 @@
     if (!one && S.climateOpen) {
       html += '<div class="list climate-list">' + readings.map((d) => {
         const r = readingsOf(d);
-        const vals = !d.online ? 'Offline' : [r.temp != null ? fmtTemp(r.temp) : null, r.hum != null ? Math.round(r.hum) + '%' : null].filter(Boolean).join(' · ');
+        const vals = !d.online ? 'Offline' : [r.temp != null ? fmtReading(r.temp) : null, r.hum != null ? Math.round(r.hum) + '%' : null].filter(Boolean).join(' · ');
         const inner = '<span class="label">' + esc(d.name) + (d.room ? '<span class="clim-room">' + esc(d.room) + '</span>' : '') + '</span>' +
           '<span class="value icon-value">' + esc(vals) + (inKiosk ? '' : icon('chevron', 16)) + '</span>';
         return inKiosk ? '<div class="list-row">' + inner + '</div>'
@@ -1007,7 +1033,7 @@
     if (!d.online) {
       main = '<span class="reading-off">Offline</span>';
     } else {
-      if (r.temp != null) main += gauge('temp', 'Temperature', fmtTemp(r.temp), (r.temp - GAUGE_TEMP[0]) / (GAUGE_TEMP[1] - GAUGE_TEMP[0]));
+      if (r.temp != null) main += gauge('temp', 'Temperature', fmtReading(r.temp), (r.temp - GAUGE_TEMP[0]) / (GAUGE_TEMP[1] - GAUGE_TEMP[0]));
       if (r.hum != null) main += gauge('hum', 'Humidity', Math.round(r.hum) + '%', r.hum / 100);
     }
     const extra = [];
@@ -1158,7 +1184,7 @@
       const pts = series[code].points.map(([t, v]) => [t, historyValue(d, code, v, sc)]);
       const vs = pts.map((p) => p[1]);
       const unit = kind === 'temp' ? '°' : kind === 'hum' ? '%' : kind === 'co2' ? ' ppm' : ' µg/m³';
-      const f = (v) => (kind === 'temp' ? Math.round(v * 10) / 10 : Math.round(v)) + unit;
+      const f = (v) => (kind === 'temp' ? (Math.round(v * 10) / 10).toFixed(1) : Math.round(v)) + unit;
       html += '<section class="hist-card list"><div class="hist-head"><span class="se-label">' + label + '</span><span class="hist-now">' + f(vs[vs.length - 1]) + '</span></div>' +
         chartSvg(pts, unit, H.hours) +
         '<div class="hist-stats"><span>Low <b>' + f(Math.min(...vs)) + '</b></span><span>Average <b>' + f(vs.reduce((a, b) => a + b, 0) / vs.length) + '</b></span><span>High <b>' + f(Math.max(...vs)) + '</b></span></div></section>';
@@ -1423,6 +1449,7 @@
     minus: '<path d="M5 12h14"/>',
     power: '<path d="M12 3v8M6.3 7.3a8 8 0 1 0 11.4 0"/>',
     flake: '<path d="M12 2v20M3.3 7l17.4 10M3.3 17l17.4-10M9.5 3.5 12 6l2.5-2.5M9.5 20.5 12 18l2.5 2.5M3.6 10.4 6.8 9.5 5.9 6.2M18.1 17.8l-.9-3.3 3.2-.9M3.6 13.6l3.2.9-.9 3.3M18.1 6.2l-.9 3.3 3.2.9"/>',
+    fanauto: '<g transform="translate(-1 -1) scale(.82)"><circle cx="12" cy="12" r="2"/><path d="M12 10c0-4 1-7 4-7s2 5-2 7M14 12c4 0 7 1 7 4s-5 2-7-2M12 14c0 4-1 7-4 7s-2-5 2-7M10 12c-4 0-7-1-7-4s5-2 7 2"/></g><path d="M15.8 22.5 18.5 16l2.7 6.5M16.8 20.3h3.4"/>',
     automode: '<path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v4h-4"/><path d="M9 15.5 12 8l3 7.5M10 13.2h4"/>',
     chevron: '<path d="M9 5l7 7-7 7"/>',
     play: '<path d="M7 5l12 7-12 7z" fill="currentColor" stroke="none"/>',
@@ -1506,14 +1533,19 @@
   // Air conditioners, like the Home app's thermostat tile: a tall tile with the room temperature
   // in large coloured numbers (blue cooling, orange heating...), name and status underneath. Tap to open.
   function acCard(d, selectedId) {
-    const on = isOn(d), theme = acTheme(d), room = acRoomTemp(d), r = S.reorder, status = statusText(d);
+    const on = isOn(d), theme = acTheme(d), room = acRoomTemp(d), r = S.reorder;
+    // When the big number is already the set temperature, the line below just says what it's doing.
+    const status = room == null && on ? ({ cool: 'Cooling', heat: 'Heating', auto: 'Auto' })[theme] || statusText(d) : statusText(d);
     const cls = ['card', 'compact', 'ac-tile', 'ac-big', 'ac-' + theme, on ? 'active' : '', d.id === selectedId ? 'selected' : '', isPending(d.id) ? 'pending' : ''].join(' ');
-    const top = room != null
-      ? '<span class="ac-big-num">' + Math.round(room) + '°</span>'
+    // The room temperature when the AC (or its IR blaster) measures it; otherwise what it's set to.
+    const setTo = kindOf(d) === 'irac' ? (d.ir.state || {}).temp : scaled(d, 'temp_set', true);
+    const big = room != null ? room : setTo;
+    const top = big != null
+      ? '<span class="ac-big-num">' + Math.round(big) + '°</span>'
       : '<span class="ac-big-icon" aria-hidden="true">' + deviceIcon(d) + '</span>';
     return '<div class="' + cls + '" data-card-id="' + esc(d.id) + '">' +
       '<button class="card-open"' + (r ? ' inert' : '') + ' data-act="open" data-id="' + esc(d.id) + '" data-key="open-' + esc(d.id) + '" aria-label="' +
-      esc(d.name + ', ' + (room != null ? Math.round(room) + '° in the room, ' : '') + status + ', show controls') + '">' + top +
+      esc(d.name + ', ' + (room != null ? Math.round(room) + '° in the room, ' : big != null ? 'set to ' + Math.round(big) + '°, ' : '') + status + ', show controls') + '">' + top +
       '<span class="card-text"><span class="card-name">' + esc(d.name) + '</span><span class="card-status">' + esc(status) + '</span></span></button>' +
       (r ? '<button class="card-grip" data-key="grip-' + esc(d.id) + '" aria-label="Move ' + esc(d.name) + '. Use the arrow keys.">' + icon('grip', 18) + '</button>' : '') +
       '</div>';
@@ -2461,7 +2493,7 @@
     const label = !st2.power ? 'Off' : auto ? 'Auto' : IR_WIND[st2.wind];
     return '<div class="fan-head"><span class="seg-label">Fan</span><span class="fan-value" data-live="irwind-' + id + '">' + label + '</span></div>' +
       '<div class="fan-row">' +
-      '<button class="chip soft fan-auto" data-act="irwind" data-v="0" data-id="' + id + '" data-key="irwind-0' + sfx + '" aria-pressed="' + (st2.power && auto) + '">Auto</button>' +
+      '<button class="chip soft fan-auto fan-auto-ico" data-act="irwind" data-v="0" data-id="' + id + '" data-key="irwind-0' + sfx + '" aria-pressed="' + (st2.power && auto) + '" aria-label="Automatic fan speed" title="Automatic fan speed">' + icon('fanauto', 26) + '</button>' +
       '<div class="range fan-range' + (st2.power && !auto ? '' : ' is-auto') + '">' +
       '<label class="sr-only" for="irwind-' + id + sfx + '">Fan speed</label>' +
       '<input id="irwind-' + id + sfx + '" type="range" min="1" max="3" step="1" value="' + level + '" data-act="irwindr" data-id="' + id + '" data-key="irwindr' + sfx + '"' +
@@ -2539,7 +2571,7 @@
     }
     if (k === 'sensor') {
       const tt = scaled(d, 'va_temperature', true), hh = scaled(d, 'va_humidity', false);
-      if (tt != null) rows.push('<div class="list-row"><span class="label">Temperature</span><span class="value">' + fmtTemp(tt) + '</span></div>');
+      if (tt != null) rows.push('<div class="list-row"><span class="label">Temperature</span><span class="value">' + fmtReading(tt) + '</span></div>');
       if (hh != null) rows.push('<div class="list-row"><span class="label">Humidity</span><span class="value">' + Math.round(hh) + '%</span></div>');
     }
     if (typeof st.battery_percentage === 'number') rows.push('<div class="list-row"><span class="label">Battery</span><span class="value">' + st.battery_percentage + '%</span></div>');
@@ -3436,7 +3468,7 @@
     let g = '';
     if (!d.online) g = '<span class="k-status">Offline</span>';
     else {
-      if (r.temp != null) g += gauge('temp', 'Temperature', fmtTemp(r.temp), (r.temp - GAUGE_TEMP[0]) / (GAUGE_TEMP[1] - GAUGE_TEMP[0]));
+      if (r.temp != null) g += gauge('temp', 'Temperature', fmtReading(r.temp), (r.temp - GAUGE_TEMP[0]) / (GAUGE_TEMP[1] - GAUGE_TEMP[0]));
       if (r.hum != null) g += gauge('hum', 'Humidity', Math.round(r.hum) + '%', r.hum / 100);
     }
     const low = typeof d.status.battery_percentage === 'number' && d.status.battery_percentage <= 20;
@@ -3499,7 +3531,7 @@
       const [cx, cy] = kaPoint(kaAngle(room, min, max));
       curDot = '<circle class="ka-cur" cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="5"/>';
     }
-    const sub = [room != null ? 'Current ' + fmtTemp(room) : null, hum != null ? 'Humidity ' + Math.round(hum) + '%' : null].filter(Boolean).join(' · ');
+    const sub = [room != null ? 'Current ' + fmtReading(room) : null, hum != null ? 'Humidity ' + Math.round(hum) + '%' : null].filter(Boolean).join(' · ');
     const kaIcon = (l) => ({ Cool: 'flake', Heat: 'sun', Auto: 'automode', Fan: 'fan', Dry: 'drop' })[l] || 'climate';
     const kaBtn = (act, key, pressed, label, ic, cls) => '<button class="ka-mi ' + cls + '" ' + act + ' data-id="' + id + '" data-key="kam-' + id + sfx + '-' + key + '" aria-pressed="' + pressed + '" aria-label="' + esc(label) + '" title="' + esc(label) + '"' + dis + '>' + icon(ic, 22) + '</button>';
     const menu = '<div class="ka-menu ka-icons" role="group" aria-label="Mode" data-key="kamenu-' + id + sfx + '">' +
