@@ -2694,3 +2694,6 @@ html[data-bg] .scroll-edge.bottom { background: rgba(0, 0, 0, 0.22); }
    outline darker wherever it crossed the filled shape (the black lines). */
 .qc.on .qc-knob, .qc-ch.on .qc-knob, .qc.on .qc-ico { color: #000; }
 .qc.on .qc-knob svg, .qc-ch.on .qc-knob svg, .qc.on .qc-ico svg { opacity: .55; }
+
+/* 2.60.0: the tab lens shows the icons through it while it travels */
+html .tabbar .tab .pill .tab-glass { will-change: transform; }

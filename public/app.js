@@ -5,6 +5,19 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.60.1",
+      "items": [
+        "Fixed: the temperature and humidity history page couldn't be scrolled (since 2.59.0).",
+        "Status bar on iPhone: since iOS 26.1, apps added to the home screen can't draw behind the clock and battery. iOS fills that strip with a solid colour instead (an iOS bug Apple has been told about). With a photo background, that strip is now the colour of the photo's top edge instead of black, so it blends in."
+      ]
+    },
+    {
+      "v": "2.60.0",
+      "items": [
+        "Tab bar: switching tabs now plays the iOS 26 lens animation. The capsule lifts into a clear glass lens, taller than the bar with a bright rim and the icons showing through, glides to the new tab, then settles back into the tinted capsule as the new icon swells."
+      ]
+    },
+    {
       "v": "2.59.6",
       "items": [
         "Device controls: the icon on a lit knob or pill no longer has dark outlines. It was drawn in a see-through colour, so its outline doubled up where it crossed the filled shape; it's now drawn solid and faded as a whole."
@@ -2033,20 +2046,32 @@
   });
   document.addEventListener('dragstart', (e) => { if (e.target && (e.target.tagName === 'IMG' || (e.target.closest && e.target.closest('svg')))) e.preventDefault(); });
 
+  // iOS 26: when you switch tabs, the capsule lifts into a clear glass lens (taller than the bar,
+  // bright refracting rim, the icons showing through), glides across, then settles back into the
+  // tinted capsule under the new tab, whose icon swells as the lens arrives.
   function glassGlide(from) {
     const g = shell && shell.tabbar && shell.tabbar.querySelector('.tab-glass');
     if (!g || !from || !from.width || !g.animate) return;
     if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const to = g.getBoundingClientRect(), dx = from.left - to.left;
     if (Math.abs(dx) < 2 || !to.width) return;
-    g.animate([
-      { transform: 'translateX(' + dx + 'px) scale(' + (from.width / to.width) + ', 1)' },
-      { transform: 'translateX(' + (dx * 0.4) + 'px) scale(1.3, 0.84)', offset: 0.42 },
-      { transform: 'translateX(' + (-dx * 0.03) + 'px) scale(0.95, 1.05)', offset: 0.78 },
-      { transform: 'none' }
-    ], { duration: 560, easing: 'cubic-bezier(.22, .8, .3, 1)' });
-    const svg = g.parentNode.querySelector('svg');
-    if (svg) svg.animate([{ transform: 'scale(.82)', opacity: .6 }, { transform: 'scale(1.12)', offset: .6 }, { transform: 'none', opacity: 1 }], { duration: 480, easing: 'cubic-bezier(.3, 1.3, .5, 1)' });
+    const cs = getComputedStyle(g), bg = cs.backgroundColor, sh = cs.boxShadow;
+    const lensBg = 'rgba(255, 255, 255, 0.07)';
+    const lensSh = 'inset 0 0 0 1px rgba(255, 255, 255, 0.55), inset 0 9px 14px -8px rgba(255, 255, 255, 0.95), inset 0 -9px 14px -8px rgba(255, 255, 255, 0.4), 0 10px 24px rgba(0, 0, 0, 0.22)';
+    const pill = g.parentNode, sw = from.width / to.width;
+    pill.style.zIndex = '3'; g.style.zIndex = '2';
+    const a = g.animate([
+      { transform: 'translateX(' + dx + 'px) scale(' + sw + ', 1)', backgroundColor: bg, boxShadow: sh },
+      { transform: 'translateX(' + (dx * 0.82) + 'px) scale(1.24, 1.4)', backgroundColor: lensBg, boxShadow: lensSh, offset: 0.16 },
+      { transform: 'translateX(' + (dx * 0.18) + 'px) scale(1.3, 1.34)', backgroundColor: lensBg, boxShadow: lensSh, offset: 0.48 },
+      { transform: 'translateX(' + (-dx * 0.03) + 'px) scale(1.2, 1.36)', backgroundColor: lensBg, boxShadow: lensSh, offset: 0.66 },
+      { transform: 'scale(1.03, 1.05)', backgroundColor: bg, boxShadow: sh, offset: 0.86 },
+      { transform: 'none', backgroundColor: bg, boxShadow: sh }
+    ], { duration: 680, easing: 'cubic-bezier(.3, .7, .3, 1)' });
+    const done = () => { pill.style.zIndex = ''; g.style.zIndex = ''; };
+    a.onfinish = done; a.oncancel = done;
+    const svg = pill.querySelector('svg');
+    if (svg) svg.animate([{ transform: 'scale(.9)', opacity: .7 }, { transform: 'scale(.95)', offset: .3 }, { transform: 'scale(1.22)', opacity: 1, offset: .62 }, { transform: 'scale(.97)', offset: .84 }, { transform: 'none', opacity: 1 }], { duration: 680, easing: 'ease-out' });
   }
   function tabs(active) {
     const items = [['devices', 'Devices', 'grid'], ['scenes', 'Scenes', 'scenes'], ['me', 'Me', 'me']];
@@ -2227,12 +2252,40 @@
   const BACKGROUNDS = [['system', 'System'], ['aura', 'Aura'], ['ember', 'Ember'], ['tide', 'Tide'], ['mist', 'Mist'], ['halftone', 'Halftone'], ['dusk', 'Dusk']];
   function applyBackground() {
     const root = document.documentElement;
-    if (S.bg && S.bg !== 'system') root.setAttribute('data-bg', S.bg); else root.removeAttribute('data-bg');
-    // Photo backgrounds are dark, so the status bar follows.
-    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => {
-      if (!m.dataset.orig) m.dataset.orig = m.getAttribute('content');
-      m.setAttribute('content', S.bg && S.bg !== 'system' ? '#000000' : m.dataset.orig);
-    });
+    const photo = S.bg && S.bg !== 'system';
+    if (photo) root.setAttribute('data-bg', S.bg); else root.removeAttribute('data-bg');
+    // Since iOS 26.1, home-screen web apps can't draw behind the clock and battery: iOS fills that strip
+    // with the page's background colour (an iOS bug, WebKit 301994). So with a photo, that colour is
+    // the photo's own top edge (dimmed like the photo is), and the strip blends into the picture.
+    const setTop = (col) => {
+      root.style.backgroundColor = col || '';
+      document.querySelectorAll('meta[name="theme-color"]').forEach((m) => {
+        if (!m.dataset.orig) m.dataset.orig = m.getAttribute('content');
+        m.setAttribute('content', col || (photo ? '#000000' : m.dataset.orig));
+      });
+    };
+    if (!photo) { setTop(null); try { localStorage.removeItem('bgTop'); } catch (e) { /* ignore */ } return; }
+    let saved = null;
+    try { const j = JSON.parse(localStorage.getItem('bgTop') || 'null'); if (j && j.bg === S.bg) saved = j.col; } catch (e) { /* ignore */ }
+    setTop(saved);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const w = 40, h = Math.max(1, Math.round(40 * img.naturalHeight / img.naturalWidth));
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        const x = c.getContext('2d'); x.drawImage(img, 0, 0, w, h);
+        const rows = Math.max(1, Math.round(h * 0.04)), px = x.getImageData(0, 0, w, rows).data;
+        let r = 0, g = 0, b = 0, n = 0;
+        for (let i = 0; i < px.length; i += 4) { r += px[i]; g += px[i + 1]; b += px[i + 2]; n++; }
+        const dim = parseFloat(getComputedStyle(root).getPropertyValue('--dim')) || 0;
+        const f = (v) => Math.round((v / n) * (1 - dim)).toString(16).padStart(2, '0');
+        const col = '#' + f(r) + f(g) + f(b);
+        if (S.bg !== root.getAttribute('data-bg')) return;
+        setTop(col);
+        try { localStorage.setItem('bgTop', JSON.stringify({ bg: S.bg, col })); } catch (e) { /* ignore */ }
+      } catch (e) { /* keep black */ }
+    };
+    img.src = '/backgrounds/' + S.bg + '.jpg';
   }
   applyBackground();
 
@@ -4638,7 +4691,7 @@
     const mainTop = sameScreen ? 0 : shell.main.scrollTop, panelTop = sameScreen ? 0 : shell.panel.scrollTop;
     const listTop = oldList && !sameScreen ? oldList.scrollTop : 0;
     if (oldList) oldList._sc = oldList.classList.contains('scrolled');
-    const devicesPage = activeTab === 'devices' && !!S.data;
+    const devicesPage = activeTab === 'devices' && (r.view === 'devices' || r.view === 'device') && !!S.data;   // not History: that page scrolls normally
     const hadRoute = !!lastRouteKey;
     shell.main.classList.toggle('devices-view', devicesPage);
     document.documentElement.classList.toggle('lock-scroll', devicesPage);

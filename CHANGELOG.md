@@ -2,6 +2,15 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.60.1
+
+- Fixed: the temperature and humidity history page couldn't be scrolled (since 2.59.0).
+- Status bar on iPhone: since iOS 26.1, apps added to the home screen can't draw behind the clock and battery. iOS fills that strip with a solid colour instead (an iOS bug Apple has been told about). With a photo background, that strip is now the colour of the photo's top edge instead of black, so it blends in.
+
+## 2.60.0
+
+- Tab bar: switching tabs now plays the iOS 26 lens animation. The capsule lifts into a clear glass lens, taller than the bar with a bright rim and the icons showing through, glides to the new tab, then settles back into the tinted capsule as the new icon swells.
+
 ## 2.59.6
 
 - Device controls: the icon on a lit knob or pill no longer has dark outlines. It was drawn in a see-through colour, so its outline doubled up where it crossed the filled shape; it's now drawn solid and faded as a whole.

@@ -17,7 +17,7 @@
   <link rel="preload" href="/app.js" as="script">
   <link rel="stylesheet" href="/app.css">
   <script>
-    try { var bg = localStorage.getItem('bg'); if (bg && bg !== 'system') document.documentElement.setAttribute('data-bg', bg); } catch (e) {}
+    try { var bg = localStorage.getItem('bg'); if (bg && bg !== 'system') { document.documentElement.setAttribute('data-bg', bg); var t = JSON.parse(localStorage.getItem('bgTop') || 'null'); if (t && t.bg === bg && /^#[0-9a-f]{6}$/i.test(t.col)) document.documentElement.style.backgroundColor = t.col; } } catch (e) {}
   </script>
 </head>
 <body>
