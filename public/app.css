@@ -2697,3 +2697,53 @@ html[data-bg] .scroll-edge.bottom { background: rgba(0, 0, 0, 0.22); }
 
 /* 2.60.0: the tab lens shows the icons through it while it travels */
 html .tabbar .tab .pill .tab-glass { will-change: transform; }
+
+/* ---------- 2.62.1 TV remote: the Tuya layout in iOS 26 glass ---------- */
+.tvr { --g-fill: rgba(127, 127, 127, 0.14); --g-press: rgba(127, 127, 127, 0.3); --g-ink: var(--text); --g-cap: var(--muted);
+  --g-rim: inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -1px 0 rgba(0, 0, 0, 0.06), inset 0 0 0 0.5px rgba(127, 127, 127, 0.25);
+  --g-shadow: 0 8px 22px rgba(0, 0, 0, 0.08);
+  display: flex; flex-direction: column; align-items: center; gap: 26px; width: 100%; max-width: 340px; margin: 0 auto; padding: 8px 0 6px;
+  -webkit-user-select: none; user-select: none; }
+.qc .tvr { --g-fill: rgba(255, 255, 255, 0.12); --g-press: rgba(255, 255, 255, 0.28); --g-ink: #fff; --g-cap: rgba(255, 255, 255, 0.72);
+  --g-rim: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -1px 0 rgba(255, 255, 255, 0.06); --g-shadow: 0 10px 26px rgba(0, 0, 0, 0.22); }
+@media (prefers-color-scheme: dark) { .tvr { --g-fill: rgba(255, 255, 255, 0.1); --g-rim: inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(255, 255, 255, 0.04); } }
+.qc-remote { position: relative; width: min(360px, 94vw); max-height: calc(100% - 200px); overflow-y: auto; scrollbar-width: none; overscroll-behavior: contain;
+  padding: 4px 8px 28px; -webkit-mask-image: linear-gradient(#000 calc(100% - 26px), transparent); mask-image: linear-gradient(#000 calc(100% - 26px), transparent); }
+.qc-remote::-webkit-scrollbar { display: none; }
+.tvr button { border: 0; font: inherit; cursor: pointer; color: var(--g-ink); background: var(--g-fill); box-shadow: var(--g-rim), var(--g-shadow);
+  display: inline-flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent;
+  transition: transform .18s cubic-bezier(.3, 1.4, .5, 1), background-color .15s ease; }
+.tvr button:active { transform: scale(.9); background: var(--g-press); }
+.tvr button:disabled { opacity: .4; }
+.tvr button.sent { animation: tvr-sent .45s ease-out; }
+@keyframes tvr-sent { 0% { filter: brightness(1.6); } 100% { filter: none; } }
+.tvr-grid { display: grid; grid-template-columns: 84px 1fr 84px; align-items: start; justify-items: center; width: 100%; }
+.tvr-cell { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.tvr-cap { font-size: 14px; font-weight: 500; color: var(--g-cap); min-height: 18px; }
+.tvr-btn { width: 72px; height: 72px; border-radius: 50%; }
+.tvr .tvr-btn.on { background: var(--g-ink); color: var(--bg, #000); }
+.qc .tvr .tvr-btn.on { color: #1c1c1e; }
+.tvr-gap { visibility: hidden; display: inline-block; }
+.tvr-123 { font-size: 19px; font-weight: 600; letter-spacing: .02em; }
+.tvr-mid { align-items: center; }
+.tvr-col { display: flex; flex-direction: column; align-items: center; gap: 24px; }
+.tvr-rocker { width: 72px; height: 168px; border-radius: 36px; background: var(--g-fill); box-shadow: var(--g-rim), var(--g-shadow);
+  display: flex; flex-direction: column; align-items: stretch; overflow: hidden; }
+.tvr-rocker.tvr-empty { visibility: hidden; }
+.tvr .tvr-rk { flex: 1; background: transparent; box-shadow: none; border-radius: 0; }
+.tvr .tvr-rk:active { transform: none; background: var(--g-press); }
+.tvr-rk-label { flex: none; text-align: center; font-size: 13px; font-weight: 600; color: var(--g-ink); opacity: .85; }
+.tvr-pad { position: relative; width: 236px; height: 236px; border-radius: 50%; background: var(--g-fill); box-shadow: var(--g-rim), var(--g-shadow); }
+.tvr-pad.tvr-empty { display: none; }
+.tvr .tvr-dir { position: absolute; width: 78px; height: 78px; border-radius: 50%; background: transparent; box-shadow: none; }
+.tvr .tvr-dir:active { background: var(--g-press); transform: none; }
+.tvr-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .7; }
+.tvr-up { top: 4px; left: 79px; } .tvr-down { bottom: 4px; left: 79px; } .tvr-left { left: 4px; top: 79px; } .tvr-right { right: 4px; top: 79px; }
+.tvr .tvr-ok { position: absolute; left: 50%; top: 50%; width: 92px; height: 92px; margin: -46px 0 0 -46px; border-radius: 50%; font-size: 24px; font-weight: 600; }
+.tvr-panel { width: 100%; padding: 14px; border-radius: 28px; background: var(--g-fill); box-shadow: var(--g-rim), var(--g-shadow); }
+.tvr-num { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.tvr-more { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.tvr .tvr-key { min-height: 50px; padding: 6px 12px; border-radius: 25px; gap: 8px; font-size: 15px; font-weight: 600; background: var(--g-fill); }
+.tvr-num .tvr-key { font-size: 21px; }
+.tvr-key span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 360px) { .tvr-pad { width: 210px; height: 210px; } .tvr-up, .tvr-down { left: 66px; } .tvr-left, .tvr-right { top: 66px; } .tvr-grid { grid-template-columns: 76px 1fr 76px; } }

@@ -3,6 +3,23 @@ const { call, config } = require('../_lib/tuya');
 const { handler, requireId } = require('../_lib/http');
 const store = require('../_lib/store');
 
+// The Tuya app saves a readable description next to actions it makes (IR remote buttons and AC
+// settings are otherwise stored as raw IR codes). Pass a small copy along so the app can say what
+// the action does. Only short text survives; codes and long blobs are dropped.
+function actionDisplay(a) {
+  const src = [a.extra_property, a.action_display_new, a.action_display, a.extraProperty, a.actionDisplayNew].find((v) => v && typeof v === 'object');
+  if (!src) return undefined;
+  const out = {};
+  let n = 0;
+  const keep = (v) => (typeof v === 'string' && v.length <= 40) || typeof v === 'number' || typeof v === 'boolean';
+  for (const [k, v] of Object.entries(src)) {
+    if (n >= 12 || typeof k !== 'string' || k.length > 40) break;
+    if (keep(v)) { out[k] = v; n++; }
+    else if (Array.isArray(v) && v.length <= 4 && v.every(keep)) { out[k] = v; n++; }
+  }
+  return n ? out : undefined;
+}
+
 const IR_HUBS = ['wnykq', 'hwktwkq'];  // universal IR remote / IR hub categories
 // Categories that are certainly not IR blasters (so we don't probe them).
 const NOT_HUBS = ['dj', 'dd', 'fwd', 'xdd', 'dc', 'tgq', 'gyd', 'kg', 'cz', 'pc', 'tdq', 'kt', 'wk', 'qn',
@@ -248,7 +265,8 @@ module.exports = handler(['GET'], async (req) => {
       steps: (s.actions || []).map((a) => ({
         executor: a.action_executor,
         entity: a.entity_id || '',
-        props: a.executor_property && typeof a.executor_property === 'object' ? a.executor_property : {}
+        props: a.executor_property && typeof a.executor_property === 'object' ? a.executor_property : {},
+        display: actionDisplay(a)
       }))
     }));
     // Conditions and actions come along (when Tuya includes them) so the app can say what each one does.
@@ -262,7 +280,8 @@ module.exports = handler(['GET'], async (req) => {
       })),
       actions: (Array.isArray(a.actions) ? a.actions : []).slice(0, 40).map((x) => ({
         action_executor: x.action_executor, entity_id: x.entity_id || '',
-        executor_property: x.executor_property && typeof x.executor_property === 'object' ? x.executor_property : {}
+        executor_property: x.executor_property && typeof x.executor_property === 'object' ? x.executor_property : {},
+        display: actionDisplay(x)
       }))
     }));
   }

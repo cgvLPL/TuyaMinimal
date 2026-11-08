@@ -2,6 +2,19 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.62.1
+
+- TV remote rebuilt on the Tuya app's layout in iOS 26 glass. Power and Menu sit at the top. Volume and Channel rockers are either side of Back and Home. A large round direction pad has OK in the middle. Number and More buttons at the bottom open the number pad, and Mute, Input and any other buttons, in a glass panel below.
+
+## 2.62.0
+
+- TV and other IR remotes have a proper remote layout. Power sits at the top beside Input and Mute. Volume and Channel rockers sit either side of a round direction pad with OK in the middle, with Back, Home and Menu below and a number pad when the remote has digits. Any other buttons go in a grid underneath. Buttons are recognised by name, so any remote fills in what it has.
+- On phones the remote opens full screen like the other device controls. The gear holds only its settings. Tablets show the same remote in the side panel.
+
+## 2.61.0
+
+- Scenes and automations: IR remote steps set up in the Tuya app now say what they do, like 'Cool, 24°, fan auto', 'Power Off' or 'Press Power', in the editor and in the scene and automation summaries, instead of just 'IR remote action'. They work from Tuya's standard AC instructions, its other settings formats, or the description the Tuya app saves beside raw IR codes.
+
 ## 2.60.1
 
 - Fixed: the temperature and humidity history page couldn't be scrolled (since 2.59.0).

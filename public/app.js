@@ -5,6 +5,25 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.62.1",
+      "items": [
+        "TV remote rebuilt on the Tuya app's layout in iOS 26 glass. Power and Menu sit at the top. Volume and Channel rockers are either side of Back and Home. A large round direction pad has OK in the middle. Number and More buttons at the bottom open the number pad, and Mute, Input and any other buttons, in a glass panel below."
+      ]
+    },
+    {
+      "v": "2.62.0",
+      "items": [
+        "TV and other IR remotes have a proper remote layout. Power sits at the top beside Input and Mute. Volume and Channel rockers sit either side of a round direction pad with OK in the middle, with Back, Home and Menu below and a number pad when the remote has digits. Any other buttons go in a grid underneath. Buttons are recognised by name, so any remote fills in what it has.",
+        "On phones the remote opens full screen like the other device controls. The gear holds only its settings. Tablets show the same remote in the side panel."
+      ]
+    },
+    {
+      "v": "2.61.0",
+      "items": [
+        "Scenes and automations: IR remote steps set up in the Tuya app now say what they do, like 'Cool, 24\u00b0, fan auto', 'Power Off' or 'Press Power', in the editor and in the scene and automation summaries, instead of just 'IR remote action'. They work from Tuya's standard AC instructions, its other settings formats, or the description the Tuya app saves beside raw IR codes."
+      ]
+    },
+    {
       "v": "2.60.1",
       "items": [
         "Fixed: the temperature and humidity history page couldn't be scrolled (since 2.59.0).",
@@ -1741,6 +1760,7 @@
   // What the big control is for a device: the Home app's full-screen layout.
   function qcKind(d) {
     if (isKioskAc(d)) return 'ac';
+    if (kindOf(d) === 'irremote') return 'remote';
     if (kindOf(d) === 'cover' && 'percent_control' in d.status) return 'cover';
     if (channelCodes(d).length > 1) return 'multi';
     if (qcDimmable(d)) return 'dim';
@@ -1805,6 +1825,7 @@
       '<div class="qc-head"><div class="qc-name">' + esc(d.name) + '</div><div class="qc-status" aria-live="polite"></div></div>' +
       (!kind ? '<div class="qc-body qc-empty"></div>'
         : kind === 'ac' ? '<div class="qc-body qc-ac"></div>'
+        : kind === 'remote' ? '<div class="qc-body qc-remote"></div>'
         : multi
         ? '<div class="qc-multi qc-body" style="--n:' + codes.length + '">' + codes.map((c) =>
             '<div class="qc-unit"><button class="qc-pill qc-switch qc-ch" role="switch" aria-label="' + esc(channelName(d, c)) + '" data-act="toggle" data-id="' + esc(d.id) + '" data-code="' + esc(c) + '">' +
@@ -1818,7 +1839,7 @@
     qc = { id: d.id, el, last: null, lastCh: {}, drag: null, focusBack: document.activeElement, page, back: !!(opts && opts.back), kind, sl: dim ? qcSliderFor(d) : null };
     qcSync(true);
     if (!page) { try { history.pushState({ qc: 1 }, '', location.href); qc.pushed = true; } catch (e) { /* fine without */ } }
-    const pill = el.querySelector(multi ? '.qc-multi' : kind === 'ac' ? '.qc-ac' : !kind ? '.qc-empty' : '.qc-pill');
+    const pill = el.querySelector(multi ? '.qc-multi' : kind === 'ac' ? '.qc-ac' : kind === 'remote' ? '.qc-remote' : !kind ? '.qc-empty' : '.qc-pill');
     el.querySelector('.qc-bg').addEventListener('click', () => qcExit());
     if (page) el.querySelector('.qc-x').addEventListener('click', () => qcExit());
     el.querySelector('.qc-gear').addEventListener('click', () => qcSheetOpen());
@@ -1891,7 +1912,7 @@
     qc = null;
     if (pushed && history.state && history.state.qc) { qcSkipPop = true; history.back(); }
     const done = () => el.remove();
-    const pill = el.querySelector('.qc-multi') || el.querySelector('.qc-ac') || el.querySelector('.qc-pill') || el.querySelector('.qc-body'), tile = qcTileOf(id);
+    const pill = el.querySelector('.qc-multi') || el.querySelector('.qc-ac') || el.querySelector('.qc-remote') || el.querySelector('.qc-pill') || el.querySelector('.qc-body'), tile = qcTileOf(id);
     const sheet = el.querySelector('.qc-sheet');
     if (instant || !qcMotion() || !pill.animate) { done(); }
     else {
@@ -1942,6 +1963,8 @@
       el.classList.toggle('on', qc.sl.on(pct) && d.online);
     } else el.classList.toggle('on', on && !chs.length);
     el.querySelector('.qc-status').textContent = statusTxt;
+    const rmBody = el.querySelector('.qc-remote');
+    if (rmBody) patchHtml(rmBody, irRemotePad(d, '-qr'));
     const acBody = el.querySelector('.qc-ac');
     if (acBody && !S.dragging) patchHtml(acBody, acPage(d, '-qa'));
     const sws = el.querySelector('.qc-swatches');
@@ -2849,16 +2872,72 @@
         '<button class="chip soft" data-act="irreload" data-id="' + esc(d.id) + '" data-key="irreload' + sfx + '">Try again</button>';
     }
     if (!entry.keys.length) return '<p class="note">This remote has no buttons that can be sent from here.</p>';
-    const btn = (k, cls) => {
-      const sent = S.irSent[d.id + '|' + k.key];
-      return '<button class="' + cls + (sent ? ' sent' : '') + '" data-act="irkey" data-id="' + esc(d.id) + '" data-k="' + esc(k.key) + '" data-key="irk-' + esc(k.key) + sfx + '">' +
-        (cls === 'power-btn' ? icon('power', 36) : '') + '<span>' + esc(sent ? 'Sent' : k.name) + '</span></button>';
+    return tvRemote(d, entry.keys, sfx);
+  }
+
+  // A TV-style remote: power at the top, volume and channel rockers either side of a round direction
+  // pad with OK in the middle, round buttons for mute / input / home / back / menu, an optional number
+  // pad, and anything else in a grid below. Keys are recognised by name, so any remote works.
+  const TVR_SVG = {
+    mute: '<path d="M4 9.5v5h3.5L12 19V5L7.5 9.5z" fill="currentColor"/><path d="M16 9.5l5 5m0-5l-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>',
+    input: '<rect x="3" y="5" width="18" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 8.5v5m-2.5-2.5L12 13.5l2.5-2.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M8 20h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+    home: '<path d="M4 11l8-6.5 8 6.5V20h-5.5v-5h-5v5H4z" fill="currentColor"/>',
+    back: '<path d="M9.5 6L4 11.5 9.5 17M4.5 11.5H14a6 6 0 0 1 0 12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none" transform="translate(0 -2)"/>',
+    menu: '<path d="M5 7h14M5 12h14M5 17h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
+    info: '<circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 11v5.5M12 7.6v.2" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
+    exit: '<path d="M14 5h4.5A1.5 1.5 0 0 1 20 6.5v11a1.5 1.5 0 0 1-1.5 1.5H14M10 8l-4 4 4 4M6 12h9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+    up: '<path d="M6 15l6-6 6 6" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+    plus: '<path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
+    minus: '<path d="M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>'
+  };
+  const tvSvg = (k, size, rot) => '<svg width="' + (size || 22) + '" height="' + (size || 22) + '" viewBox="0 0 24 24" aria-hidden="true"' + (rot ? ' style="transform:rotate(' + rot + 'deg)"' : '') + '>' + TVR_SVG[k] + '</svg>';
+  function tvRemote(d, keys, sfx) {
+    const norm = (k) => String(k.key + ' ' + (k.name || '')).toLowerCase().replace(/[\s_\-]+/g, ' ').replace(/−/g, '-');
+    const used = new Set();
+    const find = (re) => { const k = keys.find((x) => !used.has(x) && re.test(norm(x))); if (k) used.add(k); return k; };
+    const g = {
+      power: find(/^power(?! ?off)|^(power ?on|on ?off)/) , powerOff: find(/power ?off/),
+      volUp: find(/^vol(ume)? ?(\+|up|plus|add)/), volDown: find(/^vol(ume)? ?(-|down|minus|sub)/),
+      chUp: find(/^(ch|chan|channel) ?(\+|up|plus|add)/), chDown: find(/^(ch|chan|channel) ?(-|down|minus|sub)/),
+      mute: find(/^mute/),
+      up: find(/^(up|dir up|nav up|arrow up|cursor up)\b/), down: find(/^(down|dir down|nav down|arrow down|cursor down)\b/),
+      left: find(/^(left|dir left|nav left|arrow left|cursor left)\b/), right: find(/^(right|dir right|nav right|arrow right|cursor right)\b/),
+      ok: find(/^(ok|enter|select|confirm)\b/),
+      input: find(/^(input|source|tv ?av|av|hdmi)\b/), home: find(/^home\b/), back: find(/^(back|return)\b/),
+      menu: find(/^(menu|settings)\b/), info: find(/^(info|display)\b/), exit: find(/^exit\b/)
     };
-    const power = entry.keys.filter((k) => /power/i.test(k.key));
-    const rest = entry.keys.filter((k) => !/power/i.test(k.key));
-    return (power.length ? '<div class="ir-power">' + power.slice(0, 2).map((k) => btn(k, 'power-btn')).join('') + '</div>' : '') +
-      (rest.length ? '<div class="ir-keys" role="group" aria-label="Remote buttons">' + rest.map((k) => btn(k, 'chip soft ir-key')).join('') + '</div>' : '') +
-      '<p class="note">Each button sends its IR code once, like pressing it on the remote.</p>';
+    const digits = [];
+    for (let n = 0; n <= 9; n++) { const k = find(new RegExp('^(num ?|digit ?|key ?)?' + n + '\\b')); if (k) digits[n] = k; }
+    const rest = keys.filter((k) => !used.has(k));
+    const id = esc(d.id), dis = d.online ? '' : ' disabled';
+    const b = (k, cls, inner, label) => !k ? '' : '<button class="' + cls + (S.irSent[d.id + '|' + k.key] ? ' sent' : '') + '" data-act="irkey" data-id="' + id + '" data-k="' + esc(k.key) + '" data-key="irk-' + esc(k.key) + sfx + '" aria-label="' + esc(label || k.name || k.key) + '"' + dis + '>' + inner + '</button>';
+    // A round glass button with its name underneath (an empty slot keeps the grid in shape).
+    const labelled = (k, svgOrIcon, label) => '<div class="tvr-cell">' + (k ? b(k, 'tvr-btn', svgOrIcon, label) : '<span class="tvr-btn tvr-gap"></span>') + '<span class="tvr-cap">' + (k ? esc(label) : '') + '</span></div>';
+    const rocker = (upK, downK, label) => '<div class="tvr-rocker' + (upK || downK ? '' : ' tvr-empty') + '" role="group" aria-label="' + label + '">' +
+      (b(upK, 'tvr-rk', tvSvg('plus', 26), label + ' up') || '<span class="tvr-rk"></span>') + '<span class="tvr-rk-label">' + label + '</span>' +
+      (b(downK, 'tvr-rk', tvSvg('minus', 26), label + ' down') || '<span class="tvr-rk"></span>') + '</div>';
+    const dot = '<span class="tvr-dot" aria-hidden="true"></span>';
+    const pad = '<div class="tvr-pad' + (g.up || g.down || g.left || g.right || g.ok ? '' : ' tvr-empty') + '" role="group" aria-label="Direction pad">' +
+      b(g.up, 'tvr-dir tvr-up', dot, 'Up') + b(g.right, 'tvr-dir tvr-right', dot, 'Right') + b(g.down, 'tvr-dir tvr-down', dot, 'Down') + b(g.left, 'tvr-dir tvr-left', dot, 'Left') +
+      (g.ok ? b(g.ok, 'tvr-ok', '<span>OK</span>', 'OK') : '') + '</div>';
+    // Number pad and the rest open below, one at a time (like the Tuya remote's 123 and More).
+    const more = [g.mute, g.input, g.info, g.exit, g.powerOff].filter(Boolean).concat(rest);
+    const open = S.tvPanel && S.tvPanel[d.id];
+    const hasNum = digits.filter(Boolean).length > 0;
+    const toggle = (p, label, inner) => '<div class="tvr-cell"><button class="tvr-btn' + (open === p ? ' on' : '') + '" data-act="tvpanel" data-id="' + id + '" data-p="' + p + '" data-key="tvp-' + p + sfx + '" aria-expanded="' + (open === p) + '" aria-label="' + label + '">' + inner + '</button><span class="tvr-cap">' + label + '</span></div>';
+    const panel = open === 'num' && hasNum
+      ? '<div class="tvr-panel tvr-num" role="group" aria-label="Numbers">' + [1, 2, 3, 4, 5, 6, 7, 8, 9, null, 0, null].map((n) => n == null || !digits[n] ? '<span></span>' : b(digits[n], 'tvr-key', '<span>' + n + '</span>', String(n))).join('') + '</div>'
+      : open === 'more' && more.length
+      ? '<div class="tvr-panel tvr-more" role="group" aria-label="More buttons">' + more.map((k) => b(k, 'tvr-key', (k === g.mute ? tvSvg('mute', 20) : k === g.input ? tvSvg('input', 20) : '') + '<span>' + esc(k === g.mute ? 'Mute' : k === g.input ? 'Input' : k === g.powerOff ? 'Power off' : (k.name || k.key)) + '</span>')).join('') + '</div>'
+      : '';
+    return '<div class="tvr">' +
+      '<div class="tvr-grid tvr-top">' + labelled(g.power || g.powerOff, icon('power', 30), 'Power') + '<span></span>' + labelled(g.menu, tvSvg('menu', 26), 'Menu') + '</div>' +
+      '<div class="tvr-grid tvr-mid">' + rocker(g.volUp, g.volDown, 'Volume') +
+        '<div class="tvr-col">' + (g.back ? b(g.back, 'tvr-btn', tvSvg('back', 26), 'Back') : '<span class="tvr-btn tvr-gap"></span>') + (g.home ? b(g.home, 'tvr-btn', tvSvg('home', 26), 'Home') : '<span class="tvr-btn tvr-gap"></span>') + '</div>' +
+        rocker(g.chUp, g.chDown, 'Channel') + '</div>' +
+      pad +
+      '<div class="tvr-grid tvr-bottom">' + (hasNum ? toggle('num', 'Number', '<span class="tvr-123">123</span>') : '<div class="tvr-cell"></div>') + '<span></span>' + (more.length ? toggle('more', 'More', '<svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="18.5" cy="12" r="2" fill="currentColor"/></svg>') : '<div class="tvr-cell"></div>') + '</div>' +
+      panel + '</div>';
   }
 
   async function loadIrKeys(d) {
@@ -3234,6 +3313,37 @@
     return 'wait ' + (parts.join(' ') || '0 s');
   }
   // step: { executor, entity, props } (the shape scenes use)
+  // IR steps made in the Tuya app come in several shapes (standard AC instructions, lower-case
+  // power/mode/temp/wind, a button name, or raw IR codes with a description beside them).
+  // Returns plain words like "turn off", "cool, 24°, fan auto" or "press Power", or null.
+  function irPhrase(d, props, disp) {
+    const p = props || {}, keys = Object.keys(p);
+    const get = (...names) => { for (const n of names) { const k = keys.find((x) => x.toLowerCase() === n); if (k !== undefined) return p[k]; } return undefined; };
+    const num = (v) => (v === undefined || v === null || v === '' ? null : Number(v));
+    const power = get('poweroff') !== undefined ? 0 : get('poweron') !== undefined ? 1 : num(get('power', 'powerstate', 'switch', 'on'));
+    const mode = num(get('m', 'mode')), temp = num(get('t', 'temp', 'temperature')), wind = num(get('f', 'wind', 'fan', 'fanspeed'));
+    const bits = [];
+    if (power === 0 || get('power') === 'off' || get('power') === false) bits.push('turn off');
+    else {
+      if (power === 1 && mode == null && temp == null) bits.push('turn on');
+      if (mode != null && IR_MODES[mode]) bits.push(IR_MODES[mode].toLowerCase());
+      if (temp != null && Number.isFinite(temp)) bits.push(temp + '°');
+      if (wind != null && IR_WIND[wind]) bits.push('fan ' + IR_WIND[wind].toLowerCase());
+    }
+    const key = get('key', 'keyname', 'key_name', 'remote_key', 'keyid');
+    if (!bits.length && typeof key === 'string' && key.length <= 30 && !/^[0-9a-f]{16,}$/i.test(key)) bits.push('press ' + key);
+    if (!bits.length && disp && typeof disp === 'object') {
+      // The Tuya app's own description: values are text, or [label, value] pairs.
+      Object.values(disp).forEach((v) => {
+        if (Array.isArray(v)) { const t = v.filter((x) => typeof x === 'string' || typeof x === 'number').join(' '); if (t) bits.push(t); }
+        else if (typeof v === 'string' && v.trim() && !/^[0-9a-f]{16,}$/i.test(v)) bits.push(v.trim());
+      });
+    }
+    if (!bits.length && keys.length && keys.length <= 3 && keys.every((k) => k.length <= 16 && String(p[k]).length <= 12 && /^[A-Za-z_]+$/.test(k))) {
+      keys.forEach((k) => bits.push(k.replace(/_/g, ' ') + ' ' + p[k]));
+    }
+    return bits.length ? bits.join(', ') : null;
+  }
   function stepPhrase(step) {
     const ex = step.executor, props = step.props || {};
     if (ex === 'delay') return waitPhrase(props);
@@ -3247,6 +3357,7 @@
     }
     const d = step.entity ? findDevice(step.entity) : null;
     if (!d && !step.entity) return 'an action from the Tuya app';
+    if ((d && d.ir) || /^ir/.test(ex || '')) { const w = irPhrase(d, props, step.display); if (w) return (d ? d.name : 'a remote') + ' ' + w; }
     return (d ? d.name : 'a removed device') + ' ' + propsPhrase(d, props);
   }
   function stepsPhrase(steps, max) {
@@ -3415,11 +3526,11 @@
         const acForm = d.ir.ac && keys.length && keys.every((k) => ['PowerOn', 'PowerOff', 'T', 'M', 'F'].includes(k));
         const keyForm = !d.ir.ac && keys.length === 1 && a.props[keys[0]] === keys[0];
         if (!(acForm || keyForm) || (a.executor === 'irIssue' && !acForm && !keyForm)) {
-          return { type: 'raw', raw: { action_executor: a.executor, entity_id: a.entity, executor_property: a.props || {} } };
+          return { type: 'raw', raw: { action_executor: a.executor, entity_id: a.entity, executor_property: a.props || {} }, disp: a.display || null };
         }
       }
       if (d && sceneEligible(d)) return { type: 'device', deviceId: d.id, props: Object.assign({}, a.props) };
-      return { type: 'raw', raw: { action_executor: a.executor, entity_id: a.entity || undefined, executor_property: a.props || {} } };
+      return { type: 'raw', raw: { action_executor: a.executor, entity_id: a.entity || undefined, executor_property: a.props || {} }, disp: a.display || null };
     });
   }
   function openEditor(id) {
@@ -3582,10 +3693,12 @@
     }
     if (it.type === 'raw') {
       const d = it.raw.entity_id ? findDevice(it.raw.entity_id) : null;
-      const what = /^ir/.test(it.raw.action_executor) ? 'IR remote action' : /^rule/.test(it.raw.action_executor) ? 'Automation action' : 'Action';
+      const isIr = /^ir/.test(it.raw.action_executor) || !!(d && d.ir);
+      const what = isIr ? 'IR remote action' : /^rule/.test(it.raw.action_executor) ? 'Automation action' : 'Action';
+      const said = isIr ? irPhrase(d, it.raw.executor_property, it.disp) : null;
       return '<div class="se-item"><div class="se-head"><span class="icon-dot sm">' + (d ? deviceIcon(d, 18) : icon('generic', 18)) + '</span>' +
-        '<span class="se-title">' + esc(d ? d.name : what) + '</span>' + moves + '</div>' +
-        '<p class="note se-note">' + what + ' set up in the Tuya app. It\'s kept as is when you save.</p></div>';
+        '<span class="se-title">' + esc(d ? d.name : what) + (said ? '<span class="se-room se-ir-what">' + esc(said.charAt(0).toUpperCase() + said.slice(1)) + '</span>' : (d && d.room ? '<span class="se-room">' + esc(d.room) + '</span>' : '')) + '</span>' + moves + '</div>' +
+        '<p class="note se-note">' + (said ? 'Set up in the Tuya app and kept as is when you save. To change it, remove it and add the device again here.' : what + ' set up in the Tuya app. It\'s kept as is when you save.') + '</p></div>';
     }
     const d = findDevice(it.deviceId);
     if (!d) {
@@ -3855,7 +3968,7 @@
         loading: false, id: a.id, name: a.name, match: a.match_type === 2 ? 2 : a.match_type === 3 ? 3 : 1,
         conditionRule: a.condition_rule || '', background: a.background || '', preconditions: a.preconditions || [],
         conditions: conditionsToItems(a.conditions),
-        items: stepsToItems((a.actions || []).map((x) => ({ executor: x.action_executor, entity: x.entity_id || '', props: x.executor_property || {} })))
+        items: stepsToItems((a.actions || []).map((x) => ({ executor: x.action_executor, entity: x.entity_id || '', props: x.executor_property || {}, display: x.display })))
       });
       S.editor.items.forEach((it) => { if (it.type === 'device' && !S.specs[it.deviceId]) loadSpec(it.deviceId, true); });
       S.editor.conditions.forEach((c) => { if (c.type === 'device' && !S.specs[c.deviceId]) loadSpec(c.deviceId, true); });
@@ -4889,6 +5002,14 @@
       }
       case 'irwind': if (d && d.ir) sendIrAc(d, { power: true, wind: Number(el.dataset.v) }); break;
       case 'irkey': if (d && d.ir) sendIrKey(d, el.dataset.k); break;
+      case 'tvpanel': {
+        S.tvPanel = S.tvPanel || {};
+        S.tvPanel[id] = S.tvPanel[id] === el.dataset.p ? null : el.dataset.p;
+        render();
+        const pn = document.querySelector('.tvr-panel');
+        if (pn) { pn.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); if (pn.animate) pn.animate([{ opacity: 0, transform: 'translateY(10px) scale(.97)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'cubic-bezier(.25, .9, .35, 1)' }); }
+        break;
+      }
       case 'irreload': if (d && d.ir) { delete S.irKeys[d.id]; render(); } break;
       case 'mode': {
         if (!d) break;
@@ -5715,7 +5836,9 @@
       automations: [
         { id: 'au4', name: 'Lamps on at sunset', enabled: true, match_type: 1,
           conditions: [{ entity_type: 3, entity_id: '2643743', entity_name: 'London', display: { code: 'sunsetrise', operator: '==', value: 'sunset' } }],
-          actions: [{ action_executor: 'dpIssue', entity_id: 'dev2', executor_property: { switch_led: true } }] },
+          actions: [{ action_executor: 'dpIssue', entity_id: 'dev2', executor_property: { switch_led: true } },
+            { action_executor: 'irIssueVii', entity_id: 'ir1', executor_property: { power: '1', mode: '0', temp: '24', wind: '0', code: 'a1b2c3d4e5f6a7b8c9d0' } },
+            { action_executor: 'irIssueVii', entity_id: 'ir1', executor_property: { code: 'ffeeddccbbaa99887766' }, display: { PowerOff: ['Power', 'Off'] } }] },
         { id: 'au1', name: 'Porch light at 7 pm', enabled: true, match_type: 1,
           conditions: [{ entity_type: 6, entity_id: 'timer', display: { time: '19:00', loops: '1111111', timezone_id: 'Europe/London' } }],
           actions: [{ action_executor: 'dpIssue', entity_id: 'dev2', executor_property: { switch_led: true } }] },
@@ -5788,7 +5911,12 @@
           { key: 'Power', keyId: 1, name: 'Power' }, { key: 'Mute', keyId: 2, name: 'Mute' },
           { key: 'VolumeUp', keyId: 3, name: 'Volume +' }, { key: 'VolumeDown', keyId: 4, name: 'Volume −' },
           { key: 'ChannelUp', keyId: 5, name: 'Channel +' }, { key: 'ChannelDown', keyId: 6, name: 'Channel −' },
-          { key: 'Input', keyId: 7, name: 'Input' }, { key: 'Menu', keyId: 8, name: 'Menu' }, { key: 'OK', keyId: 9, name: 'OK' }
+          { key: 'Input', keyId: 7, name: 'Input' }, { key: 'Menu', keyId: 8, name: 'Menu' }, { key: 'OK', keyId: 9, name: 'OK' },
+          { key: 'Up', keyId: 10, name: 'Up' }, { key: 'Down', keyId: 11, name: 'Down' }, { key: 'Left', keyId: 12, name: 'Left' }, { key: 'Right', keyId: 13, name: 'Right' },
+          { key: 'Back', keyId: 14, name: 'Back' }, { key: 'Home', keyId: 15, name: 'Home' },
+          { key: '1', keyId: 21, name: '1' }, { key: '2', keyId: 22, name: '2' }, { key: '3', keyId: 23, name: '3' }, { key: '4', keyId: 24, name: '4' }, { key: '5', keyId: 25, name: '5' },
+          { key: '6', keyId: 26, name: '6' }, { key: '7', keyId: 27, name: '7' }, { key: '8', keyId: 28, name: '8' }, { key: '9', keyId: 29, name: '9' }, { key: '0', keyId: 20, name: '0' },
+          { key: 'Netflix', keyId: 30, name: 'Netflix' }, { key: 'Sleep', keyId: 31, name: 'Sleep' }
         ] };
       }
       if (path === 'ir') {
