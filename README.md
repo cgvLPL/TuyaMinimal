@@ -1,8 +1,42 @@
-# Home: a minimal PWA for Tuya devices
+<p align="center">
+  <img src="docs/logo.png" width="128" height="128" alt="Home app logo">
+</p>
 
-A clean, fast web app for your Tuya smart home, installable on phones and tablets.
-It talks to Tuya's official Cloud API through a small proxy that runs on Vercel,
-so your API secret never reaches the browser.
+<h1 align="center">Home</h1>
+
+<p align="center">
+  A minimal, fast web app for your Tuya smart home, installable on phones and tablets.<br>
+  It talks to Tuya's official Cloud API through a small proxy that runs on Vercel,
+  so your API secret never reaches the browser.
+</p>
+
+<p align="center">
+  <a href="https://tuya-minimal.vercel.app/?demo"><b>Try the demo</b></a> ·
+  <a href="#1-create-a-tuya-cloud-project">Set it up</a> ·
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
+
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/phone-home.webp" width="19%" alt="Devices on a phone, light mode">
+  <img src="docs/screenshots/phone-home-dark.webp" width="19%" alt="Devices on a phone, dark mode">
+  <img src="docs/screenshots/phone-color.webp" width="19%" alt="Colour wheel for a light strip">
+  <img src="docs/screenshots/phone-ac.webp" width="19%" alt="Air conditioner controls">
+  <img src="docs/screenshots/phone-scenes.webp" width="19%" alt="Scenes and automations">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/tablet-home.webp" width="100%" alt="Tablet layout with a controls panel">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/wall-tablet.webp" width="100%" alt="Wall tablet mode with a clock, scenes, rooms and thermostat-style AC controls">
+</p>
+
+<p align="center"><sub>Screenshots from demo mode (<code>/?demo</code>), which uses sample devices.</sub></p>
+
+## Features
 
 - Phone layout with bottom tabs, tablet layout with a side rail and a controls panel
 - Lights (on/off, brightness, warm/neutral/cool), plugs and switches, multi-outlet devices
@@ -10,7 +44,7 @@ so your API secret never reaches the browser.
   and thermostats, curtains, fans, sensors (door, motion, leak, smoke, temperature/humidity)
 - IR blasters: each remote you set up (AC, TV, fan...) appears as its own device; ACs get
   temperature, mode and fan controls, other remotes get their buttons
-- RGB color for color bulbs and light strips (color wheel, presets, saturation, brightness)
+- RGB color for color bulbs and light strips: an iOS-style color wheel, preset colors and a brightness bar
 - "All off" for the whole home or the selected room
 - People: give family members their own password (admins and members), and sync icons across devices
 - Greeting with the current weather at your home (from the home's address in the Tuya app,
@@ -35,7 +69,7 @@ so your API secret never reaches the browser.
 - Several homes: switch between them from the home name at the top of Devices
 - Custom device icons in Me → Device icons (synced when the database is set up)
 - Arrange device cards: tap the **arrows** button above the cards, drag the handles, tap **✓** (saved per home, synced when the database is set up)
-- Wall tablet mode (Me → Wall tablet mode): a full-screen clock, weather, sensor gauges, scenes and device buttons. It keeps the screen awake (where the browser allows), shows only a dim red clock from 22:00 to 06:00, like StandBy (tap to wake), and you press and hold the ✕ for a second to leave. Bookmark `/#kiosk` to open straight into it.
+- Wall tablet mode (Me → Wall tablet mode): a full-screen clock, weather, climate readings, scenes, room pills, thermostat-style AC controls (drag the arc, pick a mode by symbol) and device buttons. It keeps the screen awake (where the browser allows), shows only a dim red clock from 22:00 to 06:00, like StandBy (tap to wake), and you press and hold the ✕ for a second to leave. Bookmark `/#kiosk` to open straight into it.
 - Optional PIN unlock per device instead of typing the password (Me → Settings → Security)
 - Light and dark mode, offline app shell, installable from Chrome or Safari
 - Demo mode with sample devices: open `/?demo`
@@ -45,7 +79,8 @@ Not included: pairing new devices (keep using the Tuya app for that) and camera 
 ## Project layout
 
 ```
-public/            the PWA (index.html, app.js, app.css, manifest, service worker, icons)
+public/            the PWA (index.html, app.js, app.css, manifest, service worker, icons, fonts)
+docs/              the logo and screenshots for this README (not deployed)
 api/router.js      the only serverless function: every request goes to /api/router?r=<name>
 api/_routes/       the endpoints (folders starting with _ aren't deployed as separate functions,
                    which keeps the project within the free plan's 12-function limit)

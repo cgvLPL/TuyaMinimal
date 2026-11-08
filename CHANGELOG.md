@@ -2,6 +2,74 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.52.1
+
+- Wall tablet mode: AC mode symbols are in one row that slides sideways, like on the AC screen, instead of wrapping onto two lines. The next symbol fades in at the edge, the selected mode stays in view, and the row keeps its position after a tap.
+
+## 2.52.0
+
+- Air conditioner tiles now look like the Home app's thermostat tile: twice as tall, with the room temperature in large numbers at the top, coloured by what the AC is doing (blue cooling, orange heating, blue-to-orange auto, teal fan or dry, grey off), and the name and status ("Cooling to 24°") at the bottom. Tap the tile to open the thermostat. ACs with no thermometer show their icon at the top instead. Smaller tiles fill in beside it.
+
+## 2.50.2
+
+- AC screens: the mode symbols stay full size, and the row slides left and right when they don't all fit (IR ACs on phones), with a soft fade at the edges. The row keeps its position after a tap, and the selected mode is always in view.
+
+## 2.50.1
+
+- Fixed: on IR AC screens the six mode buttons were squeezed into ovals. They now stay round and share the row evenly.
+
+## 2.50.0
+
+- Air conditioner screens (phone and tablet panel) now use the thermostat from wall tablet mode: "Current" and humidity at the top, a large arc you drag to set the temperature, coloured by mode, and the modes as symbols (power, snowflake, sun, auto, fan, droplet). IR ACs keep the fan slider. The device tiles on Home are unchanged.
+- Fixed: changing an AC's mode and then quickly setting the temperature could jump back to the old temperature. A status refresh no longer overwrites a change that's still being sent (this also applies to + / − buttons and sliders).
+
+## 2.49.1
+
+- Fixed: repeating schedules from the Tuya app (like 07:00 on weekdays) were shown as one-time schedules. Tuya also stores a date on repeating schedules. They now show their days, and saving keeps them repeating.
+- Automations: sunrise/sunset and weather conditions from the Tuya app now show what they are ("At sunset", "Outside above 30°", "Weather turns rainy") with their city, instead of "Weather condition from the Tuya app". You can switch between sunrise and sunset, and change outside temperature, weather and humidity conditions.
+- Automations: new Sunrise / sunset button under When. It uses the same city as your other weather automations, or Tuya's city for your home's location.
+
+## 2.49.0
+
+- Automations: one-time schedules made in the Tuya app now show their date and time ("Once, Tue, Nov 10 at 7:30 AM") instead of "One-off schedule from the Tuya app", and you can edit them. Each time under When has a Repeat / Once switch: Repeat picks days of the week, Once picks a date. If the date has passed, the card says so.
+
+## 2.48.1
+
+- Android, Windows and other devices now use Inter, a free font made to match Apple's San Francisco, so the app looks the same everywhere. Apple devices keep the real San Francisco. Inter comes with the app (about 30 KB per weight), is only downloaded on devices that need it, and works offline.
+
+## 2.48.0
+
+- Uses Apple's own font, San Francisco (the iOS system font), on iPhone, iPad and Mac, instead of Outfit. Other devices use their own system font. The app no longer downloads a font from Google, so the first load is a little faster.
+
+## 2.47.0
+
+- Colour lights: iOS 26 colour controls. A colour wheel you drag (colour around the edge, paler towards the middle), preset colours with a ring on the selected one, and a thick brightness bar filled with the current colour. White / Color is now a capsule switch with a sliding thumb.
+- Fixed: since 2.44.0, opening a light in White mode could fail because the wall tablet AC dial reused a name from the brightness dial.
+
+## 2.46.0
+
+- Wall tablet mode: a slim row of room pills (All rooms, Living room, Bedroom...) sits above the tiles. Tap one to show only that room's devices, ACs and climate readings. The tablet remembers the choice, and it doesn't change the room on the Home tab.
+
+## 2.45.0
+
+- Wall tablet mode: AC modes are now round symbols instead of words: power (Off), snowflake (Cool), sun (Heat), A (Auto), fan (Fan) and droplet (Dry). The selected one fills with its colour, and its name shows underneath.
+
+## 2.44.1
+
+- Wall tablet mode: IR AC remote tiles are now the same size as other AC tiles. Their modes sit in two columns above the fan slider.
+
+## 2.44.0
+
+- Wall tablet mode: the AC widget now looks like the Home app's thermostat: the current temperature and humidity under its name, a large arc you drag to set the temperature (blue for cooling, orange for heating), "Set to" in the middle, and a mode menu with a check mark (Off, Cool, Heat, Auto...). IR ACs keep the fan slider.
+
+## 2.43.2
+
+- Wall tablet mode uses compact device tiles too (round icon on the left, name and state beside it), so many more devices fit on screen. Tap a tile to switch it on or off.
+
+## 2.43.1
+
+- Smoother switches: rocker switches, toggle switches and tile icons now slide (and change colour) in one smooth motion with a gentle spring, instead of jumping or restarting when the screen updates.
+
 ## 2.43.0
 
 - Tidier switch-group screen: the list under the rockers is now just "Switch names" (tap one to rename it), without repeating the on/off switches.

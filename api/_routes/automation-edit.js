@@ -1,9 +1,12 @@
 // Automations ("when X, do Y"), admins only.
 // GET  /api/automation-edit?homeId=..&id=..   → full automation (conditions, actions...)
+// GET  /api/automation-edit?homeId=..&city=1  → { cityId, cityName } for sunrise/sunset and weather conditions
 // POST /api/automation-edit { op: 'create' | 'update', homeId, automationId?, name, match_type,
 //                             conditions, actions, background?, preconditions?, condition_rule? }
 // POST /api/automation-edit { op: 'delete', homeId, automationId }
 const { call } = require('../_lib/tuya');
+const { cached } = require('../_lib/cache');
+const { homeLocation } = require('../_lib/location');
 const { handler, requireId } = require('../_lib/http');
 const { DEFAULT_BACKGROUND, cleanValue, cleanActions, bad, PROP_KEY, withIrFallback } = require('../_lib/rules');
 const access = require('../_lib/access');
@@ -32,9 +35,14 @@ function cleanConditions(list) {
     if (type === 6) {
       if (!/^\d{2}:\d{2}$/.test(String(display.time || ''))) throw bad('Schedules need a time.');
       if (display.loops !== undefined && !/^[01]{7}$/.test(String(display.loops))) throw bad('Invalid days.');
+      if (display.date !== undefined && !/^\d{8}$/.test(String(display.date))) throw bad('Invalid date.');
     }
     if (type === 1 && !['==', '>', '<'].includes(display.operator)) throw bad('Invalid comparison.');
-    return { entity_type: type, entity_id: id, order_num: i + 1, display };
+    if (type === 3 && !/^[A-Za-z]{1,20}$/.test(String(display.code || ''))) throw bad('Invalid weather condition.');
+    const out = { entity_type: type, entity_id: id, order_num: i + 1, display };
+    // Weather conditions carry the city's name, which the Tuya app shows.
+    if (type === 3 && typeof c.entity_name === 'string' && c.entity_name.trim()) out.entity_name = c.entity_name.trim().slice(0, 60);
+    return out;
   });
 }
 
@@ -42,6 +50,19 @@ module.exports = handler(['GET', 'POST'], async (req, body) => {
   const q = req.method === 'GET' ? (req.query || {}) : body;
   const homeId = requireId(String(q.homeId || ''), 'home');
   access.requireHome(req.user, homeId);
+
+  // The city Tuya uses for sunrise/sunset and weather conditions at this home.
+  if (req.method === 'GET' && q.city) {
+    const loc = await homeLocation(homeId);
+    if (!loc) throw bad('Add your home\'s address in the Tuya app first (Home settings → Location).');
+    const qs = '?lon=' + loc.lon.toFixed(6) + '&lat=' + loc.lat.toFixed(6);
+    const c = await cached('city:' + loc.lat.toFixed(3) + ',' + loc.lon.toFixed(3), 7 * 24 * 3600 * 1000, async () => {
+      try { return await call('GET', '/v2.0/iot-03/automations/cities/positions' + qs); }
+      catch (e) { return call('GET', '/v1.0/iot-03/cities/positions' + qs); }
+    });
+    if (!c || !c.city_id) throw bad('Tuya couldn\'t find a city for your home\'s location.');
+    return { cityId: String(c.city_id), cityName: c.city_name || loc.place || '' };
+  }
 
   if (req.method === 'GET') {
     const id = requireId(String(q.id || ''), 'automation');

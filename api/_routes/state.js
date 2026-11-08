@@ -257,6 +257,7 @@ module.exports = handler(['GET'], async (req) => {
       match_type: Number(a.match_type) || 1,
       conditions: (Array.isArray(a.conditions) ? a.conditions : []).slice(0, 10).map((c) => ({
         entity_type: Number(c.entity_type), entity_id: c.entity_id || '',
+        entity_name: typeof c.entity_name === 'string' ? c.entity_name.slice(0, 60) : '',
         display: c.display && typeof c.display === 'object' ? c.display : {}
       })),
       actions: (Array.isArray(a.actions) ? a.actions : []).slice(0, 40).map((x) => ({

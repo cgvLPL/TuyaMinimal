@@ -5,6 +5,106 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.52.1",
+      "items": [
+        "Wall tablet mode: AC mode symbols are in one row that slides sideways, like on the AC screen, instead of wrapping onto two lines. The next symbol fades in at the edge, the selected mode stays in view, and the row keeps its position after a tap."
+      ]
+    },
+    {
+      "v": "2.52.0",
+      "items": [
+        "Air conditioner tiles now look like the Home app's thermostat tile: twice as tall, with the room temperature in large numbers at the top, coloured by what the AC is doing (blue cooling, orange heating, blue-to-orange auto, teal fan or dry, grey off), and the name and status (\"Cooling to 24°\") at the bottom. Tap the tile to open the thermostat. ACs with no thermometer show their icon at the top instead. Smaller tiles fill in beside it."
+      ]
+    },
+    {
+      "v": "2.50.2",
+      "items": [
+        "AC screens: the mode symbols stay full size, and the row slides left and right when they don't all fit (IR ACs on phones), with a soft fade at the edges. The row keeps its position after a tap, and the selected mode is always in view."
+      ]
+    },
+    {
+      "v": "2.50.1",
+      "items": [
+        "Fixed: on IR AC screens the six mode buttons were squeezed into ovals. They now stay round and share the row evenly."
+      ]
+    },
+    {
+      "v": "2.50.0",
+      "items": [
+        "Air conditioner screens (phone and tablet panel) now use the thermostat from wall tablet mode: \"Current\" and humidity at the top, a large arc you drag to set the temperature, coloured by mode, and the modes as symbols (power, snowflake, sun, auto, fan, droplet). IR ACs keep the fan slider. The device tiles on Home are unchanged.",
+        "Fixed: changing an AC's mode and then quickly setting the temperature could jump back to the old temperature. A status refresh no longer overwrites a change that's still being sent (this also applies to + / − buttons and sliders)."
+      ]
+    },
+    {
+      "v": "2.49.1",
+      "items": [
+        "Fixed: repeating schedules from the Tuya app (like 07:00 on weekdays) were shown as one-time schedules. Tuya also stores a date on repeating schedules. They now show their days, and saving keeps them repeating.",
+        "Automations: sunrise/sunset and weather conditions from the Tuya app now show what they are (\"At sunset\", \"Outside above 30°\", \"Weather turns rainy\") with their city, instead of \"Weather condition from the Tuya app\". You can switch between sunrise and sunset, and change outside temperature, weather and humidity conditions.",
+        "Automations: new Sunrise / sunset button under When. It uses the same city as your other weather automations, or Tuya's city for your home's location."
+      ]
+    },
+    {
+      "v": "2.49.0",
+      "items": [
+        "Automations: one-time schedules made in the Tuya app now show their date and time (\"Once, Tue, Nov 10 at 7:30 AM\") instead of \"One-off schedule from the Tuya app\", and you can edit them. Each time under When has a Repeat / Once switch: Repeat picks days of the week, Once picks a date. If the date has passed, the card says so."
+      ]
+    },
+    {
+      "v": "2.48.1",
+      "items": [
+        "Android, Windows and other devices now use Inter, a free font made to match Apple's San Francisco, so the app looks the same everywhere. Apple devices keep the real San Francisco. Inter comes with the app (about 30 KB per weight), is only downloaded on devices that need it, and works offline."
+      ]
+    },
+    {
+      "v": "2.48.0",
+      "items": [
+        "Uses Apple's own font, San Francisco (the iOS system font), on iPhone, iPad and Mac, instead of Outfit. Other devices use their own system font. The app no longer downloads a font from Google, so the first load is a little faster."
+      ]
+    },
+    {
+      "v": "2.47.0",
+      "items": [
+        "Colour lights: iOS 26 colour controls. A colour wheel you drag (colour around the edge, paler towards the middle), preset colours with a ring on the selected one, and a thick brightness bar filled with the current colour. White / Color is now a capsule switch with a sliding thumb.",
+        "Fixed: since 2.44.0, opening a light in White mode could fail because the wall tablet AC dial reused a name from the brightness dial."
+      ]
+    },
+    {
+      "v": "2.46.0",
+      "items": [
+        "Wall tablet mode: a slim row of room pills (All rooms, Living room, Bedroom...) sits above the tiles. Tap one to show only that room's devices, ACs and climate readings. The tablet remembers the choice, and it doesn't change the room on the Home tab."
+      ]
+    },
+    {
+      "v": "2.45.0",
+      "items": [
+        "Wall tablet mode: AC modes are now round symbols instead of words: power (Off), snowflake (Cool), sun (Heat), A (Auto), fan (Fan) and droplet (Dry). The selected one fills with its colour, and its name shows underneath."
+      ]
+    },
+    {
+      "v": "2.44.1",
+      "items": [
+        "Wall tablet mode: IR AC remote tiles are now the same size as other AC tiles. Their modes sit in two columns above the fan slider."
+      ]
+    },
+    {
+      "v": "2.44.0",
+      "items": [
+        "Wall tablet mode: the AC widget now looks like the Home app's thermostat: the current temperature and humidity under its name, a large arc you drag to set the temperature (blue for cooling, orange for heating), \"Set to\" in the middle, and a mode menu with a check mark (Off, Cool, Heat, Auto...). IR ACs keep the fan slider."
+      ]
+    },
+    {
+      "v": "2.43.2",
+      "items": [
+        "Wall tablet mode uses compact device tiles too (round icon on the left, name and state beside it), so many more devices fit on screen. Tap a tile to switch it on or off."
+      ]
+    },
+    {
+      "v": "2.43.1",
+      "items": [
+        "Smoother switches: rocker switches, toggle switches and tile icons now slide (and change colour) in one smooth motion with a gentle spring, instead of jumping or restarting when the screen updates."
+      ]
+    },
+    {
       "v": "2.43.0",
       "items": [
         "Tidier switch-group screen: the list under the rockers is now just \"Switch names\" (tap one to rename it), without repeating the on/off switches.",
@@ -458,6 +558,7 @@
     mode: new URLSearchParams(location.search).has('demo') ? 'demo' : (store.get('mode') || 'live'),
     key: store.get('appKey') || '',
     homeId: store.get('homeId') || '',
+    kRoom: store.get('kRoom') || 'All',  // wall tablet mode's room (separate from the Home tab)
     data: null,
     loading: false,
     gate: null,          // null | 'login' | 'setup'
@@ -1125,6 +1226,23 @@
     return html + '</div>';
   }
 
+  // Like the Home app: "Cooling to 24°", "Heating to 28°", "Auto, 24°", "Fan only", "Drying".
+  function acStatus(mode, temp) {
+    if (mode === 'Cool') return 'Cooling to ' + temp;
+    if (mode === 'Heat') return 'Heating to ' + temp;
+    if (mode === 'Auto') return 'Auto, ' + temp;
+    if (mode === 'Fan') return 'Fan only';
+    if (mode === 'Dry') return 'Drying';
+    return mode ? mode + ' to ' + temp : 'Set to ' + temp;
+  }
+  // The room temperature for an AC: its own sensor, or the IR blaster's thermometer.
+  function acRoomTemp(d) {
+    if (kindOf(d) === 'irac') {
+      const hub = d.ir && d.ir.hub ? findDevice(d.ir.hub) : null;
+      return hub ? (scaled(hub, 'va_temperature', true) ?? scaled(hub, 'temp_current', true)) : null;
+    }
+    return scaled(d, 'temp_current', true);
+  }
   function statusText(d) {
     if (!d.online) return 'Offline';
     const k = kindOf(d), on = isOn(d), st = d.status;
@@ -1140,8 +1258,7 @@
     if (k === 'climate') {
       if (powerCode(d) && !on) return 'Off';
       const set = scaled(d, 'temp_set', true);
-      const m = st.mode ? modeLabel(st.mode) : 'Set';
-      return set != null ? m + ' to ' + fmtTemp(set) : 'On';
+      return set != null ? acStatus(st.mode ? modeLabel(st.mode) : '', fmtTemp(set)) : 'On';
     }
     if (k === 'cover') {
       const p = st.percent_state ?? st.percent_control;
@@ -1149,7 +1266,7 @@
     }
     if (k === 'irac') {
       const st2 = d.ir.state || {};
-      return st2.power ? (IR_MODES[st2.mode] || 'On') + ' to ' + st2.temp + '°' : 'Off';
+      return st2.power ? acStatus(IR_MODES[st2.mode] || '', st2.temp + '°') : 'Off';
     }
     if (k === 'irremote') return 'Remote control';
     if (k === 'multi') {
@@ -1205,8 +1322,9 @@
   // Debounced send for +/- taps, so five quick taps become one command.
   function sendSoon(d, code, value) {
     const key = d.id + code;
-    if (!pendingSend[key]) pendingSend[key] = { before: Object.assign({}, d.status) };
+    if (!pendingSend[key]) pendingSend[key] = { id: d.id, before: Object.assign({}, d.status) };
     d.status[code] = value;
+    S.touched[d.id] = Date.now();
     render();
     clearTimeout(pendingSend[key].t);
     pendingSend[key].t = setTimeout(() => {
@@ -1217,6 +1335,8 @@
   }
 
   function findDevice(id) { return S.data && S.data.devices.find((x) => x.id === id); }
+  // A change waiting to be sent (debounced) or on its way: a status refresh mustn't undo it.
+  function hasLocalChange(id) { return isPending(id) || Object.values(pendingSend).some((p) => p.id === id); }
 
   // ---------- Icons (inline stroke SVG) ----------
   const P = {
@@ -1242,6 +1362,8 @@
     car: '<path d="M5 17h14v-4l-2-5H7l-2 5zM5 17v2M19 17v2M8 13.5v.01M16 13.5v.01"/>',
     sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
     moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+    sunrise: '<path d="M3 19h18M7 19a5 5 0 0 1 10 0M12 3v6M9 6l3-3 3 3M4.6 12.6l1.4 1.4M19.4 12.6 18 14"/>',
+    sunset: '<path d="M3 19h18M7 19a5 5 0 0 1 10 0M12 3v6M9 6l3 3 3-3M4.6 12.6l1.4 1.4M19.4 12.6 18 14"/>',
     cloudsun: '<path d="M8 2.5V4M2.5 8H4M4.1 4.1l1.1 1.1M12.6 6.4A4 4 0 0 0 5.1 9"/><path d="M8.5 20h8.5a4 4 0 0 0 .5-8 5.5 5.5 0 0 0-10.4 1.8A3.2 3.2 0 0 0 8.5 20z"/>',
     cloud: '<path d="M7 19h10a4.5 4.5 0 0 0 .6-9 6 6 0 0 0-11.5 1.8A3.6 3.6 0 0 0 7 19z"/>',
     fog: '<path d="M4 8h16M3 12h18M5 16h14M8 20h8"/>',
@@ -1300,6 +1422,8 @@
     plus: '<path d="M12 5v14M5 12h14"/>',
     minus: '<path d="M5 12h14"/>',
     power: '<path d="M12 3v8M6.3 7.3a8 8 0 1 0 11.4 0"/>',
+    flake: '<path d="M12 2v20M3.3 7l17.4 10M3.3 17l17.4-10M9.5 3.5 12 6l2.5-2.5M9.5 20.5 12 18l2.5 2.5M3.6 10.4 6.8 9.5 5.9 6.2M18.1 17.8l-.9-3.3 3.2-.9M3.6 13.6l3.2.9-.9 3.3M18.1 6.2l-.9 3.3 3.2.9"/>',
+    automode: '<path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v4h-4"/><path d="M9 15.5 12 8l3 7.5M10 13.2h4"/>',
     chevron: '<path d="M9 5l7 7-7 7"/>',
     play: '<path d="M7 5l12 7-12 7z" fill="currentColor" stroke="none"/>',
     check: '<path d="M5 12l5 5 9-10"/>'
@@ -1379,8 +1503,24 @@
 
   // Compact tile, like the Home app's accessory tiles: a round icon on the left (tap it to turn the
   // device on or off) and the name and state beside it (tap for the full controls).
+  // Air conditioners, like the Home app's thermostat tile: a tall tile with the room temperature
+  // in large coloured numbers (blue cooling, orange heating...), name and status underneath. Tap to open.
+  function acCard(d, selectedId) {
+    const on = isOn(d), theme = acTheme(d), room = acRoomTemp(d), r = S.reorder, status = statusText(d);
+    const cls = ['card', 'compact', 'ac-tile', 'ac-big', 'ac-' + theme, on ? 'active' : '', d.id === selectedId ? 'selected' : '', isPending(d.id) ? 'pending' : ''].join(' ');
+    const top = room != null
+      ? '<span class="ac-big-num">' + Math.round(room) + '°</span>'
+      : '<span class="ac-big-icon" aria-hidden="true">' + deviceIcon(d) + '</span>';
+    return '<div class="' + cls + '" data-card-id="' + esc(d.id) + '">' +
+      '<button class="card-open"' + (r ? ' inert' : '') + ' data-act="open" data-id="' + esc(d.id) + '" data-key="open-' + esc(d.id) + '" aria-label="' +
+      esc(d.name + ', ' + (room != null ? Math.round(room) + '° in the room, ' : '') + status + ', show controls') + '">' + top +
+      '<span class="card-text"><span class="card-name">' + esc(d.name) + '</span><span class="card-status">' + esc(status) + '</span></span></button>' +
+      (r ? '<button class="card-grip" data-key="grip-' + esc(d.id) + '" aria-label="Move ' + esc(d.name) + '. Use the arrow keys.">' + icon('grip', 18) + '</button>' : '') +
+      '</div>';
+  }
   function deviceCard(d, selectedId) {
     const on = isOn(d), toggle = hasToggle(d), lit = toggle && on && d.online;
+    if (d.online && isKioskAc(d)) return acCard(d, selectedId);
     const cls = ['card', 'compact', photoOf(d) ? 'has-photo' : '', lit ? 'active' : '', d.online ? '' : 'offline', d.id === selectedId ? 'selected' : '', isPending(d.id) ? 'pending' : ''].join(' ');
     const r = S.reorder, busy = isPending(d.id);
     const colour = lit && kindOf(d) === 'light' && inColour(d) ? ' style="background:' + colourCss(d) + ';color:#141414"' : '';
@@ -1755,7 +1895,7 @@
   const flipped = {};   // id -> time of the last tap, so only a real change animates
   function rockerSwitch(d) {
     const on = isOn(d), busy = isPending(d.id);
-    const anim = flipped[d.id] && Date.now() - flipped[d.id] < 500 ? (on ? ' flip-up' : ' flip-down') : '';
+    const anim = '';
     return '<div class="rocker-wrap">' +
       '<span class="rocker-state' + (on ? ' on' : '') + '" aria-hidden="true">' + (busy ? (on ? 'Turning on…' : 'Turning off…') : on ? 'On' : 'Off') + '</span>' +
       '<button class="rocker' + anim + (busy ? ' pending' : '') + '" role="switch" aria-checked="' + on + '" aria-label="' + esc(d.name) + '" data-act="toggle" data-id="' + esc(d.id) + '" data-key="rocker-' + esc(d.id) + '"' + (busy ? ' aria-busy="true"' : '') + (d.online ? '' : ' disabled') + '>' +
@@ -1770,7 +1910,7 @@
     const items = codes.map((c) => {
       const on = !!d.status[c], key = d.id + ':' + c;
       const glyph = outlets || /usb/.test(c) ? 'plug' : 'light';
-      const anim = flipped[key] && Date.now() - flipped[key] < 500 ? (on ? ' flip-up' : ' flip-down') : '';
+      const anim = '';
       const name = channelName(d, c);
       return '<div class="mr-item"><button class="rocker mr' + anim + (busy ? ' pending' : '') + '" role="switch" aria-checked="' + on + '" aria-label="' + esc(name) + '"' +
         ' data-act="toggle" data-id="' + esc(d.id) + '" data-code="' + esc(c) + '" data-key="mr-' + esc(d.id) + '-' + esc(c) + '"' + (d.online ? '' : ' disabled') + '>' +
@@ -1870,27 +2010,88 @@
 
   function lightModeSeg(d, sfx) {
     const colour = inColour(d);
-    return '<div class="seg" style="--n:2" role="group" aria-label="Light mode">' +
+    return '<div class="seg seg26' + (colour ? ' at-1' : '') + '" style="--n:2" role="group" aria-label="Light mode"><span class="seg26-thumb" aria-hidden="true"></span>' +
       '<button class="chip soft" data-act="lmode" data-val="white" data-id="' + esc(d.id) + '" data-key="lmode-w' + sfx + '" aria-pressed="' + !colour + '">White</button>' +
       '<button class="chip soft" data-act="lmode" data-val="colour" data-id="' + esc(d.id) + '" data-key="lmode-c' + sfx + '" aria-pressed="' + colour + '">Color</button></div>';
   }
   const SWATCHES = [['Red', 0], ['Orange', 28], ['Yellow', 52], ['Green', 120], ['Cyan', 185], ['Blue', 225], ['Purple', 275], ['Pink', 320]];
+  // iOS-style: a colour wheel (hue around, saturation outwards), preset swatches and a thick brightness bar.
   function colourControls(d, sfx) {
     const code = colourCode(d), m = colourMax(code), c = currentColour(d);
     const sPct = Math.round((c.s / m.s) * 100), vPct = toPct(c.v, { min: m.vmin, max: m.v });
-    const id = esc(d.id) + sfx;
-    return '<div class="colour-ctl" data-id="' + esc(d.id) + '">' +
-      '<div class="colour-preview" style="background:' + hsvCss(c.h, sPct) + '" aria-hidden="true"></div>' +
-      '<div class="swatches" role="group" aria-label="Colors">' + SWATCHES.map(([n, h]) =>
-        '<button class="swatch" style="background:' + hsvCss(h, 100) + '" data-act="swatch" data-h="' + h + '" data-id="' + esc(d.id) + '" data-key="sw-' + n + sfx + '" aria-label="' + n + '"></button>').join('') + '</div>' +
-      '<div class="range"><div class="row-between"><label class="se-label" for="hue-' + id + '">Color</label></div>' +
-      '<input id="hue-' + id + '" class="hue-range" type="range" min="0" max="360" value="' + Math.round(c.h) + '" data-act="hue" data-id="' + esc(d.id) + '" data-key="hue-' + id + '"></div>' +
-      '<div class="range"><div class="row-between"><label class="se-label" for="sat-' + id + '">Saturation</label><span class="se-value" data-colour-label="sat">' + sPct + '%</span></div>' +
-      '<input id="sat-' + id + '" type="range" min="0" max="100" value="' + sPct + '" data-act="sat" data-id="' + esc(d.id) + '" data-key="sat-' + id + '"></div>' +
-      '<div class="range"><div class="row-between"><label class="se-label" for="cv-' + id + '">Brightness</label><span class="se-value" data-colour-label="v">' + vPct + '%</span></div>' +
-      '<input id="cv-' + id + '" type="range" min="1" max="100" value="' + vPct + '" data-act="cbright" data-id="' + esc(d.id) + '" data-key="cv-' + id + '"></div>' +
+    const id = esc(d.id) + sfx, did = esc(d.id);
+    const [tx, ty] = cwPoint(c.h, sPct);
+    const near = (h) => sPct >= 85 && Math.min(Math.abs(c.h - h), 360 - Math.abs(c.h - h)) <= 10;
+    return '<div class="colour-ctl cw26" data-id="' + did + '" style="--cw-col:' + hsvCss(c.h, sPct) + ';--cw-v:' + vPct + '%">' +
+      '<div class="cw-wheel" data-id="' + did + '" data-key="cw-' + id + '" aria-hidden="true">' +
+      '<span class="cw-thumb" style="left:' + tx.toFixed(2) + '%;top:' + ty.toFixed(2) + '%"></span></div>' +
+      '<div class="swatches cw-swatches" role="group" aria-label="Colors">' + SWATCHES.map(([n, h]) =>
+        '<button class="swatch" style="--sw:' + hsvCss(h, 100) + '" data-act="swatch" data-h="' + h + '" data-id="' + did + '" data-key="sw-' + n + sfx + '" aria-label="' + n + '" aria-pressed="' + near(h) + '"></button>').join('') + '</div>' +
+      // Hue and saturation also as (visually hidden) sliders, for keyboards and screen readers.
+      '<div class="sr-only"><label for="hue-' + id + '">Hue</label><input id="hue-' + id + '" class="hue-range" type="range" min="0" max="360" value="' + Math.round(c.h) + '" data-act="hue" data-id="' + did + '" data-key="hue-' + id + '">' +
+      '<label for="sat-' + id + '">Saturation</label><input id="sat-' + id + '" type="range" min="0" max="100" value="' + sPct + '" data-act="sat" data-id="' + did + '" data-key="sat-' + id + '"></div>' +
+      '<div class="cw-bright"><label class="sr-only" for="cv-' + id + '">Brightness</label>' +
+      '<input id="cv-' + id + '" class="cw-bar" type="range" min="1" max="100" value="' + vPct + '" data-act="cbright" data-id="' + did + '" data-key="cv-' + id + '">' +
+      '<span class="cw-bar-icon" aria-hidden="true">' + icon('sun', 18) + '</span>' +
+      '<span class="cw-bar-val" data-colour-label="v" aria-hidden="true">' + vPct + '%</span></div>' +
+      '<span class="sr-only" data-colour-label="sat">' + sPct + '%</span>' +
       '</div>';
   }
+  // Wheel geometry: hue 0 points right and runs clockwise; saturation is the distance from the centre.
+  function cwPoint(h, sPct) {
+    const a = h * Math.PI / 180, r = 50 * clamp(sPct, 0, 100) / 100;
+    return [50 + r * Math.cos(a), 50 + r * Math.sin(a)];
+  }
+  function cwRead(wheel, e) {
+    const b = wheel.getBoundingClientRect();
+    const x = (e.clientX - b.left) / b.width - 0.5, y = (e.clientY - b.top) / b.height - 0.5;
+    const h = Math.round(((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360);
+    const sPct = Math.round(clamp(Math.hypot(x, y) / 0.5, 0, 1) * 100);
+    return { h, sPct };
+  }
+  // Updates everything on screen while a control moves; the light is told when it stops.
+  function colourLive(ctl, d) {
+    const r = readColourCtl(ctl, d);
+    ctl.style.setProperty('--cw-col', hsvCss(r.h, r.sPct));
+    ctl.style.setProperty('--cw-v', r.vPct + '%');
+    const t = ctl.querySelector('.cw-thumb');
+    if (t) { const [x, y] = cwPoint(r.h, r.sPct); t.style.left = x.toFixed(2) + '%'; t.style.top = y.toFixed(2) + '%'; }
+    const sl = ctl.querySelector('[data-colour-label="sat"]'), vl = ctl.querySelector('[data-colour-label="v"]');
+    if (sl) sl.textContent = r.sPct + '%';
+    if (vl) vl.textContent = r.vPct + '%';
+    ctl.querySelectorAll('.swatch').forEach((b) => { const dh = Math.abs(r.h - Number(b.dataset.h)); b.setAttribute('aria-pressed', String(r.sPct >= 85 && Math.min(dh, 360 - dh) <= 10)); });
+    return r;
+  }
+  let cwDrag = null;
+  document.addEventListener('pointerdown', (e) => {
+    const wheel = e.target.closest && e.target.closest('.cw-wheel');
+    if (!wheel || e.button > 0) return;
+    const ctl = wheel.closest('.colour-ctl'), d = findDevice(wheel.dataset.id);
+    if (!ctl || !d) return;
+    e.preventDefault();
+    cwDrag = { wheel, ctl, d };
+    S.dragging = true;
+    wheel.classList.add('dragging');
+    try { wheel.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    cwMove(e);
+  });
+  function cwMove(e) {
+    if (!cwDrag) return;
+    const { h, sPct } = cwRead(cwDrag.wheel, e);
+    cwDrag.ctl.querySelector('[data-act="hue"]').value = h;
+    cwDrag.ctl.querySelector('[data-act="sat"]').value = sPct;
+    colourLive(cwDrag.ctl, cwDrag.d);
+  }
+  document.addEventListener('pointermove', cwMove);
+  const cwEnd = () => {
+    if (!cwDrag) return;
+    const { wheel, ctl, d } = cwDrag;
+    cwDrag = null; S.dragging = false;
+    wheel.classList.remove('dragging');
+    sendColour(d, readColourCtl(ctl, d).value);
+  };
+  document.addEventListener('pointerup', cwEnd);
+  document.addEventListener('pointercancel', cwEnd);
   function readColourCtl(ctl, d) {
     const code = colourCode(d), m = colourMax(code);
     const h = Number(ctl.querySelector('[data-act="hue"]').value);
@@ -2302,24 +2503,7 @@
           '<button class="chip soft" data-act="warmth" data-id="' + esc(d.id) + '" data-pct="' + p + '" data-key="warm-' + n + sfx + '" aria-pressed="' + (Math.abs(pct - p) <= 12) + '">' + n + '</button>').join('') + '</div>';
       }
     } else if (k === 'climate' && 'temp_set' in st) {
-      const set = scaled(d, 'temp_set', true);
-      const cur = scaled(d, 'temp_current', true);
-      const sp = specOf(d, 'temp_set');
-      const sc = sp && typeof sp.scale === 'number' ? sp.scale : (Math.abs(st.temp_set) >= 60 ? 1 : 0);
-      const div = Math.pow(10, sc);
-      hero += tempDial(d, {
-        set, cur, on, sfx, act: 'temp',
-        min: sp && typeof sp.min === 'number' ? sp.min / div : 16,
-        max: sp && typeof sp.max === 'number' ? sp.max / div : 30,
-        step: sp && sp.step ? sp.step / div : 1,
-        unit: tempUnitOf(sp)
-      });
-      if ('mode' in st) {
-        const sp = specOf(d, 'mode');
-        const modes = (sp && Array.isArray(sp.range) && sp.range.length) ? sp.range : ['cold', 'hot', 'wind', 'auto'];
-        hero += '<div class="seg" style="--n:' + Math.min(4, modes.length) + '" role="group" aria-label="Mode">' + modes.map((m) =>
-          '<button class="chip soft" data-act="mode" data-id="' + esc(d.id) + '" data-val="' + esc(m) + '" data-key="mode-' + esc(m) + sfx + '" aria-pressed="' + (st.mode === m) + '">' + esc(modeLabel(m)) + '</button>').join('') + '</div>';
-      }
+      hero += acPage(d, sfx);
     } else if (k === 'cover') {
       const p = st.percent_control ?? st.percent_state;
       hero += '<div class="stack-center"><span class="big" data-live="cover-' + esc(d.id) + '">' + (typeof p === 'number' ? p + '%' : '–') + '</span><span class="big-label">Open</span></div>';
@@ -2337,14 +2521,7 @@
       hero += '<div class="stack-center"><span class="icon-dot" style="width:72px;height:72px;border-radius:36px">' + icon('camera', 32) + '</span>' +
         '<p class="note">Live video is not available in this app yet. Open the camera in the Tuya app to watch.</p></div>';
     } else if (k === 'irac') {
-      const st2 = d.ir.state || { power: false, mode: 0, temp: 24, wind: 0 };
-      // Blasters with a built-in thermometer give the room temperature.
-      const hub = d.ir.hub ? findDevice(d.ir.hub) : null;
-      const room = hub ? (scaled(hub, 'va_temperature', true) ?? scaled(hub, 'temp_current', true)) : null;
-      hero += tempDial(d, { set: st2.temp, cur: room, on: !!st2.power, sfx, act: 'irtemp', min: 16, max: 30, step: 1, unit: '°C' }) +
-        '<div class="seg-label">Mode</div><div class="seg" style="--n:5" role="group" aria-label="Mode">' + IR_MODES.map((m, i) =>
-          '<button class="chip soft" data-act="irmode" data-v="' + i + '" data-id="' + esc(d.id) + '" data-key="irmode-' + i + sfx + '" aria-pressed="' + (st2.power && st2.mode === i) + '">' + m + '</button>').join('') + '</div>' +
-        irFanControl(d, st2, sfx);
+      hero += acPage(d, sfx);
     } else if (k === 'irremote') {
       hero += irRemotePad(d, sfx);
     } else if (k === 'multi') {
@@ -2460,11 +2637,76 @@
     try { return new Date(2000, 0, 1, Number(m[1]), Number(m[2])).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
     catch (e) { return m[0]; }
   }
+  // One-off schedules: Tuya stores the date as YYYYMMDD; the date picker uses YYYY-MM-DD.
+  function isoDate(t) { const m = /^(\d{4})-?(\d{2})-?(\d{2})$/.exec(String(t || '')); return m ? m[1] + '-' + m[2] + '-' + m[3] : ''; }
+  function datePhrase(t) {
+    const iso = isoDate(t);
+    if (!iso) return String(t || '');
+    const [y, mo, d] = iso.split('-').map(Number), dt = new Date(y, mo - 1, d), now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()), diff = Math.round((dt - today) / 86400000);
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Tomorrow';
+    try { return dt.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short', year: y === now.getFullYear() ? undefined : 'numeric' }); }
+    catch (e) { return iso; }
+  }
+  function isOnceTimer(disp) { const l = String((disp && disp.loops) || ''); return !!(disp && isoDate(disp.date)) && (l === '' || l === '0000000'); }
+  function onceIsPast(date, time) {
+    const iso = isoDate(date), m = /^(\d{1,2}):(\d{2})$/.exec(String(time || ''));
+    if (!iso || !m) return false;
+    const [y, mo, d] = iso.split('-').map(Number);
+    return new Date(y, mo - 1, d, Number(m[1]), Number(m[2])) < new Date();
+  }
+  // Weather conditions (Tuya type 3): sunrise/sunset, outside temperature, humidity, weather...
+  // They belong to a city (Tuya's city ID), shown with its name, e.g. "TangerangSelatan" → "Tangerang Selatan".
+  function cityLabel(n) { return String(n || '').replace(/([a-z])([A-Z])/g, '$1 $2').trim(); }
+  const WX_SKY = [['sunny', 'Sunny'], ['cloudy', 'Cloudy'], ['rainy', 'Rainy'], ['snowy', 'Snowy'], ['polluted', 'Hazy']];
+  const WX_HUM = [['dry', 'Dry'], ['comfortable', 'Comfortable'], ['humid', 'Humid']];
+  const opWord = (op) => (op === '>' ? 'above' : op === '<' ? 'below' : 'is');
+  function weatherPhrase(disp) {
+    const v = disp.value, code = String(disp.code || '');
+    const pick = (list) => { const f = list.find(([k]) => k === v); return f ? f[1].toLowerCase() : String(v); };
+    if (code === 'sunsetrise') return v === 'sunrise' ? 'At sunrise' : v === 'sunset' ? 'At sunset' : 'At sunrise or sunset';
+    if (code === 'temp') return 'Outside ' + opWord(disp.operator) + ' ' + v + '°';
+    if (code === 'humidity') return 'Outside air is ' + pick(WX_HUM);
+    if (code === 'condition') return 'Weather turns ' + pick(WX_SKY);
+    if (code === 'pm25') return 'Outdoor PM2.5 is ' + v;
+    if (code === 'aqi') return 'Outdoor air quality is ' + v;
+    if (code === 'windSpeed') return 'Wind speed ' + opWord(disp.operator) + ' ' + v;
+    return 'The weather changes';
+  }
+  function weatherIcon(disp) {
+    const code = String(disp.code || '');
+    if (code === 'sunsetrise') return disp.value === 'sunrise' ? 'sunrise' : 'sunset';
+    if (code === 'temp') return 'thermo';
+    if (code === 'humidity') return 'drop';
+    if (code === 'condition') return disp.value === 'rainy' ? 'rain' : disp.value === 'snowy' ? 'snow' : disp.value === 'cloudy' ? 'cloud' : 'sun';
+    return 'cloudsun';
+  }
+  // The city for new sunrise/sunset conditions: one this home already uses, else Tuya's city for the home's location.
+  async function automationCity() {
+    const E = S.editor, homeId = S.data.homeId;
+    const mine = E && E.conditions.find((c) => c.type === 'weather' && c.cityId);
+    if (mine) return { cityId: mine.cityId, cityName: mine.cityName };
+    for (const a of S.data.automations || []) for (const c of a.conditions || []) {
+      if (Number(c.entity_type) === 3 && c.entity_id) return { cityId: String(c.entity_id), cityName: c.entity_name || '' };
+    }
+    if (S.cityCache && S.cityCache.homeId === homeId) return S.cityCache;
+    const r = await api('automation-edit?homeId=' + encodeURIComponent(homeId) + '&city=1');
+    S.cityCache = { homeId, cityId: String(r.cityId), cityName: r.cityName || '' };
+    return S.cityCache;
+  }
+  // Copy the shape Tuya used for an existing sunrise/sunset condition, if there is one.
+  function sunTemplate() {
+    for (const a of S.data.automations || []) for (const c of a.conditions || []) {
+      if (Number(c.entity_type) === 3 && c.display && c.display.code === 'sunsetrise') return Object.assign({}, c.display);
+    }
+    return { code: 'sunsetrise', operator: '==', value: 'sunset' };
+  }
   // c: a Tuya condition { entity_type, entity_id, display }
   function conditionPhrase(c) {
     const t = Number(c.entity_type), disp = c.display || {};
-    if (t === 6) return disp.date ? 'On ' + disp.date + ' at ' + clockPhrase(disp.time) : daysPhrase(disp.loops) + ' at ' + clockPhrase(disp.time);
-    if (t === 3) return 'The weather changes';
+    if (t === 6) return isOnceTimer(disp) ? 'Once, ' + datePhrase(disp.date) + ' at ' + clockPhrase(disp.time) : daysPhrase(disp.loops) + ' at ' + clockPhrase(disp.time);
+    if (t === 3) return weatherPhrase(disp);
     if (t === 15) return 'An outside trigger fires';
     const d = findDevice(c.entity_id);
     if (!d) return 'A device changes';
@@ -2826,9 +3068,15 @@
   function conditionsToItems(conds) {
     return (conds || []).map((c) => {
       const disp = c.display || {};
-      if (Number(c.entity_type) === 6 && !disp.date && /^\d{2}:\d{2}$/.test(String(disp.time || ''))) {
-        const loops = /^[01]{7}$/.test(String(disp.loops || '')) ? String(disp.loops) : '1111111';
-        return { type: 'timer', time: disp.time, days: loops.split('').map((x) => x === '1'), tz: disp.timezone_id || timeZone() };
+      // Schedules. Tuya stores a date on repeating ones too, so "once" means: no repeat days.
+      if (Number(c.entity_type) === 6 && /^\d{1,2}:\d{2}$/.test(String(disp.time || ''))) {
+        const time = String(disp.time).padStart(5, '0'), loops = String(disp.loops || '');
+        if (isOnceTimer(disp)) return { type: 'timer', once: true, date: isoDate(disp.date), time, days: [true, true, true, true, true, true, true], tz: disp.timezone_id || timeZone(), disp };
+        const l = /^[01]{7}$/.test(loops) && loops !== '0000000' ? loops : '1111111';
+        return { type: 'timer', time, days: l.split('').map((x) => x === '1'), tz: disp.timezone_id || timeZone(), disp };
+      }
+      if (Number(c.entity_type) === 3 && c.entity_id && disp.code) {
+        return { type: 'weather', cityId: String(c.entity_id), cityName: c.entity_name || '', disp: Object.assign({}, disp) };
       }
       if (Number(c.entity_type) === 1) {
         const d = findDevice(c.entity_id);
@@ -2858,10 +3106,36 @@
     if (c.type === 'timer') {
       return '<div class="se-item"><div class="se-head"><span class="icon-dot sm">' +
         '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>' +
-        '</span><span class="se-title">At a time<span class="se-room">' + esc(c.tz) + '</span></span>' + tools + '</div>' +
+        '</span><span class="se-title">' + (c.once ? 'Once, ' + esc(datePhrase(c.date)) + ' at ' + esc(clockPhrase(c.time)) : esc(daysPhrase(c.days.map((x) => (x ? '1' : '0')).join(''))) + ' at ' + esc(clockPhrase(c.time))) +
+        '<span class="se-room">' + esc(c.tz) + '</span></span>' + tools + '</div>' +
+        '<div class="seg" style="--n:2" role="group" aria-label="Repeat">' +
+        '<button class="chip soft" data-act="ae-once" data-v="0" data-i="' + i + '" data-key="ae-rep-' + i + '" aria-pressed="' + !c.once + '">Repeat</button>' +
+        '<button class="chip soft" data-act="ae-once" data-v="1" data-i="' + i + '" data-key="ae-once-' + i + '" aria-pressed="' + !!c.once + '">Once</button></div>' +
+        (c.once ? '<div class="field-inline"><label for="ae-date-' + i + '">Date</label><input id="ae-date-' + i + '" type="date" value="' + esc(c.date || '') + '" data-act="ae-date" data-i="' + i + '" data-key="ae-date-' + i + '"></div>' : '') +
         '<div class="field-inline"><label for="ae-time-' + i + '">Time</label><input id="ae-time-' + i + '" type="time" value="' + esc(c.time) + '" data-act="ae-time" data-i="' + i + '" data-key="ae-time-' + i + '"></div>' +
-        '<div class="days" role="group" aria-label="Days">' + DAY_LETTERS.map((l, d) =>
-          '<button class="day" data-act="ae-day" data-i="' + i + '" data-d="' + d + '" data-key="ae-day-' + i + '-' + d + '" aria-pressed="' + !!c.days[d] + '" aria-label="' + DAY_NAMES[d] + '">' + l + '</button>').join('') + '</div></div>';
+        (c.once
+          ? (onceIsPast(c.date, c.time) ? '<p class="note se-note">This date has passed, so it won\'t run again. Pick a new date or switch to Repeat.</p>' : '')
+          : '<div class="days" role="group" aria-label="Days">' + DAY_LETTERS.map((l, d) =>
+            '<button class="day" data-act="ae-day" data-i="' + i + '" data-d="' + d + '" data-key="ae-day-' + i + '-' + d + '" aria-pressed="' + !!c.days[d] + '" aria-label="' + DAY_NAMES[d] + '">' + l + '</button>').join('') + '</div>') +
+        '</div>';
+    }
+    if (c.type === 'weather') {
+      const v = c.disp.value, code = c.disp.code;
+      let body = '';
+      const chips = (act, list, cur) => '<div class="seg" style="--n:' + list.length + '" role="group">' + list.map(([k, label]) =>
+        '<button class="chip soft" data-act="' + act + '" data-i="' + i + '" data-v="' + esc(k) + '" data-key="' + act + '-' + i + '-' + esc(k) + '" aria-pressed="' + (cur === k) + '">' + esc(label) + '</button>').join('') + '</div>';
+      if (code === 'sunsetrise') body = chips('ae-wx-val', [['sunrise', 'Sunrise'], ['sunset', 'Sunset']], v);
+      else if (code === 'temp' && typeof v === 'number') {
+        body = chips('ae-wx-op', [['>', 'Above'], ['<', 'Below']], c.disp.operator) +
+          '<div class="se-row"><span class="se-label">Outside temperature</span><div class="stepper">' +
+          '<button class="round-btn soft sm" data-act="ae-wx-step" data-i="' + i + '" data-d="-1" data-key="ae-wx-m-' + i + '" aria-label="Lower temperature">' + icon('minus', 18) + '</button>' +
+          '<span class="se-value">' + v + '°</span>' +
+          '<button class="round-btn soft sm" data-act="ae-wx-step" data-i="' + i + '" data-d="1" data-key="ae-wx-p-' + i + '" aria-label="Raise temperature">' + icon('plus', 18) + '</button></div></div>';
+      } else if (code === 'condition' && WX_SKY.some(([k]) => k === v)) body = chips('ae-wx-val', WX_SKY, v);
+      else if (code === 'humidity' && WX_HUM.some(([k]) => k === v)) body = chips('ae-wx-val', WX_HUM, v);
+      else body = '<p class="note se-note">Kept as is when you save.</p>';
+      return '<div class="se-item"><div class="se-head"><span class="icon-dot sm">' + icon(weatherIcon(c.disp), 18) + '</span><span class="se-title">' + esc(weatherPhrase(c.disp)) +
+        '<span class="se-room">' + esc(cityLabel(c.cityName) || 'Your home\'s city') + '</span></span>' + tools + '</div>' + body + '</div>';
     }
     if (c.type === 'raw') {
       return '<div class="se-item"><div class="se-head"><span class="icon-dot sm">' + icon('generic', 18) + '</span><span class="se-title">' + esc(rawConditionLabel(c.raw)) + '</span>' + tools + '</div>' +
@@ -2904,7 +3178,8 @@
           : '<div class="list-row"><span class="meta">No devices here can start automations.</span></div>') + '</div>';
     } else if (E.conditions.length < 10) {
       html += '<div class="se-add-row"><button class="pill-btn" data-act="ae-add-timer" data-key="ae-add-timer">' + icon('plus', 18) + 'Add time</button>' +
-        '<button class="pill-btn soft" data-act="ae-pick-open" data-key="ae-pick-open">' + icon('plus', 18) + 'Add device</button></div>';
+        '<button class="pill-btn soft" data-act="ae-pick-open" data-key="ae-pick-open">' + icon('plus', 18) + 'Add device</button>' +
+        '<button class="pill-btn soft" data-act="ae-add-sun" data-key="ae-add-sun"' + (E.sunBusy ? ' disabled' : '') + '>' + icon('sunset', 18) + (E.sunBusy ? 'Finding your city…' : 'Sunrise / sunset') + '</button></div>';
     }
     return html;
   }
@@ -2914,10 +3189,16 @@
     if (!E.conditions.length) return 'Add at least one condition under When.';
     const out = [];
     for (const c of E.conditions) {
-      if (c.type === 'timer') {
+      if (c.type === 'timer' && c.once) {
+        if (!isoDate(c.date)) return 'Pick a date for each one-time schedule.';
+        if (!/^\d{2}:\d{2}$/.test(c.time)) return 'Set a time for each schedule.';
+        out.push({ entity_type: 6, entity_id: 'timer', display: Object.assign({}, c.disp || {}, { date: isoDate(c.date).replace(/-/g, ''), time: c.time, loops: '0000000', timezone_id: c.tz || timeZone() }) });
+      } else if (c.type === 'timer') {
         if (!c.days.some(Boolean)) return 'Pick at least one day for each time.';
         if (!/^\d{2}:\d{2}$/.test(c.time)) return 'Set a time for each schedule.';
-        out.push({ entity_type: 6, entity_id: 'timer', display: { time: c.time, loops: c.days.map((x) => (x ? '1' : '0')).join(''), timezone_id: c.tz || timeZone() } });
+        out.push({ entity_type: 6, entity_id: 'timer', display: Object.assign({}, c.disp || {}, { time: c.time, loops: c.days.map((x) => (x ? '1' : '0')).join(''), timezone_id: c.tz || timeZone() }) });
+      } else if (c.type === 'weather') {
+        out.push(Object.assign({ entity_type: 3, entity_id: c.cityId, display: Object.assign({}, c.disp) }, c.cityName ? { entity_name: c.cityName } : {}));
       } else if (c.type === 'raw') {
         out.push(c.raw);
       } else {
@@ -3164,40 +3445,146 @@
   }
   // Air conditioners and thermostats get their own card: power, target temperature, mode (and fan for IR).
   const isKioskAc = (d) => kindOf(d) === 'irac' || (kindOf(d) === 'climate' && 'temp_set' in d.status);
-  function kioskAcCard(d) {
+  // Like the Home app's thermostat: "Current · Humidity" under the name, a large arc you drag to set
+  // the temperature (coloured for the mode), "SET TO" in the middle, and a mode menu with a check.
+  const KARC = { cx: 150, cy: 150, r: 118, from: 135, sweep: 270 };
+  function kaPoint(a) { const t = a * Math.PI / 180; return [KARC.cx + KARC.r * Math.cos(t), KARC.cy + KARC.r * Math.sin(t)]; }
+  function kaPath(a0, a1) {
+    const [x0, y0] = kaPoint(a0), [x1, y1] = kaPoint(a1);
+    return 'M' + x0.toFixed(1) + ' ' + y0.toFixed(1) + ' A' + KARC.r + ' ' + KARC.r + ' 0 ' + (a1 - a0 > 180 ? 1 : 0) + ' 1 ' + x1.toFixed(1) + ' ' + y1.toFixed(1);
+  }
+  const kaAngle = (v, min, max) => KARC.from + KARC.sweep * Math.min(1, Math.max(0, (v - min) / (max - min)));
+  // Colour of the filled arc for each mode (cool blue, heat orange, auto both, fan/dry teal).
+  function acTheme(d) {
+    if (!isOn(d)) return 'off';
+    const m = kindOf(d) === 'irac' ? ['cool', 'heat', 'auto', 'fan', 'dry'][(d.ir.state || {}).mode || 0] : String(d.status.mode || '');
+    if (/hot|heat/.test(m)) return 'heat';
+    if (/auto/.test(m)) return 'auto';
+    if (/wind|fan|wet|dry/.test(m)) return 'fan';
+    return 'cool';
+  }
+  // The thermostat (arc dial, mode symbols, fan for IR ACs): used by wall tablet mode and every AC screen.
+  function acThermo(d, sfx) {
     const id = esc(d.id), ir = kindOf(d) === 'irac', on = isOn(d), dis = d.online ? '' : ' disabled';
-    let set, room = null, unit = '°C', modes = '', fan = '';
+    let set, room = null, hum = null, unit = '°C', min = 16, max = 30, step = 1, rows = [], fan = '';
     if (ir) {
       const st2 = d.ir.state || { power: false, mode: 0, temp: 24, wind: 0 };
       set = st2.temp;
       const hub = d.ir.hub ? findDevice(d.ir.hub) : null;
       room = hub ? (scaled(hub, 'va_temperature', true) ?? scaled(hub, 'temp_current', true)) : null;
-      modes = IR_MODES.map((m, i) => '<button class="chip soft" data-act="irmode" data-v="' + i + '" data-id="' + id + '" data-key="kam-' + id + '-' + i + '" aria-pressed="' + (st2.power && st2.mode === i) + '"' + dis + '>' + m + '</button>').join('');
-      fan = irFanControl(d, st2, '-k');
+      hum = hub ? scaled(hub, 'va_humidity', false) : null;
+      rows = IR_MODES.map((m, i) => ({ label: m, act: 'data-act="irmode" data-v="' + i + '"', on: !!st2.power && st2.mode === i, key: i }));
+      fan = irFanControl(d, st2, sfx);
     } else {
+      const sp = specOf(d, 'temp_set');
+      const sc = sp && typeof sp.scale === 'number' ? sp.scale : (Math.abs(d.status.temp_set) >= 60 ? 1 : 0);
+      const div = Math.pow(10, sc);
       set = scaled(d, 'temp_set', true);
+      min = sp && typeof sp.min === 'number' ? sp.min / div : 16;
+      max = sp && typeof sp.max === 'number' ? sp.max / div : 30;
+      step = sp && sp.step ? sp.step / div : 1;
+      unit = tempUnitOf(sp);
       room = scaled(d, 'temp_current', true);
-      unit = tempUnitOf(specOf(d, 'temp_set'));
+      hum = scaled(d, 'humidity_current', false);
       if ('mode' in d.status) {
-        const sp = specOf(d, 'mode');
-        const list = (sp && Array.isArray(sp.range) && sp.range.length) ? sp.range : ['cold', 'hot', 'wind', 'auto'];
-        modes = list.map((m) => '<button class="chip soft" data-act="mode" data-val="' + esc(m) + '" data-id="' + id + '" data-key="kam-' + id + '-' + esc(m) + '" aria-pressed="' + (d.status.mode === m) + '"' + dis + '>' + esc(modeLabel(m)) + '</button>').join('');
+        const msp = specOf(d, 'mode');
+        const list = (msp && Array.isArray(msp.range) && msp.range.length) ? msp.range : ['cold', 'hot', 'auto', 'wind'];
+        rows = list.map((m) => ({ label: modeLabel(m), act: 'data-act="mode" data-val="' + esc(m) + '"', on: on && d.status.mode === m, key: esc(m) }));
       }
     }
-    const act = ir ? 'irtemp' : 'temp';
-    const sub = !d.online ? 'Offline' : (on ? 'On' : 'Off') + (room != null ? ' · Room ' + fmtTemp(room) : '');
-    return '<section class="k-w l k-ac' + (on && d.online ? ' on' : '') + '" aria-label="' + esc(d.name) + '">' +
-      '<div class="k-ac-head"><span class="k-icon">' + deviceIcon(d, 24) + '</span>' +
-      '<span class="k-ac-title"><span class="k-name">' + esc(d.name) + '</span><span class="k-status">' + esc(sub) + '</span></span>' +
-      '<button class="k-ac-power" data-act="toggle" data-id="' + id + '" data-key="kap-' + id + '" aria-pressed="' + on + '" aria-label="' + esc(d.name) + ' power"' + dis + '>' + icon('power', 22) + '</button></div>' +
-      '<div class="k-ac-temp">' +
-      '<button class="k-ac-step" data-act="' + act + '" data-delta="-1" data-id="' + id + '" data-key="kad-' + id + '" aria-label="Cooler"' + dis + '>' + icon('minus', 22) + '</button>' +
-      '<span class="k-ac-set" aria-live="polite"><span class="k-ac-num">' + (set != null ? tdFmt(set) : '–') + '</span><span class="k-ac-unit">' + esc(unit) + '</span></span>' +
-      '<button class="k-ac-step" data-act="' + act + '" data-delta="1" data-id="' + id + '" data-key="kau-' + id + '" aria-label="Warmer"' + dis + '>' + icon('plus', 22) + '</button></div>' +
-      (modes ? '<div class="k-ac-row" role="group" aria-label="Mode">' + modes + '</div>' : '') +
-      (fan ? '<div class="k-ac-fan">' + fan + '</div>' : '') +
-      '</section>';
+    if (set == null) set = min;
+    const theme = acTheme(d), a = kaAngle(set, min, max), [tx, ty] = kaPoint(a);
+    let curDot = '';
+    if (room != null && room >= min && room <= max) {
+      const [cx, cy] = kaPoint(kaAngle(room, min, max));
+      curDot = '<circle class="ka-cur" cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="5"/>';
+    }
+    const sub = [room != null ? 'Current ' + fmtTemp(room) : null, hum != null ? 'Humidity ' + Math.round(hum) + '%' : null].filter(Boolean).join(' · ');
+    const kaIcon = (l) => ({ Cool: 'flake', Heat: 'sun', Auto: 'automode', Fan: 'fan', Dry: 'drop' })[l] || 'climate';
+    const kaBtn = (act, key, pressed, label, ic, cls) => '<button class="ka-mi ' + cls + '" ' + act + ' data-id="' + id + '" data-key="kam-' + id + sfx + '-' + key + '" aria-pressed="' + pressed + '" aria-label="' + esc(label) + '" title="' + esc(label) + '"' + dis + '>' + icon(ic, 22) + '</button>';
+    const menu = '<div class="ka-menu ka-icons" role="group" aria-label="Mode" data-key="kamenu-' + id + sfx + '">' +
+      kaBtn('data-act="ac-off"', 'off', !on, 'Off', 'power', 'ka-mi-off') +
+      rows.map((r) => kaBtn(r.act, r.key, r.on, r.label, kaIcon(r.label), 'ka-mi-' + kaIcon(r.label))).join('') + '</div>' +
+      '<div class="ka-mode-name">' + esc(on ? ((rows.find((r) => r.on) || {}).label || 'On') : 'Off') + '</div>';
+    const body = '<div class="ka-body"><div class="ka-dial" role="slider" tabindex="0" aria-label="' + esc(d.name) + ' temperature"' +
+      ' aria-valuemin="' + min + '" aria-valuemax="' + max + '" aria-valuenow="' + set + '" aria-valuetext="' + esc(tdFmt(set) + unit) + '"' +
+      ' data-id="' + id + '" data-act-temp="' + (ir ? 'irtemp' : 'temp') + '" data-min="' + min + '" data-max="' + max + '" data-step="' + step + '" data-value="' + set + '" data-unit="' + esc(unit) + '" data-key="ka-' + id + sfx + '"' + (d.online ? '' : ' aria-disabled="true"') + '>' +
+      '<svg viewBox="0 0 300 300" aria-hidden="true"><defs>' +
+      '<linearGradient id="kag-' + id + sfx + '" x1="0" y1="1" x2="0.4" y2="0"><stop offset="0" class="ka-g0"/><stop offset="1" class="ka-g1"/></linearGradient></defs>' +
+      '<path class="ka-track" d="' + kaPath(KARC.from, KARC.from + KARC.sweep) + '"/>' +
+      '<path class="ka-fill" stroke="url(#kag-' + id + sfx + ')" d="' + kaPath(KARC.from, Math.max(KARC.from + 0.5, a)) + '"/>' + curDot +
+      '<circle class="ka-thumb" cx="' + tx.toFixed(1) + '" cy="' + ty.toFixed(1) + '" r="17"/></svg>' +
+      '<span class="ka-center"><span class="ka-label">' + (on ? 'Set to' : 'Off') + '</span><span class="ka-num">' + tdFmt(set) + '</span></span></div>' +
+      '<div class="ka-side">' + menu + (fan ? '<div class="k-ac-fan">' + fan + '</div>' : '') + '</div></div>';
+    return { theme, on: on && d.online, fan: !!fan, sub, body };
   }
+  function kioskAcCard(d) {
+    const t = acThermo(d, '-k');
+    return '<section class="k-w l k-ac ka ka-' + t.theme + (t.fan ? ' has-fan' : '') + (t.on ? ' on' : '') + '" aria-label="' + esc(d.name) + '">' +
+      '<div class="ka-head"><span class="k-name">' + esc(d.name) + '</span>' + (t.sub ? '<span class="ka-sub">' + esc(t.sub) + '</span>' : '') + '</div>' +
+      t.body + '</section>';
+  }
+  // On the AC's own screen: the same thermostat, laid out in a column.
+  function acPage(d, sfx) {
+    const t = acThermo(d, sfx);
+    return '<div class="ka-page"><div class="ka ka-' + t.theme + (t.fan ? ' has-fan' : '') + (t.on ? ' on' : '') + '">' +
+      (t.sub ? '<div class="ka-sub">' + esc(t.sub) + '</div>' : '') + t.body + '</div></div>';
+  }
+  // Dragging around the arc. The dial updates live; the AC is told when you let go.
+  let kaDrag = null;
+  function kaValueAt(el, e) {
+    const box = el.querySelector('svg').getBoundingClientRect();
+    const x = (e.clientX - box.left) / box.width * 300 - KARC.cx, y = (e.clientY - box.top) / box.height * 300 - KARC.cy;
+    let ang = Math.atan2(y, x) * 180 / Math.PI;          // -180..180, 0 = right, 90 = down
+    let rel = ((ang - KARC.from) % 360 + 360) % 360;       // 0..360 from the start of the arc
+    if (rel > KARC.sweep) rel = rel - KARC.sweep < (360 - KARC.sweep) / 2 ? KARC.sweep : 0;   // in the gap: nearest end
+    const m = tdModel(el);
+    return tdSnap(m, m.min + (m.max - m.min) * rel / KARC.sweep);
+  }
+  function kaShow(el, v) {
+    const m = tdModel(el), a = kaAngle(v, m.min, m.max), [x, y] = kaPoint(a);
+    el.querySelector('.ka-fill').setAttribute('d', kaPath(KARC.from, Math.max(KARC.from + 0.5, a)));
+    const th = el.querySelector('.ka-thumb'); th.setAttribute('cx', x.toFixed(1)); th.setAttribute('cy', y.toFixed(1));
+    el.querySelector('.ka-num').textContent = tdFmt(v);
+    el.setAttribute('aria-valuenow', v); el.setAttribute('aria-valuetext', tdFmt(v) + m.unit);
+  }
+  document.addEventListener('pointerdown', (e) => {
+    const el = e.target.closest && e.target.closest('.ka-dial');
+    if (!el || el.getAttribute('aria-disabled') === 'true') return;
+    e.preventDefault();
+    el.focus({ preventScroll: true });
+    S.dragging = true;
+    kaDrag = { el, v: kaValueAt(el, e) };
+    el.classList.add('dragging');
+    kaShow(el, kaDrag.v);
+    if (el.setPointerCapture) el.setPointerCapture(e.pointerId);
+  });
+  document.addEventListener('pointermove', (e) => {
+    if (!kaDrag) return;
+    const v = kaValueAt(kaDrag.el, e);
+    if (v !== kaDrag.v) { kaDrag.v = v; kaShow(kaDrag.el, v); }
+  });
+  const kaEnd = (e) => {
+    if (!kaDrag) return;
+    const { el, v } = kaDrag; kaDrag = null; S.dragging = false;
+    el.classList.remove('dragging');
+    if (e.type === 'pointercancel') { render(); return; }
+    el.dataset.value = v;
+    tdCommit(el, v);
+  };
+  document.addEventListener('pointerup', kaEnd);
+  document.addEventListener('pointercancel', kaEnd);
+  document.addEventListener('keydown', (e) => {
+    const el = e.target.closest && e.target.closest('.ka-dial');
+    if (!el || el.getAttribute('aria-disabled') === 'true') return;
+    const dir = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1 }[e.key];
+    if (!dir) return;
+    e.preventDefault();
+    const m = tdModel(el), v = tdSnap(m, Number(el.dataset.value) + dir * m.step);
+    el.dataset.value = v; kaShow(el, v);
+    clearTimeout(el._t); el._t = setTimeout(() => tdCommit(el, v), 400);
+  });
+
   function kioskView() {
     const data = S.data;
     if (!data) return '<div class="kiosk-wrap k26"><div class="k-lock"><div class="k-time">…</div></div></div>';
@@ -3205,9 +3592,16 @@
     loadWeather();
     const now = new Date();
     document.documentElement.classList.toggle('k-night', kioskIsNight(now));
-    const readings = data.devices.filter(isReadingDevice);
-    const acs = sortByOrder(data.devices.filter(isKioskAc), data.homeId);
-    const devices = sortByOrder(data.devices.filter((d) => !isReadingDevice(d) && !isKioskAc(d) && hasToggle(d) && !d.ir), data.homeId).slice(0, 12);
+    // Rooms: a compact row of pills. Only rooms with something to show here are listed.
+    const kShows = (d) => isReadingDevice(d) || isKioskAc(d) || (hasToggle(d) && !d.ir);
+    const kAll = data.devices.filter(kShows);
+    const kRooms = (data.rooms || []).filter((r) => kAll.some((d) => d.room === r));
+    const kRoomList = kRooms.length ? ['All'].concat(kRooms, kAll.some((d) => !d.room) ? ['Other'] : []) : [];
+    if (!kRoomList.includes(S.kRoom)) S.kRoom = 'All';
+    const inRoom = (d) => S.kRoom === 'All' || (S.kRoom === 'Other' ? !d.room : d.room === S.kRoom);
+    const readings = data.devices.filter((d) => isReadingDevice(d) && inRoom(d));
+    const acs = sortByOrder(data.devices.filter((d) => isKioskAc(d) && inRoom(d)), data.homeId);
+    const devices = sortByOrder(data.devices.filter((d) => !isReadingDevice(d) && !isKioskAc(d) && hasToggle(d) && !d.ir && inRoom(d)), data.homeId).slice(0, 12);
     const scenes = data.scenes || [];
     const w = S.weather;
     const wx = w && w.available && w.homeId === data.homeId && w.unit === S.tempUnit
@@ -3229,9 +3623,14 @@
           '<span class="k-cap-dot">' + icon(st === 'done' ? 'check' : 'play', 16) + '</span><span class="k-cap-name">' + esc(sc.name) + '</span></button>';
       }).join('') + '</div>';
     }
+    if (kRoomList.length > 2) {
+      html += '<div class="k-rooms" role="group" aria-label="Rooms">' + kRoomList.map((r) =>
+        '<button class="k-room" data-act="kroom" data-room="' + esc(r) + '" data-key="kr-' + esc(r) + '" aria-pressed="' + (r === S.kRoom) + '">' + esc(r === 'All' ? 'All rooms' : r) + '</button>').join('') + '</div>';
+    }
     // Widgets: sensors (small), air conditioners (large) and device controls (small), packed tightly.
-    html += '<div class="k-grid" role="group" aria-label="Home">' +
-      acs.map(kioskAcCard).join('') + devices.map(kioskTile).join('') + '</div>';
+    html += '<div class="k-grid" role="group" aria-label="' + esc(S.kRoom === 'All' ? 'Home' : S.kRoom) + '">' +
+      acs.map(kioskAcCard).join('') + devices.map(kioskTile).join('') + '</div>' +
+      (acs.length || devices.length ? '' : '<p class="k-empty">Nothing to control in ' + esc(S.kRoom) + '.</p>');
     html += '<button class="k-dim" data-act="kiosk-wake" data-key="k-dim" aria-label="Wake the screen" tabindex="-1"></button></div>';
     return html;
   }
@@ -3531,6 +3930,8 @@
   function render() {
     const app = $('#app');
     const focusKey = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.key : null;
+    const rowScroll = {};   // sideways rows (AC modes) keep their position across redraws
+    document.querySelectorAll('.ka-icons[data-key]').forEach((n) => { rowScroll[n.dataset.key] = n.scrollLeft; });
 
     if (S.gate) {
       shell = null;
@@ -3635,6 +4036,44 @@
         .find((n) => n.offsetParent !== null);
       if (target) target.focus({ preventScroll: true });
     }
+    replayMotion();
+    restoreRows(rowScroll);
+  }
+  function restoreRows(saved) {
+    document.querySelectorAll('.ka-icons[data-key]').forEach((n) => {
+      if (n.scrollWidth <= n.clientWidth + 1) return;
+      if (saved[n.dataset.key] != null) n.scrollLeft = saved[n.dataset.key];
+      // Keep the selected mode in view.
+      const b = n.querySelector('[aria-pressed="true"]');
+      if (!b) return;
+      const l = b.offsetLeft - n.offsetLeft, r = l + b.offsetWidth;
+      if (l < n.scrollLeft + 8) n.scrollLeft = Math.max(0, l - 24);
+      else if (r > n.scrollLeft + n.clientWidth - 8) n.scrollLeft = r - n.clientWidth + 24;
+    });
+  }
+
+  // ---------- Smooth switch motion ----------
+  // The screen is redrawn right after a tap and again when the device answers. Each new copy of the
+  // switch picks the slide up where the previous copy was (a negative animation delay), so the
+  // motion plays once, start to finish, however many times the screen is redrawn meanwhile.
+  const motion = {};            // data-key -> { t: when tapped, on: the state it's moving to }
+  const MOTION_MS = 480;
+  function noteMotion(el) {
+    if (!el || !el.dataset || !el.dataset.key || !el.hasAttribute('aria-checked')) return;
+    motion[el.dataset.key] = { t: performance.now(), on: el.getAttribute('aria-checked') !== 'true' };
+  }
+  function replayMotion() {
+    const now = performance.now();
+    for (const key of Object.keys(motion)) {
+      const m = motion[key], elapsed = now - m.t;
+      if (elapsed > MOTION_MS) { delete motion[key]; continue; }
+      document.querySelectorAll('[data-key="' + CSS.escape(key) + '"]').forEach((el) => {
+        if ((el.getAttribute('aria-checked') === 'true') !== m.on) return;   // didn't change (yet): nothing to animate
+        el.classList.remove('m-on', 'm-off');
+        el.style.setProperty('--m-delay', (-elapsed).toFixed(0) + 'ms');
+        el.classList.add(m.on ? 'm-on' : 'm-off');
+      });
+    }
   }
 
   // ---------- Events ----------
@@ -3647,6 +4086,7 @@
     switch (act) {
       case 'tab': if (inEditor() && editorDirty()) leaveEditor(el.dataset.tab); else go(el.dataset.tab); break;
       case 'room': S.room = el.dataset.room; S.allOffArmed = 0; render(); break;
+      case 'kroom': S.kRoom = el.dataset.room; store.set('kRoom', S.kRoom); render(); break;
       case 'open': go('device/' + encodeURIComponent(id)); break;
       case 'back': go('devices'); break;
       case 'reorder': S.reorder = !S.reorder; render(); break;
@@ -3655,7 +4095,7 @@
       case 'toggle': {
         if (!d) return;
         if (el.dataset.swiped) return;
-        if (el.classList.contains('rocker')) flipped[d.id + (el.dataset.code ? ':' + el.dataset.code : '')] = Date.now();
+        noteMotion(el);
         if (kindOf(d) === 'irac') { sendIrAc(d, { power: !isOn(d) }); break; }
         if (el.dataset.code) {
           const c = el.dataset.code;
@@ -3714,10 +4154,23 @@
         if (d && d.ir) sendIrAc(d, { power: true, temp: clamp((d.ir.state ? d.ir.state.temp : 24) + Number(el.dataset.delta), 16, 30) });
         break;
       case 'irmode': if (d && d.ir) sendIrAc(d, { power: true, mode: Number(el.dataset.v) }); break;
+      case 'ac-off': {
+        if (!d || !isOn(d)) break;
+        if (kindOf(d) === 'irac') { sendIrAc(d, { power: false }); break; }
+        const pc = powerCode(d);
+        if (pc) send(d, [{ code: pc, value: false }], { [pc]: false });
+        break;
+      }
       case 'irwind': if (d && d.ir) sendIrAc(d, { power: true, wind: Number(el.dataset.v) }); break;
       case 'irkey': if (d && d.ir) sendIrKey(d, el.dataset.k); break;
       case 'irreload': if (d && d.ir) { delete S.irKeys[d.id]; render(); } break;
-      case 'mode': if (d) send(d, [{ code: 'mode', value: el.dataset.val }], { mode: el.dataset.val }); break;
+      case 'mode': {
+        if (!d) break;
+        const pc = powerCode(d), cmds = [{ code: 'mode', value: el.dataset.val }], patch = { mode: el.dataset.val };
+        if (el.closest('.ka-menu') && pc && !d.status[pc]) { cmds.unshift({ code: pc, value: true }); patch[pc] = true; }
+        send(d, cmds, patch);
+        break;
+      }
       case 'cover': if (d) send(d, [{ code: 'control', value: el.dataset.val }], { control: el.dataset.val }); break;
       case 'rename':
         S.renaming = { id, code: el.dataset.code };
@@ -3752,6 +4205,20 @@
       case 'se-pick-scene': S.editor.items.push({ type: 'scene', sceneId: id }); S.editor.picking = false; S.editor.error = ''; render(); break;
       case 'ae-add-timer': S.editor.conditions.push({ type: 'timer', time: '07:00', days: [true, true, true, true, true, true, true], tz: timeZone() }); S.editor.error = ''; render(); break;
       case 'ae-pick-open': S.editor.condPicking = true; render(); break;
+      case 'ae-add-sun': {
+        const E = S.editor;
+        if (!E || E.sunBusy) break;
+        E.sunBusy = true; E.error = ''; render();
+        automationCity().then((city) => {
+          if (S.editor !== E) return;
+          E.conditions.push({ type: 'weather', cityId: city.cityId, cityName: city.cityName, disp: sunTemplate() });
+        }).catch((err) => { if (S.editor === E) E.error = 'Couldn\'t add sunrise/sunset: ' + ((err && err.message) || 'unknown error'); })
+          .finally(() => { if (S.editor === E) { E.sunBusy = false; render(); } });
+        break;
+      }
+      case 'ae-wx-val': { const c = S.editor.conditions[Number(el.dataset.i)]; if (c && c.disp) { c.disp.value = el.dataset.v; render(); } break; }
+      case 'ae-wx-op': { const c = S.editor.conditions[Number(el.dataset.i)]; if (c && c.disp) { c.disp.operator = el.dataset.v; render(); } break; }
+      case 'ae-wx-step': { const c = S.editor.conditions[Number(el.dataset.i)]; if (c && c.disp && typeof c.disp.value === 'number') { c.disp.value = clamp(c.disp.value + Number(el.dataset.d), -40, 60); render(); } break; }
       case 'ae-pick-close': S.editor.condPicking = false; render(); break;
       case 'ae-pick-dev': {
         const dev = findDevice(id); if (!dev) break;
@@ -3762,6 +4229,14 @@
         render(); break;
       }
       case 'ae-cremove': S.editor.conditions.splice(Number(el.dataset.i), 1); render(); break;
+      case 'ae-once': {
+        const c = S.editor.conditions[Number(el.dataset.i)];
+        if (!c) break;
+        c.once = el.dataset.v === '1';
+        if (c.once && !isoDate(c.date)) { const n = new Date(); n.setDate(n.getDate() + 1); c.date = n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0') + '-' + String(n.getDate()).padStart(2, '0'); }
+        if (!c.once && !c.days.some(Boolean)) c.days = [true, true, true, true, true, true, true];
+        S.editor.error = ''; render(); break;
+      }
       case 'ae-day': { const c = S.editor.conditions[Number(el.dataset.i)]; c.days[Number(el.dataset.d)] = !c.days[Number(el.dataset.d)]; render(); break; }
       case 'ae-match': S.editor.match = Number(el.dataset.v); render(); break;
       case 'ae-trigger': {
@@ -3906,10 +4381,7 @@
       const ctl = el.closest('.colour-ctl'), d = findDevice(el.dataset.id);
       if (!ctl || !d) return;
       S.dragging = true;
-      const r = readColourCtl(ctl, d);
-      ctl.querySelector('.colour-preview').style.background = hsvCss(r.h, r.sPct);
-      ctl.querySelector('[data-colour-label="sat"]').textContent = r.sPct + '%';
-      ctl.querySelector('[data-colour-label="v"]').textContent = r.vPct + '%';
+      colourLive(ctl, d);
       return;
     }
     if (el.dataset && el.dataset.act === 'se-range') {
@@ -3956,7 +4428,8 @@
       render(); return;
     }
     if (act === 'se-delay' && S.editor) { render(); return; }
-    if (act === 'ae-time' && S.editor) { const c = S.editor.conditions[Number(el.dataset.i)]; if (c && /^\d{2}:\d{2}$/.test(el.value)) c.time = el.value; return; }
+    if (act === 'ae-time' && S.editor) { const c = S.editor.conditions[Number(el.dataset.i)]; if (c && /^\d{2}:\d{2}$/.test(el.value)) c.time = el.value; render(); return; }
+    if (act === 'ae-date' && S.editor) { const c = S.editor.conditions[Number(el.dataset.i)]; if (c && isoDate(el.value)) { c.date = isoDate(el.value); render(); } return; }
     if (act === 'uf') { S.userForm[el.dataset.field] = el.value; if (el.dataset.field === 'role') render(); return; }
     if (act === 'bg') { S.bg = BACKGROUNDS.some(([v]) => v === el.value) ? el.value : 'system'; store.set('bg', S.bg); applyBackground(); render(); return; }
     if (act === 'tempunit') { S.tempUnit = el.value === 'f' ? 'f' : 'c'; store.set('tempUnit', S.tempUnit); loadWeather(true); return; }
@@ -4246,7 +4719,7 @@
   }
   document.addEventListener('touchstart', (e) => {
     if (S.gate || e.touches.length !== 1 || !S.data || ptr && ptr.busy) return;
-    if (e.target.closest('input, select, textarea, dialog, .arc-dial, .td-dial, .rocker, .hue-range, .switch')) return;
+    if (e.target.closest('input, select, textarea, dialog, .arc-dial, .td-dial, .ka-dial, .rocker, .hue-range, .cw-wheel, .cw-bar, .switch')) return;
     const scroller = activeScroller();
     if (!scroller || scroller.scrollTop > 0) return;
     ptr = { y0: e.touches[0].clientY, x0: e.touches[0].clientX, pull: 0, scroller };
@@ -4389,6 +4862,7 @@
         const fresh = r.devices && r.devices[d.id];
         if (!fresh) continue;
         if (now - (S.touched[d.id] || 0) < 1500) continue; // let a just-sent command land first
+        if (hasLocalChange(d.id) || S.dragging) continue;   // don't undo a change still on its way (or a drag in progress)
         if (d.ir && d.ir.ac) { if (d.online !== fresh.online) { d.online = fresh.online; changed = true; } continue; }
         if (d.online !== fresh.online || JSON.stringify(d.status) !== JSON.stringify(fresh.status)) {
           d.online = fresh.online; d.status = fresh.status; changed = true;
@@ -4505,6 +4979,9 @@
           { executor: 'dpIssue', entity: 'dev8', props: { switch_led: false } }] }
       ],
       automations: [
+        { id: 'au4', name: 'Lamps on at sunset', enabled: true, match_type: 1,
+          conditions: [{ entity_type: 3, entity_id: '2643743', entity_name: 'London', display: { code: 'sunsetrise', operator: '==', value: 'sunset' } }],
+          actions: [{ action_executor: 'dpIssue', entity_id: 'dev2', executor_property: { switch_led: true } }] },
         { id: 'au1', name: 'Porch light at 7 pm', enabled: true, match_type: 1,
           conditions: [{ entity_type: 6, entity_id: 'timer', display: { time: '19:00', loops: '1111111', timezone_id: 'Europe/London' } }],
           actions: [{ action_executor: 'dpIssue', entity_id: 'dev2', executor_property: { switch_led: true } }] },
@@ -4640,6 +5117,7 @@
         if (b.op === 'delete') demoUsers = demoUsers.filter((u) => u.id !== b.id);
         return { users: clone(demoUsers) };
       }
+      if (path.startsWith('automation-edit?') && /[?&]city=1/.test(path)) return { cityId: '2643743', cityName: 'London' };
       if (path.startsWith('automation-edit?')) {
         const id = decodeURIComponent((path.match(/[?&]id=([^&]+)/) || [])[1] || '');
         const a = db.automations.find((x) => x.id === id);

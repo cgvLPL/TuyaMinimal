@@ -1,3 +1,11 @@
+/* Font: Apple's San Francisco where it exists (iPhone, iPad, Mac). Everywhere else, Inter:
+   a free font drawn to match it, bundled in /fonts and only downloaded on those devices. */
+@font-face { font-family: "Inter App"; font-style: normal; font-weight: 300; font-display: swap; src: local("Inter Light"), local("Inter-Light"), url("/fonts/Inter-Light.woff") format("woff"); }
+@font-face { font-family: "Inter App"; font-style: normal; font-weight: 400; font-display: swap; src: local("Inter Regular"), local("Inter-Regular"), url("/fonts/Inter-Regular.woff") format("woff"); }
+@font-face { font-family: "Inter App"; font-style: normal; font-weight: 500; font-display: swap; src: local("Inter Medium"), local("Inter-Medium"), url("/fonts/Inter-Medium.woff") format("woff"); }
+@font-face { font-family: "Inter App"; font-style: normal; font-weight: 600; font-display: swap; src: local("Inter SemiBold"), local("Inter-SemiBold"), url("/fonts/Inter-SemiBold.woff") format("woff"); }
+@font-face { font-family: "Inter App"; font-style: normal; font-weight: 700; font-display: swap; src: local("Inter Bold"), local("Inter-Bold"), url("/fonts/Inter-Bold.woff") format("woff"); }
+@font-face { font-family: "Inter App"; font-style: normal; font-weight: 800; font-display: swap; src: local("Inter ExtraBold"), local("Inter-ExtraBold"), url("/fonts/Inter-ExtraBold.woff") format("woff"); }
 :root {
   --bg: #FFFFFF;
   --surface: #FFFFFF;
@@ -14,7 +22,7 @@
   --danger: #B42318;
   --radius-card: 22px;
   --radius-panel: 28px;
-  --font: "Outfit", "Helvetica Neue", Arial, system-ui, sans-serif;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "SF Pro", "Inter App", "Inter", system-ui, "Segoe UI", Roboto, Arial, sans-serif;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   color-scheme: light;
@@ -2116,3 +2124,257 @@ html[data-bg] .grid > .card:not(.active) .icon-dot { background: rgba(255, 255, 
 .names-list { margin-bottom: 16px; }
 .rename-row { width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; }
 .rename-row .value { color: var(--muted); }
+
+/* =========================================================
+   Smooth switch motion. Final positions come from the state; the m-on / m-off classes play the
+   slide once (app.js keeps it going across redraws). A gentle spring with a hint of overshoot.
+   ========================================================= */
+:root { --m-ease: cubic-bezier(.32, 1.32, .5, 1); --m-dur: .46s; }
+.rocker { --travel: 116px; --kb-off: rgba(0, 0, 0, 0.32); --kb-on: #f7d64a; --kc-off: #f7d64a; --kc-on: #fff; }
+.rocker.mr { --travel: 94px; }
+@media (max-height: 700px) { .rocker:not(.mr) { --travel: 96px; } }
+.rocker[aria-checked="true"] .rocker-knob { transform: translateY(calc(-1 * var(--travel))); }
+.rocker.m-on .rocker-knob { animation: rk-on var(--m-dur) var(--m-ease) both; animation-delay: var(--m-delay, 0ms); }
+.rocker.m-off .rocker-knob { animation: rk-off var(--m-dur) var(--m-ease) both; animation-delay: var(--m-delay, 0ms); }
+.rocker.m-on, .rocker.m-off { transition: none; }
+@keyframes rk-on {
+  from { transform: translateY(0); background-color: var(--kb-off); color: var(--kc-off); }
+  45% { background-color: var(--kb-on); color: var(--kc-on); }
+  to { transform: translateY(calc(-1 * var(--travel))); background-color: var(--kb-on); color: var(--kc-on); }
+}
+@keyframes rk-off {
+  from { transform: translateY(calc(-1 * var(--travel))); background-color: var(--kb-on); color: var(--kc-on); }
+  45% { background-color: var(--kb-off); color: var(--kc-off); }
+  to { transform: translateY(0); background-color: var(--kb-off); color: var(--kc-off); }
+}
+.rocker .rocker-knob svg { transition: fill .25s ease; }
+
+/* Small toggle switches */
+.switch .knob { transition: transform .38s var(--m-ease), background-color .25s ease; }
+.switch.m-on .knob { animation: sw-on .38s var(--m-ease) both; animation-delay: var(--m-delay, 0ms); }
+.switch.m-off .knob { animation: sw-off .38s var(--m-ease) both; animation-delay: var(--m-delay, 0ms); }
+.switch.v.m-on .knob { animation-name: swv-on; }
+.switch.v.m-off .knob { animation-name: swv-off; }
+@keyframes sw-on { from { transform: translateX(0); } to { transform: translateX(20px); } }
+@keyframes sw-off { from { transform: translateX(20px); } to { transform: translateX(0); } }
+@keyframes swv-on { from { transform: translateY(0); } to { transform: translateY(-20px); } }
+@keyframes swv-off { from { transform: translateY(-20px); } to { transform: translateY(0); } }
+
+/* Tile icons (tap to toggle): a soft press-and-pop as the colour changes */
+.card-icon.m-on, .card-icon.m-off { animation: icon-pop .42s var(--m-ease) both; animation-delay: var(--m-delay, 0ms); }
+@keyframes icon-pop { 0% { transform: scale(.86); filter: brightness(.9); } 60% { transform: scale(1.05); } 100% { transform: scale(1); filter: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .rocker.m-on .rocker-knob, .rocker.m-off .rocker-knob, .switch.m-on .knob, .switch.m-off .knob, .card-icon.m-on, .card-icon.m-off { animation: none; }
+}
+
+/* Wall tablet: compact device tiles (icon left, name and state beside it), like the home screen.
+   The grid now works in short rows; air conditioner widgets span several of them. */
+.k26 .k-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); grid-auto-rows: 80px; gap: 14px; }
+.k26 .k-w.l { grid-column: span 2; grid-row: span 4; }
+.k26 .k-ctl {
+  flex-direction: row; align-items: center; justify-content: flex-start; gap: 12px;
+  padding: 0 16px 0 14px; border-radius: 26px;
+}
+.k26 .k-ctl .k-glyph { flex: none; width: 50px; height: 50px; }
+.k26 .k-ctl .k-ctl-text { flex: 1 1 auto; min-width: 0; }
+.k26 .k-ctl .k-name { font-size: 16px; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.15; }
+.k26 .k-ctl .k-status { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 600px) {
+  .k26 .k-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 72px; gap: 12px; }
+  .k26 .k-w.l { grid-row: span 5; }
+  .k26 .k-ctl { padding: 0 12px 0 10px; gap: 10px; border-radius: 22px; }
+  .k26 .k-ctl .k-glyph { width: 44px; height: 44px; }
+  .k26 .k-ctl .k-name { font-size: 15px; }
+  .k26 .k-ctl .k-status { font-size: 13px; }
+}
+
+/* =========================================================
+   Wall tablet: AC widget in the Home app thermostat style
+   ========================================================= */
+.k26 .ka { grid-row: span 5; display: flex; flex-direction: column; gap: 8px; padding: 18px 20px 20px; }
+.k26 .ka .ka-head { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; }
+.k26 .ka .ka-head .k-name { font-size: 20px; font-weight: 700; }
+.k26 .ka .ka-sub { font-size: 15px; font-weight: 600; color: #64d2ff; }
+:is(.k26, .ka-page) .ka-heat .ka-sub { color: #ffb340; }
+:is(.k26, .ka-page) .ka-off .ka-sub { color: var(--muted); }
+.k26 .ka-body { flex: 1; display: flex; align-items: center; gap: 18px; min-height: 0; }
+:is(.k26, .ka-page) .ka-dial { position: relative; flex: 0 0 auto; width: min(250px, 52%); aspect-ratio: 1; touch-action: none; cursor: grab; outline: none; border-radius: 50%; }
+:is(.k26, .ka-page) .ka-dial.dragging { cursor: grabbing; }
+:is(.k26, .ka-page) .ka-dial:focus-visible { box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.7); }
+:is(.k26, .ka-page) .ka-dial[aria-disabled="true"] { opacity: .5; cursor: default; }
+:is(.k26, .ka-page) .ka-dial svg { width: 100%; height: 100%; display: block; overflow: visible; }
+:is(.k26, .ka-page) .ka-track { fill: none; stroke: rgba(255, 255, 255, 0.14); stroke-width: 30; stroke-linecap: round; }
+:is(.k26, .ka-page) .ka-fill { fill: none; stroke-width: 30; stroke-linecap: round; transition: d .25s ease; }
+:is(.k26, .ka-page) .ka-g0 { stop-color: #0a84ff; } :is(.k26, .ka-page) .ka-g1 { stop-color: #b8e6f2; }
+:is(.k26, .ka-page) .ka-heat .ka-g0 { stop-color: #ff6a00; } :is(.k26, .ka-page) .ka-heat .ka-g1 { stop-color: #ffd28a; }
+:is(.k26, .ka-page) .ka-auto .ka-g0 { stop-color: #0a84ff; } :is(.k26, .ka-page) .ka-auto .ka-g1 { stop-color: #ff9f0a; }
+:is(.k26, .ka-page) .ka-fan .ka-g0 { stop-color: #30b0c7; } :is(.k26, .ka-page) .ka-fan .ka-g1 { stop-color: #bdeef5; }
+:is(.k26, .ka-page) .ka-off .ka-fill { stroke: rgba(255, 255, 255, 0.28); }
+:is(.k26, .ka-page) .ka-thumb { fill: #fff; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35)); transition: cx .25s ease, cy .25s ease; }
+:is(.k26, .ka-page) .ka-dial.dragging .ka-fill, :is(.k26, .ka-page) .ka-dial.dragging .ka-thumb { transition: none; }
+:is(.k26, .ka-page) .ka-cur { fill: #fff; opacity: .9; }
+:is(.k26, .ka-page) .ka-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+:is(.k26, .ka-page) .ka-label { font-size: 15px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #64d2ff; }
+:is(.k26, .ka-page) .ka-heat .ka-label { color: #ffb340; }
+:is(.k26, .ka-page) .ka-off .ka-label { color: var(--muted); }
+:is(.k26, .ka-page) .ka-num { font-size: clamp(56px, 6vw, 78px); font-weight: 600; line-height: 1; color: #fff; font-variant-numeric: tabular-nums; }
+:is(.k26, .ka-page) .ka-off .ka-num { color: rgba(255, 255, 255, 0.55); }
+.k26 .ka-side { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+:is(.k26, .ka-page) .ka-menu { display: flex; flex-direction: column; border-radius: 20px; background: rgba(0, 0, 0, 0.22); padding: 6px; }
+.k26 .ka-row {
+  display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 12px 0 6px; border: 0; border-radius: 14px;
+  background: transparent; color: #fff; font: inherit; font-size: 16px; font-weight: 500; text-align: left; cursor: pointer;
+}
+.k26 .ka-row:active { background: rgba(255, 255, 255, 0.1); }
+.k26 .ka-row[aria-pressed="true"] { font-weight: 700; }
+.k26 .ka-row:disabled { opacity: .5; }
+.k26 .ka-check { width: 22px; display: inline-flex; justify-content: center; color: #fff; }
+.k26 .ka .k-ac-fan { gap: 10px; }
+@media (max-width: 600px) {
+  .k26 .ka { grid-row: span 9; }
+  .k26 .ka-body { flex-direction: column; align-items: stretch; }
+  :is(.k26, .ka-page) .ka-dial { width: min(260px, 80%); align-self: center; }
+}
+@media (prefers-reduced-motion: reduce) { :is(.k26, .ka-page) .ka-fill, :is(.k26, .ka-page) .ka-thumb { transition: none; } }
+
+.k26 .ka-row { height: 36px; }
+:is(.k26, .ka-page) .ka-dial:focus-visible { box-shadow: none; }
+:is(.k26, .ka-page) .ka-dial:focus-visible .ka-thumb { stroke: #64d2ff; stroke-width: 4; }
+/* Phones: cards take the height they need instead of fixed rows */
+@media (max-width: 600px) {
+  .k26 .k-grid { grid-auto-rows: auto; }
+  .k26 .k-ctl { height: 72px; }
+  .k26 .ka, .k26 .ka.has-fan { grid-row: auto; }
+}
+/* IR ACs: same size as other ACs — modes in two columns, slimmer fan row */
+.k26 .ka.has-fan .ka-menu { display: grid; grid-template-columns: 1fr 1fr; column-gap: 4px; }
+.k26 .ka.has-fan .ka-side { gap: 10px; }
+.k26 .ka.has-fan .k-ac-fan { gap: 6px; }
+/* 2.45: AC modes as symbols in wall tablet mode */
+:is(.k26, .ka-page) .ka-menu.ka-icons, .k26 .ka.has-fan .ka-menu.ka-icons { display: grid; grid-template-columns: repeat(3, 52px); justify-content: center; gap: 12px; padding: 0; background: none; border-radius: 0; }
+:is(.k26, .ka-page) .ka-mi { width: 52px; height: 52px; border-radius: 50%; border: 0; display: inline-flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.85); cursor: pointer; transition: background .2s ease, color .2s ease, transform .15s ease; }
+:is(.k26, .ka-page) .ka-mi:active { transform: scale(.92); }
+:is(.k26, .ka-page) .ka-mi:disabled { opacity: .45; }
+:is(.k26, .ka-page) .ka-mi:focus-visible { outline: 2px solid #64d2ff; outline-offset: 2px; }
+:is(.k26, .ka-page) .ka-mi[aria-pressed="true"] { color: #fff; background: #0a84ff; }
+:is(.k26, .ka-page) .ka-mi-sun[aria-pressed="true"] { background: #ff8a00; }
+:is(.k26, .ka-page) .ka-mi-automode[aria-pressed="true"] { background: linear-gradient(135deg, #0a84ff, #ff9f0a); }
+:is(.k26, .ka-page) .ka-mi-fan[aria-pressed="true"], :is(.k26, .ka-page) .ka-mi-drop[aria-pressed="true"] { background: #30b0c7; }
+:is(.k26, .ka-page) .ka-mi-off[aria-pressed="true"] { background: #fff; color: #111; }
+:is(.k26, .ka-page) .ka-mode-name { text-align: center; font-size: 15px; font-weight: 600; color: var(--muted); margin-top: -4px; }
+.k26 .ka-side { justify-content: center; }
+:is(.k26, .ka-page) .ka-menu.ka-icons, .k26 .ka.has-fan .ka-menu.ka-icons { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; width: 180px; max-width: 100%; align-self: center; }
+/* 2.46: room pills in wall tablet mode — one slim row that scrolls sideways if needed */
+.k26 .k-rooms { display: flex; gap: 8px; justify-content: center; overflow-x: auto; scrollbar-width: none; padding: 2px 4px; margin: -4px 0 0; -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%); }
+.k26 .k-rooms::-webkit-scrollbar { display: none; }
+.k26 .k-room { flex: none; height: 34px; padding: 0 16px; border-radius: 999px; border: 0; font: inherit; font-size: 15px; font-weight: 600; color: rgba(255, 255, 255, 0.85); background: var(--kg); -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%); box-shadow: var(--kg-rim); cursor: pointer; transition: background .2s ease, color .2s ease, transform .15s ease; }
+.k26 .k-room:active { transform: scale(.95); }
+.k26 .k-room[aria-pressed="true"] { background: #fff; color: #111; box-shadow: none; }
+.k26 .k-room:focus-visible { outline: 2px solid #64d2ff; outline-offset: 2px; }
+.k26 .k-empty { text-align: center; color: var(--muted); font-size: 15px; margin: 8px 0; }
+@media (max-width: 600px) { .k26 .k-rooms { justify-content: flex-start; } .k26 .k-room { height: 32px; padding: 0 14px; font-size: 14px; } }
+@media (prefers-reduced-transparency: reduce) { .k26 .k-room { background: #1c1c22; -webkit-backdrop-filter: none; backdrop-filter: none; } .k26 .k-room[aria-pressed="true"] { background: #fff; } }
+.k26 .k-rooms { justify-content: flex-start; }
+.k26 .k-room:first-child { margin-left: auto; } .k26 .k-room:last-child { margin-right: auto; }
+/* 2.47: iOS 26 colour controls for colour lights */
+.seg.seg26 { position: relative; gap: 0; padding: 4px; border-radius: 999px; background: var(--chip); isolation: isolate; }
+.seg.seg26 .chip.soft, .seg.seg26 .chip.soft[aria-pressed] { background: transparent; color: var(--text); box-shadow: none; height: 40px; font-size: 15px; font-weight: 600; position: relative; z-index: 1; transition: color .25s ease; }
+.seg.seg26 .chip.soft[aria-pressed="true"] { font-weight: 700; }
+.seg26-thumb { position: absolute; z-index: 0; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 2); border-radius: 999px; background: var(--surface); box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.04); transition: transform .35s cubic-bezier(.3, 1.3, .5, 1); }
+.seg26.at-1 .seg26-thumb { transform: translateX(100%); }
+@media (prefers-color-scheme: dark) { .seg26-thumb { background: rgba(255, 255, 255, 0.2); box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35); } }
+
+.cw26 { gap: 22px; align-items: center; padding-top: 6px; }
+.cw-wheel { position: relative; width: min(250px, 78%); aspect-ratio: 1; border-radius: 50%; touch-action: none; cursor: crosshair;
+  background: radial-gradient(closest-side, #fff, rgba(255, 255, 255, 0.85) 18%, rgba(255, 255, 255, 0) 100%),
+    conic-gradient(from 90deg, hsl(0,100%,50%), hsl(30,100%,50%), hsl(60,100%,50%), hsl(90,100%,50%), hsl(120,100%,50%), hsl(150,100%,50%), hsl(180,100%,50%), hsl(210,100%,50%), hsl(240,100%,50%), hsl(270,100%,50%), hsl(300,100%,50%), hsl(330,100%,50%), hsl(360,100%,50%));
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12), inset 0 0 0 1px rgba(0, 0, 0, 0.05); }
+.cw-thumb { position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; background: var(--cw-col); border: 4px solid #fff; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3); pointer-events: none; transition: left .2s ease, top .2s ease, transform .2s cubic-bezier(.3, 1.4, .5, 1); }
+.cw-wheel.dragging .cw-thumb { transform: scale(1.35); transition: transform .2s cubic-bezier(.3, 1.4, .5, 1); }
+
+.cw-swatches { width: 100%; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 10px; }
+.cw-swatches .swatch { min-height: 30px; background: var(--sw); box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.1); transition: box-shadow .2s ease, transform .15s ease; }
+.cw-swatches .swatch:active { transform: scale(.9); }
+.cw-swatches .swatch[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5.5px var(--sw); }
+
+.cw-bright { position: relative; width: 100%; }
+.cw-bar { -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 52px; margin: 0; border-radius: 26px; cursor: pointer; overflow: hidden; touch-action: none;
+  background: linear-gradient(90deg, var(--cw-col) var(--cw-v), var(--track-off) var(--cw-v)); }
+.cw-bar::-webkit-slider-runnable-track { height: 52px; background: transparent; }
+.cw-bar::-webkit-slider-thumb { -webkit-appearance: none; width: 6px; height: 52px; background: transparent; }
+.cw-bar::-moz-range-track { height: 52px; background: transparent; }
+.cw-bar::-moz-range-thumb { width: 6px; height: 52px; border: 0; background: transparent; }
+.cw-bar:focus-visible { outline: 3px solid #0a84ff; outline-offset: 2px; }
+.cw-bar-icon { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: #fff; display: inline-flex; pointer-events: none; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35)); }
+.cw-bar-val { position: absolute; right: 18px; top: 50%; transform: translateY(-50%); font-size: 15px; font-weight: 700; color: var(--text); pointer-events: none; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .seg26-thumb, .cw-thumb { transition: none; } }
+/* 2.50: the wall tablet's thermostat on every AC screen (phone, tablet panel), in light and dark */
+.ka-page { width: 100%; }
+.ka-page .ka { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.ka-page .ka-sub { font-size: 15px; font-weight: 600; color: #0a84ff; text-align: center; margin-bottom: -6px; }
+.ka-page .ka-heat .ka-sub, .ka-page .ka-heat.ka-sub { color: #e8700a; }
+.ka-page .ka-off .ka-sub { color: var(--muted); }
+.ka-page .ka-body { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.ka-page .ka-dial { width: min(290px, 82%); }
+.ka-page .ka-side { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.ka-page .ka-track { stroke: var(--track-off); }
+.ka-page .ka-off .ka-fill { stroke: rgba(120, 120, 128, 0.35); }
+.ka-page .ka-cur { fill: #fff; stroke: rgba(0, 0, 0, 0.25); stroke-width: 1.5; }
+.ka-page .ka-label { color: #0a84ff; }
+.ka-page .ka-heat .ka-label { color: #e8700a; }
+.ka-page .ka-off .ka-label { color: var(--muted); }
+.ka-page .ka-num { color: var(--text); font-size: clamp(64px, 18vw, 84px); }
+.ka-page .ka-off .ka-num { color: var(--muted); }
+.ka-page .ka-menu.ka-icons { width: auto; max-width: 100%; flex-wrap: nowrap; gap: 10px; }
+.ka-page .ka-mi { background: var(--chip); color: var(--text); }
+.ka-page .ka-mi[aria-pressed="true"] { color: #fff; }
+.ka-page .ka-mi-off[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+.ka-page .ka-mode-name { margin-top: -8px; }
+.ka-page .k-ac-fan { width: 100%; }
+@media (prefers-color-scheme: dark) {
+  .ka-page .ka-sub, .ka-page .ka-label { color: #64d2ff; }
+  .ka-page .ka-heat .ka-sub, .ka-page .ka-heat .ka-label { color: #ffb340; }
+  .ka-page .ka-off .ka-sub, .ka-page .ka-off .ka-label { color: var(--muted); }
+  .ka-page .ka-off .ka-fill { stroke: rgba(255, 255, 255, 0.28); }
+}
+/* 2.50.1: mode symbols stay round. On the AC screen they share the width evenly (up to 52 px each) instead of squeezing. */
+:is(.k26, .ka-page) .ka-mi { flex: none; aspect-ratio: 1; }
+/* AC screen: modes in one row that slides sideways when it doesn't fit (centred when it does) */
+.ka-page .ka-menu.ka-icons { display: flex; flex-wrap: nowrap; justify-content: flex-start; gap: 10px; width: 100%; max-width: 100%;
+  overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: none; padding: 4px 16px; margin: -4px 0;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%); }
+.ka-page .ka-menu.ka-icons::-webkit-scrollbar { display: none; }
+.ka-page .ka-mi { flex: 0 0 52px; width: 52px; height: 52px; scroll-snap-align: center; }
+.ka-page .ka-mi:first-child { margin-left: auto; } .ka-page .ka-mi:last-child { margin-right: auto; }
+/* 2.51: AC tiles like the Home app's thermostat — two rows tall, the room temperature in large coloured numbers */
+.grid { grid-auto-flow: row dense; }
+.grid > .card.compact.ac-big { grid-row: span 2; height: auto; padding: 14px 16px; flex-direction: column; align-items: stretch; }
+.grid > .card.compact.ac-big .card-open { flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.grid > .card.compact.ac-big .card-text { flex: 0 0 auto; width: 100%; }
+.ac-big-num { font-size: 46px; font-weight: 600; line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; color: var(--muted); }
+.ac-big-icon { width: 46px; height: 46px; border-radius: 999px; display: flex; align-items: center; justify-content: center; background: rgba(127, 127, 140, 0.16); color: var(--text); }
+.ac-big-icon svg { width: 24px; height: 24px; }
+html .grid > .card.ac-cool.active .ac-big-num { color: #0a84ff; }
+html .grid > .card.ac-heat.active .ac-big-num { color: #ff9500; }
+html .grid > .card.ac-auto.active .ac-big-num { background: linear-gradient(135deg, #0a84ff, #ff9500); -webkit-background-clip: text; background-clip: text; color: transparent; }
+html .grid > .card.ac-fan.active .ac-big-num { color: #30b0c7; }
+html .grid > .card.ac-tile.active .ac-big-icon { color: #fff; }
+html .grid > .card.ac-cool.active .ac-big-icon { background: #0a84ff; }
+html .grid > .card.ac-heat.active .ac-big-icon { background: #ff9500; }
+html .grid > .card.ac-auto.active .ac-big-icon { background: linear-gradient(135deg, #0a84ff, #ff9500); }
+html .grid > .card.ac-fan.active .ac-big-icon { background: #30b0c7; }
+html .grid > .card.ac-tile.active .card-status { color: rgba(0, 0, 0, 0.55); }
+.grid.reordering > .card.compact.ac-big { flex-direction: row; align-items: center; }
+/* 2.52.1: wall tablet AC modes in one row that slides sideways (like the AC screen) */
+.k26 .k-ac .ka-side .ka-menu.ka-icons { display: flex; flex-direction: row; flex-wrap: nowrap; justify-content: flex-start; gap: 10px;
+  width: 100%; max-width: 100%; align-self: stretch; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: none; padding: 4px 14px; margin: -4px 0;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%); }
+.k26 .k-ac .ka-side .ka-menu.ka-icons::-webkit-scrollbar { display: none; }
+.k26 .k-ac .ka-side .ka-mi { flex: 0 0 52px; width: 52px; height: 52px; scroll-snap-align: center; }
+.k26 .k-ac .ka-side .ka-mi:first-child { margin-left: auto; } .k26 .k-ac .ka-side .ka-mi:last-child { margin-right: auto; }
+.k26 .k-ac .ka-side { min-width: 0; }
+/* Let a 4th symbol peek in at the edge, so it's clear the row slides */
+.k26 .k-ac .ka-dial { width: min(240px, 47%); }
+.k26 .k-ac .ka-side .ka-menu.ka-icons { gap: 8px; padding: 4px 10px; }
+@media (max-width: 600px) { .k26 .k-ac .ka-dial { width: min(260px, 80%); } }
