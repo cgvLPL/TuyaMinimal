@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.56.1
+
+- A long press on iPhone, iPad or Android no longer starts selecting text or opens a Copy / Look Up / Save image menu, anywhere in the app, and images can't be dragged. Text boxes (names, passwords, PINs) still let you select, copy and paste, and right-click with a mouse works as before.
+
 ## 2.56.0
 
 - Switching devices on and off is animated like the Home app: the tile lights up (or dims) with a small squeeze and bounce, the icon's circle fills with colour from the centre (or drains back to it), the icon pops as it changes colour, and the status fades in. Also on wall tablet tiles. With Reduce Motion on, it just switches.

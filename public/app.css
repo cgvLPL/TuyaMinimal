@@ -2522,3 +2522,16 @@ html .grid > .card.compact:not(.active):not(.has-photo) .card-icon.icon-dot.m-of
   .grid > .card.compact .card-icon.m-on, .grid > .card.compact .card-icon.m-off, .k26 .k-ctl .k-glyph,
   .grid > .card.compact.m-on .card-status, .grid > .card.compact.m-off .card-status { animation: none !important; }
 }
+/* 2.56.1: an app, not a page. A long press never starts a text selection, the iOS callout
+   (Copy / Look Up / Share) or Android's "Copy / Download image" menu, and images can't be dragged.
+   Text boxes keep normal selection, copy and paste. */
+html, body, #app, #app * {
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+}
+img, svg { -webkit-user-drag: none; user-drag: none; }
+html input, html textarea, html select, html [contenteditable], html [contenteditable] *, html .selectable, html .selectable *,
+#app input, #app textarea, #app select, #app [contenteditable], #app [contenteditable] *, #app .selectable, #app .selectable * {
+  -webkit-user-select: text; user-select: text;
+  -webkit-touch-callout: default;
+}

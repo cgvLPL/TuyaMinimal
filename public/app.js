@@ -5,6 +5,12 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.56.1",
+      "items": [
+        "A long press on iPhone, iPad or Android no longer starts selecting text or opens a Copy / Look Up / Save image menu, anywhere in the app, and images can't be dragged. Text boxes (names, passwords, PINs) still let you select, copy and paste, and right-click with a mouse works as before."
+      ]
+    },
+    {
       "v": "2.56.0",
       "items": [
         "Switching devices on and off is animated like the Home app: the tile lights up (or dims) with a small squeeze and bounce, the icon's circle fills with colour from the centre (or drains back to it), the icon pops as it changes colour, and the status fades in. Also on wall tablet tiles. With Reduce Motion on, it just switches."
@@ -1612,6 +1618,16 @@
   // iOS 26 tab bar: when the tab changes, the glass capsule glides from the old tab to the new one,
   // stretching like a droplet on the way and springing into place.
   document.addEventListener('touchstart', () => {}, { passive: true });   // lets :active (the press effect) work on iPhone
+  // A long press on a phone or tablet opens no copy / save-image menu (Android shows it via contextmenu).
+  // Right-click with a mouse still works, and so does everything in text boxes.
+  let lastPointer = 'mouse';
+  document.addEventListener('pointerdown', (e) => { lastPointer = e.pointerType || 'mouse'; }, { capture: true, passive: true });
+  document.addEventListener('contextmenu', (e) => {
+    const touch = (e.pointerType && e.pointerType !== 'mouse') || lastPointer !== 'mouse' || (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents);
+    if (touch && !(e.target.closest && e.target.closest('input, textarea, select, [contenteditable], .selectable'))) e.preventDefault();
+  });
+  document.addEventListener('dragstart', (e) => { if (e.target && (e.target.tagName === 'IMG' || (e.target.closest && e.target.closest('svg')))) e.preventDefault(); });
+
   function glassGlide(from) {
     const g = shell && shell.tabbar && shell.tabbar.querySelector('.tab-glass');
     if (!g || !from || !from.width || !g.animate) return;
@@ -4016,7 +4032,7 @@
       : S.pinStage === 'confirm' ? 'Enter the same PIN again.' : PIN_MIN + ' to ' + PIN_MAX + ' digits. You\'ll use it instead of your password on this device.';
     const canContinue = !unlocking && S.pinStage === 'enter' && S.pinEntry.length >= PIN_MIN;
     return '<div class="gate"><div class="gate-box pin-box">' +
-      '<span class="gate-mark"><img src="/icons/logo.webp" alt="" width="64" height="64"></span>' +
+      '<span class="gate-mark"><img src="/icons/logo.webp" alt="" width="64" height="64" draggable="false"></span>' +
       '<h1 class="title">' + title + '</h1><p>' + esc(sub) + '</p>' +
       '<div class="pin-dots" aria-hidden="true">' + dots + '</div>' +
       '<p class="sr-only" aria-live="polite">' + S.pinEntry.length + ' digits entered</p>' +
@@ -4035,7 +4051,7 @@
     if (S.gate === 'pin' || S.gate === 'pin-new') return pinView();
     const setup = S.gate === 'setup';
     return '<div class="gate"><form class="gate-box" data-act="unlock" novalidate>' +
-      '<span class="gate-mark"><img src="/icons/logo.webp" alt="" width="64" height="64"></span>' +
+      '<span class="gate-mark"><img src="/icons/logo.webp" alt="" width="64" height="64" draggable="false"></span>' +
       '<h1 class="title">' + (setup ? 'Finish setting up your server' : 'Sign in to Home') + '</h1>' +
       (setup
         ? '<p>' + esc(S.gateError) + ' Add the environment variables listed in the README to your Vercel project, redeploy, then try again.</p>' +
@@ -4159,7 +4175,7 @@
     if (r.view !== 'kiosk' && kiosk.on) kioskStop();
     document.documentElement.classList.toggle('in-editor', r.view === 'scene-edit' || r.view === 'auto-edit');
     shell.app.className = 'app' + (panelHtml == null ? ' no-panel' : '');
-    shell.rail.innerHTML = '<span class="mark" aria-hidden="true"><img src="/icons/logo.webp" alt="" width="48" height="48"></span>' + tabs(activeTab);
+    shell.rail.innerHTML = '<span class="mark" aria-hidden="true"><img src="/icons/logo.webp" alt="" width="48" height="48" draggable="false"></span>' + tabs(activeTab);
     const glassWas = shell.tabbar.querySelector('.tab-glass'), glassRect = glassWas && glassWas.getBoundingClientRect();
     shell.tabbar.innerHTML = tabs(activeTab);
     glassGlide(glassRect);
