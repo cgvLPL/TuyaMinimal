@@ -2381,3 +2381,33 @@ html .grid > .card.ac-tile.active .card-status { color: rgba(0, 0, 0, 0.55); }
 /* 2.52.2: the fan's Auto button is a round symbol */
 .fan-row .chip.fan-auto-ico, .k26 .k-ac-fan .chip.fan-auto-ico { width: 46px; min-width: 46px; height: 46px; padding: 0; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center; }
 .fan-row .chip.fan-auto-ico svg, .k26 .k-ac-fan .chip.fan-auto-ico svg { width: 26px; height: 26px; }
+/* 2.52.6: no white outline around the bottom navigation pill (glass and shadow stay).
+   With Increase Contrast on, the edge comes back so the bar stays visible. */
+@media not (prefers-contrast: more) {
+  html .tabbar { box-shadow: var(--lg-shadow); border: 0; }
+  html .tabbar::before { display: none; }
+}
+/* 2.53: device icons in the Home app style. Solid glyphs, coloured by kind of device.
+   On: coloured circle, white glyph. Off: grey circle, coloured glyph. */
+.hue-yellow { --hue: #ffc400; --hue-ink: #d99a00; }
+.hue-amber  { --hue: #ff9f0a; --hue-ink: #d97a00; }
+.hue-orange { --hue: #ff7a1a; --hue-ink: #e0600a; }
+.hue-blue   { --hue: #32ade6; --hue-ink: #0a84d0; }
+.hue-teal   { --hue: #2fc4b7; --hue-ink: #12998e; }
+.hue-green  { --hue: #34c759; --hue-ink: #1f9e43; }
+.hue-purple { --hue: #a970f0; --hue-ink: #8a4fd6; }
+.hue-grey   { --hue: #8e8e93; --hue-ink: #6e6e73; }
+html .grid > .card.compact.active:not(.has-photo) .card-icon.icon-dot { background: var(--hue, #ffd60a); color: #fff; }
+html .grid > .card.compact:not(.active):not(.has-photo) .card-icon.icon-dot { color: var(--hue-ink, var(--text)); }
+@media (prefers-color-scheme: dark) { html .grid > .card.compact:not(.active):not(.has-photo) .card-icon.icon-dot { color: var(--hue, var(--text)); } }
+html .grid > .card.compact.offline .card-icon.icon-dot { color: var(--muted); }
+.k26 .k-ctl:not(.on) .k-glyph { color: var(--hue, #fff); }
+.k26 .k-ctl.on .k-glyph { background: var(--hue, #ffd60a); color: #fff; }
+.glyph { overflow: visible; }
+/* Unreachable devices: a grey glyph and a small warning badge on the icon, like the Home app */
+html .grid > .card.compact.offline:not(.active) .card-icon.icon-dot { color: var(--muted); }
+.grid > .card.compact { position: relative; }
+.grid > .card.compact .off-badge { position: absolute; left: 42px; top: 42px; width: 20px; height: 20px; color: #fff; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35)); pointer-events: none; }
+@media (prefers-color-scheme: light) { .grid > .card.compact .off-badge { color: #1c1c1e; } .grid > .card.compact .off-badge path + path { stroke: #fff; } }
+.grid > .card.compact.offline { opacity: 1; }
+.grid > .card.compact.offline .card-text { opacity: .6; }

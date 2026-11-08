@@ -5,6 +5,19 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.53.0",
+      "items": [
+        "Device icons in the Home app style, keeping all the different icons. The main part of each icon is solid (bulb, lamp shade, fan blades, plug, lock) with stands, arms and frames as lines, and details like sockets, keyholes and drums cut out. Each kind of device has its colour: lights yellow, plugs and appliances amber, climate and curtains blue, heaters orange, security teal, TVs and speakers purple, plants green. When on, the circle takes the colour and the icon turns white; when off, the icon is coloured in a grey circle. Also in wall tablet mode.",
+        "Unreachable devices: their icon turns grey with a small ⚠ badge, like the Home app's \"No Response\". The tile itself no longer fades."
+      ]
+    },
+    {
+      "v": "2.52.6",
+      "items": [
+        "The bottom navigation bar no longer has a white outline. It keeps its glass look and shadow. With Increase Contrast turned on, the edge stays so the bar is easy to see."
+      ]
+    },
+    {
       "v": "2.52.5",
       "items": [
         "Temperature sensors show their exact reading with one decimal everywhere: the Climate summary (\"19.8–21.5°\" instead of \"20–22°\"), each sensor, the gauges, sensor screens and history, wall tablet mode, and \"Current\" on AC screens. Set temperatures (\"Cooling to 24°\") stay whole numbers."
@@ -1507,7 +1520,62 @@
     }
     return P[k] ? k : 'generic';
   }
-  function deviceIcon(d, size) { const ph = photoOf(d); return ph ? photoImg(ph) : icon(iconKeyOf(d), size); }
+  // ---------- Device glyphs, Home app style ----------
+  // Solid shapes instead of outlines. Most icons simply fill; the ones with inner details get them cut out
+  // (b: filled body, c: details cut out of it, s: parts that stay as lines).
+  const PF = {
+    column: { b: '<rect x="8" y="2" width="8" height="15" rx="1.5"/>', c: '<path d="M8 6h8M8 10h8M8 14h8"/>', s: '<path d="M9.5 17l-1 4M14.5 17l1 4M8 21h8"/>' },
+    multi: { b: '<rect x="2" y="8" width="20" height="8" rx="3"/>', c: '<path d="M7 11v2M12 11v2M17 11v2"/>' },
+    switch: { b: '<rect x="6" y="3" width="12" height="18" rx="3"/>', c: '<path d="M12 7v4"/>' },
+    washer: { b: '<rect x="4" y="3" width="16" height="18" rx="3"/>', c: '<circle cx="12" cy="13" r="4.5"/><path d="M7 6.5h2M15 6.5h.01"/>' },
+    fridge: { b: '<rect x="6" y="2" width="12" height="20" rx="2"/>', c: '<path d="M6 10h12M9 5v2M9 13v3"/>' },
+    robovac: { b: '<circle cx="12" cy="12" r="9"/>', c: '<circle cx="12" cy="9" r="2"/><path d="M7 16h10"/>' },
+    remote: { b: '<rect x="7" y="2" width="10" height="20" rx="3"/>', c: '<path d="M12 6v.01M10 10h4M10 13.5h4M10 17h4"/>' },
+    generic: { b: '<rect x="4" y="4" width="16" height="16" rx="4"/>', c: '<path d="M9 12h6"/>' },
+    speaker: { b: '<rect x="6" y="3" width="12" height="18" rx="3"/>', c: '<circle cx="12" cy="14" r="3"/><path d="M12 7v.01"/>' },
+    purifier: { b: '<rect x="6" y="3" width="12" height="18" rx="3"/>', c: '<path d="M9 7h6M9 10h6"/><circle cx="12" cy="15" r="2"/>' },
+    boiler: { b: '<rect x="7" y="2" width="10" height="16" rx="3"/>', c: '<path d="M12 6.5c-1.2 1.5-1.2 2.7 0 4M10 13.5h4"/>', s: '<path d="M10 21v-3M14 21v-3"/>' },
+    lantern: { b: '<path d="M8 6h8l1 2v9l-1 2H8l-1-2V8z"/>', c: '<path d="M10 11v4M14 11v4"/>', s: '<path d="M9 3h6M12 3V2M10 21h4"/>' },
+    climate: { b: '<rect x="2" y="4" width="20" height="9" rx="2"/>', c: '<path d="M6 9h12"/>', s: '<path d="M8 17v3M12 17v4M16 17v3"/>' },
+    garage: { b: '<path d="M3 10l9-6 9 6v11H3z"/>', c: '<path d="M7 21v-8h10v8M7 16h10"/>' },
+    lock: { b: '<rect x="5" y="11" width="14" height="10" rx="2"/>', c: '<path d="M12 15v2"/>', s: '<path d="M8 11V7a4 4 0 0 1 8 0v4"/>' },
+    doorbell: { b: '<rect x="8" y="3" width="8" height="18" rx="4"/>', c: '<circle cx="12" cy="14" r="2"/><path d="M12 7h.01"/>' },
+    ring: { b: '<circle cx="12" cy="10" r="7"/>', c: '<circle cx="12" cy="10" r="2.6" fill="#000"/>', s: '<path d="M12 17v4M8 21h8"/>' },
+    router: { b: '<rect x="3" y="13" width="18" height="7" rx="2"/>', c: '<path d="M7 16.5v.01M11 16.5v.01"/>', s: '<path d="M8.5 9.5a5 5 0 0 1 7 0M6 7a9 9 0 0 1 12 0"/>' },
+    sensor: { b: '<path d="M6 3h9v18H6z"/><path d="M15 7l4 1v9l-4 1z"/>', c: '<path d="M11.5 12h.01"/>' },
+    tv: { b: '<rect x="3" y="5" width="18" height="12" rx="2"/>', s: '<path d="M8 21h8M12 17v4"/>' },
+    strip: { b: '', s: '<path d="M3 14c3-6 6-6 9 0s6 6 9 0" stroke-width="2.6"/><path d="M6 10.5v.01M12 14v.01M18 17.5v.01" stroke-width="2.6"/>' },
+    fairy: { b: '<circle cx="6" cy="13" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="13" r="2"/>', s: '<path d="M2 6c4 4 8 4 10 2s6-2 10 2M6 9.5v2M12 8v2.5M18 9.5v2"/>' },
+    heater: { b: '<path d="M4 15h16v5H4z"/>', s: '<path d="M8 3c-2 3 2 5 0 8M12 3c-2 3 2 5 0 8M16 3c-2 3 2 5 0 8"/>' }
+  };
+  let glyphN = 0;
+  function glyph(key, size) {
+    const z = size || 22, f = PF[key], open = '<svg class="glyph" width="' + z + '" height="' + z + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+    if (!P[key]) return icon(key, size);
+    if (!f) return open + '<g fill="currentColor">' + P[key] + '</g></svg>';
+    let body = '';
+    if (f.b) {
+      if (f.c) {
+        const id = 'gm' + (++glyphN);
+        body = '<mask id="' + id + '" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect width="24" height="24" fill="#fff"/>' +
+          '<g fill="none" stroke="#000" stroke-width="1.7">' + f.c + '</g></mask><g mask="url(#' + id + ')" fill="currentColor">' + f.b + '</g>';
+      } else body = '<g fill="currentColor">' + f.b + '</g>';
+    }
+    return open + body + (f.s || '') + '</svg>';
+  }
+  // Each kind of device has its colour, like the Home app: lights yellow, climate blue, security teal...
+  const HUES = {
+    light: 'yellow', lamp: 'yellow', column: 'yellow', desklamp: 'yellow', tablelamp: 'yellow', ceiling: 'yellow', pendant: 'yellow', walllight: 'yellow',
+    spotlight: 'yellow', ring: 'yellow', strip: 'yellow', fairy: 'yellow', lantern: 'yellow', starlight: 'yellow', nightlight: 'yellow', tree: 'yellow',
+    plug: 'amber', multi: 'amber', switch: 'amber', appliance: 'amber', coffee: 'amber', washer: 'amber', fridge: 'amber', boiler: 'amber', robovac: 'amber', petbowl: 'amber',
+    fan: 'blue', climate: 'blue', purifier: 'blue', humidifier: 'blue', thermo: 'blue', cover: 'blue',
+    heater: 'orange',
+    lock: 'teal', doorbell: 'teal', garage: 'teal', sensor: 'teal', motion: 'teal', camera: 'teal',
+    plant: 'green',
+    tv: 'purple', speaker: 'purple', remote: 'purple', router: 'grey', generic: 'grey'
+  };
+  const hueOf = (d) => HUES[iconKeyOf(d)] || 'grey';
+  function deviceIcon(d, size) { const ph = photoOf(d); return ph ? photoImg(ph) : glyph(iconKeyOf(d), size); }
 
   // ---------- Views ----------
   function tabs(active) {
@@ -1553,7 +1621,7 @@
   function deviceCard(d, selectedId) {
     const on = isOn(d), toggle = hasToggle(d), lit = toggle && on && d.online;
     if (d.online && isKioskAc(d)) return acCard(d, selectedId);
-    const cls = ['card', 'compact', photoOf(d) ? 'has-photo' : '', lit ? 'active' : '', d.online ? '' : 'offline', d.id === selectedId ? 'selected' : '', isPending(d.id) ? 'pending' : ''].join(' ');
+    const cls = ['card', 'compact', 'hue-' + hueOf(d), photoOf(d) ? 'has-photo' : '', lit ? 'active' : '', d.online ? '' : 'offline', d.id === selectedId ? 'selected' : '', isPending(d.id) ? 'pending' : ''].join(' ');
     const r = S.reorder, busy = isPending(d.id);
     const colour = lit && kindOf(d) === 'light' && inColour(d) ? ' style="background:' + colourCss(d) + ';color:#141414"' : '';
     const glyph = photoOf(d)
@@ -1565,6 +1633,7 @@
       : '<span class="card-icon icon-dot" aria-hidden="true">' + glyph + '</span>';
     const status = d.online ? statusText(d) : 'Offline';
     return '<div class="' + cls + '" data-card-id="' + esc(d.id) + '">' + iconEl +
+      (d.online ? '' : '<span class="off-badge" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 2.5 23 21.5H1z" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9v5.5M12 18v.01" stroke="#000" stroke-width="2.6" stroke-linecap="round"/></svg></span>') +
       '<button class="card-open"' + (r ? ' inert' : '') + ' data-act="open" data-id="' + esc(d.id) + '" data-key="open-' + esc(d.id) + '" aria-label="' + esc(d.name) + ', ' + esc(status) + ', show controls">' +
       '<span class="card-text"><span class="card-name">' + esc(d.name) + '</span><span class="card-status">' + esc(status) + '</span></span></button>' +
       (r ? '<button class="card-grip" data-key="grip-' + esc(d.id) + '" aria-label="Move ' + esc(d.name) + '. Use the arrow keys.">' + icon('grip', 18) + '</button>' : '') +
@@ -3457,7 +3526,7 @@
   // Off it's glass; on it turns bright, like accessories in the Home app.
   function kioskTile(d) {
     const on = isOn(d) && d.online, busy = isPending(d.id);
-    return '<button class="k-w s k-ctl' + (on ? ' on' : '') + (busy ? ' pending' : '') + '" data-act="toggle" data-id="' + esc(d.id) + '" data-key="k-' + esc(d.id) + '"' +
+    return '<button class="k-w s k-ctl hue-' + hueOf(d) + (on ? ' on' : '') + (busy ? ' pending' : '') + '" data-act="toggle" data-id="' + esc(d.id) + '" data-key="k-' + esc(d.id) + '"' +
       ' aria-pressed="' + isOn(d) + '" aria-label="' + esc(d.name + ', ' + (d.online ? statusText(d) : 'Offline')) + '"' + (d.online ? '' : ' disabled') + '>' +
       '<span class="k-glyph">' + deviceIcon(d, 24) + '</span>' +
       '<span class="k-ctl-text"><span class="k-name">' + esc(d.name) + '</span><span class="k-status">' + esc(d.online ? statusText(d) : 'Offline') + '</span></span></button>';

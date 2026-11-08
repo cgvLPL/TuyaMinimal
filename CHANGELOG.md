@@ -2,6 +2,15 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.53.0
+
+- Device icons in the Home app style, keeping all the different icons. The main part of each icon is solid (bulb, lamp shade, fan blades, plug, lock) with stands, arms and frames as lines, and details like sockets, keyholes and drums cut out. Each kind of device has its colour: lights yellow, plugs and appliances amber, climate and curtains blue, heaters orange, security teal, TVs and speakers purple, plants green. When on, the circle takes the colour and the icon turns white; when off, the icon is coloured in a grey circle. Also in wall tablet mode.
+- Unreachable devices: their icon turns grey with a small ⚠ badge, like the Home app's "No Response". The tile itself no longer fades.
+
+## 2.52.6
+
+- The bottom navigation bar no longer has a white outline. It keeps its glass look and shadow. With Increase Contrast turned on, the edge stays so the bar is easy to see.
+
 ## 2.52.5
 
 - Temperature sensors show their exact reading with one decimal everywhere: the Climate summary ("19.8–21.5°" instead of "20–22°"), each sensor, the gauges, sensor screens and history, wall tablet mode, and "Current" on AC screens. Set temperatures ("Cooling to 24°") stay whole numbers.
