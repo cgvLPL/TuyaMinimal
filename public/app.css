@@ -2667,3 +2667,30 @@ html:not([data-bg]) :is(.grid > .card, .room-box, .summary, .list, .hero, .readi
 .qc .ka-dial:focus-visible { box-shadow: none; }
 .qc-pill:focus-visible { outline: 3px solid rgba(255, 255, 255, 0.85); outline-offset: 4px; }
 .qc-sw { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); }
+
+/* 2.59.2: photo backgrounds run all the way to the top and bottom edges of the screen */
+html[data-bg]::before, html[data-bg]::after {
+  top: calc(-1 * env(safe-area-inset-top, 0px)); bottom: calc(-1 * env(safe-area-inset-bottom, 0px)); left: 0; right: 0;
+}
+html[data-bg="aura"]::before { background-size: cover; }
+/* The soft edges under the status bar and the tab bar used a blur, which on iPhone can't see the
+   photo layer and drew a black band instead. Over a photo they're a gentle shade instead. */
+html[data-bg] .scroll-edge { -webkit-backdrop-filter: none; backdrop-filter: none; }
+html[data-bg] .scroll-edge.top { background: rgba(0, 0, 0, 0.28); }
+html[data-bg] .scroll-edge.bottom { background: rgba(0, 0, 0, 0.22); }
+
+.qc-bg { top: calc(-1 * env(safe-area-inset-top, 0px)); bottom: calc(-1 * env(safe-area-inset-bottom, 0px)); }
+
+/* 2.59.4: battery level on sensor settings and history */
+.batt-ico { vertical-align: -1px; margin-right: 6px; }
+.value.batt-low { color: #ff9f0a; }
+.hist-batt { margin: 0 0 14px; }
+
+/* 2.59.5: the fan speed slider sits in from the screen edges */
+:is(.qc, .ka-page) .k-ac-fan { padding: 0 24px; box-sizing: border-box; }
+.qc .k-ac-fan .seg-label, .qc .k-ac-fan .fan-value { color: rgba(255, 255, 255, 0.75); }
+
+/* 2.59.6: icons on a lit control are drawn solid and faded as a whole. A see-through colour made the
+   outline darker wherever it crossed the filled shape (the black lines). */
+.qc.on .qc-knob, .qc-ch.on .qc-knob, .qc.on .qc-ico { color: #000; }
+.qc.on .qc-knob svg, .qc-ch.on .qc-knob svg, .qc.on .qc-ico svg { opacity: .55; }

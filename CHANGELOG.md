@@ -2,6 +2,30 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.59.6
+
+- Device controls: the icon on a lit knob or pill no longer has dark outlines. It was drawn in a see-through colour, so its outline doubled up where it crossed the filled shape; it's now drawn solid and faded as a whole.
+
+## 2.59.5
+
+- AC fan speed is back to the round Auto button and the Low / Medium / High slider, now set in from the screen edges so it isn't squeezed against them.
+
+## 2.59.4
+
+- Temperature sensors: the battery level now shows on the sensor's history page (tap Climate) and in its settings, with a small battery icon, in orange with 'replace soon' when it's low.
+- Battery works however the sensor reports it: a percentage (battery_percentage, va_battery, battery_value) or only a level (battery_state: low, medium, good). The 'Sensor battery low' warning understands all of them too.
+
+## 2.59.3
+
+- AC fan speed is now four equal buttons (Auto, Low, Medium, High) instead of a round Auto button beside a slider, on the device page and the wall tablet.
+- The settings sheet behind the gear no longer repeats the big control: no power switch, brightness, colour, outlet switches, curtain slider or AC dial. Only the settings are left (switch names, timer, energy, model). Sensors no longer show their reading twice.
+- The blurred backdrop behind a device now reaches up behind the clock and battery.
+
+## 2.59.2
+
+- Photo backgrounds now fill the whole screen, up behind the clock and battery, with no black band at the top (Aura now fills the screen too).
+- Weather: no longer stuck on Drizzle. The forecast model says drizzle whenever a trace of rain is possible, so it now only shows drizzle or rain when rain is actually falling, and otherwise describes the sky from the cloud cover.
+
 ## 2.59.1
 
 - Device controls: removed the white outline round the big pills, colour circles and AC dial. A focus ring now shows only when you use a keyboard.

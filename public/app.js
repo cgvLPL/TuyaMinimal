@@ -5,6 +5,40 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.59.6",
+      "items": [
+        "Device controls: the icon on a lit knob or pill no longer has dark outlines. It was drawn in a see-through colour, so its outline doubled up where it crossed the filled shape; it's now drawn solid and faded as a whole."
+      ]
+    },
+    {
+      "v": "2.59.5",
+      "items": [
+        "AC fan speed is back to the round Auto button and the Low / Medium / High slider, now set in from the screen edges so it isn't squeezed against them."
+      ]
+    },
+    {
+      "v": "2.59.4",
+      "items": [
+        "Temperature sensors: the battery level now shows on the sensor's history page (tap Climate) and in its settings, with a small battery icon, in orange with 'replace soon' when it's low.",
+        "Battery works however the sensor reports it: a percentage (battery_percentage, va_battery, battery_value) or only a level (battery_state: low, medium, good). The 'Sensor battery low' warning understands all of them too."
+      ]
+    },
+    {
+      "v": "2.59.3",
+      "items": [
+        "AC fan speed is now four equal buttons (Auto, Low, Medium, High) instead of a round Auto button beside a slider, on the device page and the wall tablet.",
+        "The settings sheet behind the gear no longer repeats the big control: no power switch, brightness, colour, outlet switches, curtain slider or AC dial. Only the settings are left (switch names, timer, energy, model). Sensors no longer show their reading twice.",
+        "The blurred backdrop behind a device now reaches up behind the clock and battery."
+      ]
+    },
+    {
+      "v": "2.59.2",
+      "items": [
+        "Photo backgrounds now fill the whole screen, up behind the clock and battery, with no black band at the top (Aura now fills the screen too).",
+        "Weather: no longer stuck on Drizzle. The forecast model says drizzle whenever a trace of rain is possible, so it now only shows drizzle or rain when rain is actually falling, and otherwise describes the sky from the cloud cover."
+      ]
+    },
+    {
       "v": "2.59.1",
       "items": [
         "Device controls: removed the white outline round the big pills, colour circles and AC dial. A focus ring now shows only when you use a keyboard."
@@ -1078,7 +1112,7 @@
     const live = readings.filter((d) => d.online).map((d) => ({ d, r: readingsOf(d) }));
     const temps = live.map((x) => x.r.temp).filter((v) => v != null);
     const hums = live.map((x) => x.r.hum).filter((v) => v != null);
-    const low = readings.some((d) => typeof d.status.battery_percentage === 'number' && d.status.battery_percentage <= 20);
+    const low = readings.some(batteryLow);
     const one = readings.length === 1 ? readings[0] : null;
     // In wall tablet mode nothing navigates away: one sensor is just shown, several expand in place.
     const still = inKiosk && one;
@@ -1112,9 +1146,28 @@
     return html;
   }
 
+  // Battery, whichever way the sensor reports it: a percentage (battery_percentage, va_battery,
+  // battery_value as %), or only a level (battery_state: low / middle / high).
+  function batteryInfo(d) {
+    const st = (d && d.status) || {};
+    let pct = null;
+    for (const c of ['battery_percentage', 'va_battery', 'residual_electricity', 'battery']) if (typeof st[c] === 'number' && st[c] >= 0 && st[c] <= 100) { pct = st[c]; break; }
+    if (pct == null && typeof st.battery_value === 'number') pct = st.battery_value <= 100 ? st.battery_value : null;   // some report millivolts
+    if (pct != null) return { pct: Math.round(pct), low: pct <= 20, text: Math.round(pct) + '%' };
+    const lv = typeof st.battery_state === 'string' ? st.battery_state.toLowerCase() : null;
+    if (lv) return { pct: null, low: lv === 'low', text: lv === 'low' ? 'Low' : lv === 'middle' ? 'Medium' : lv === 'high' ? 'Good' : lv[0].toUpperCase() + lv.slice(1) };
+    return null;
+  }
+  function batteryGlyph(b) {
+    const f = b.pct != null ? b.pct / 100 : b.low ? 0.15 : b.text === 'Medium' ? 0.5 : 0.9;
+    return '<svg class="batt-ico" width="24" height="12" viewBox="0 0 24 12" aria-hidden="true"><rect x="0.75" y="0.75" width="20" height="10.5" rx="2.6" fill="none" stroke="currentColor" stroke-opacity=".45" stroke-width="1.5"/>' +
+      '<rect x="22" y="4" width="1.6" height="4" rx=".8" fill="currentColor" fill-opacity=".45"/><rect x="2.5" y="2.5" width="' + Math.max(1.5, 16.5 * f).toFixed(1) + '" height="7" rx="1.4" fill="currentColor"/></svg>';
+  }
+  const batteryLow = (d) => { const b = batteryInfo(d); return !!(b && b.low); };
+
   function readingTile(d, showRoom) {
     const r = readingsOf(d);
-    const lowBattery = typeof d.status.battery_percentage === 'number' && d.status.battery_percentage <= 20;
+    const lowBattery = batteryLow(d);
     let main = '';
     if (!d.online) {
       main = '<span class="reading-off">Offline</span>';
@@ -1252,6 +1305,8 @@
     let html = '<div class="detail-head se-head-top"><button class="round-btn" data-act="tab" data-tab="devices" data-key="hist-back" aria-label="Back to devices">' + icon('back', 20) + '</button>' +
       '<div><p class="sub">' + esc(d ? (d.room || 'History') : 'History') + '</p><h1 class="detail-title">' + esc(d ? d.name : 'Sensor') + '</h1></div></div>';
     if (!d) return html + '<div class="empty"><strong>Sensor not found</strong></div>';
+    const hb = batteryInfo(d);
+    if (hb) html += '<div class="list hist-batt"><div class="list-row"><span class="label">Battery</span><span class="value' + (hb.low ? ' batt-low' : '') + '">' + batteryGlyph(hb) + hb.text + (hb.low ? ' · replace soon' : '') + '</span></div></div>';
     html += '<div class="seg hist-range" style="--n:2" role="group" aria-label="Time range">' +
       [[24, 'Last 24 hours'], [168, 'Last 7 days']].map(([h, l]) =>
         '<button class="chip soft" data-act="hist-range" data-h="' + h + '" data-id="' + esc(d.id) + '" data-key="hist-' + h + '" aria-pressed="' + (S.histHours === h) + '">' + l + '</button>').join('') + '</div>';
@@ -1885,7 +1940,7 @@
     } else el.style.removeProperty('--hue');
     if (qc.sheet && !S.dragging) {
       qc.sheet.querySelector('.qc-sheet-status').textContent = statusTxt;
-      patchHtml(qc.sheet.querySelector('.qc-sheet-body'), detailView(d, true, '-q'));
+      patchHtml(qc.sheet.querySelector('.qc-sheet-body'), detailView(d, true, '-q', true));
     }
     const sw = chs.length ? null : el.querySelector('.qc-switch');
     if (sw) {
@@ -2987,7 +3042,7 @@
       '<div class="ends three"><span>Low</span><span>Medium</span><span>High</span></div></div></div>';
   }
 
-  function detailView(d, inPanel, sfxOver) {
+  function detailView(d, inPanel, sfxOver, settingsOnly) {
     if (!d) return '<div class="empty"><strong>Pick a device</strong><p>Its controls appear here.</p></div>';
     const on = isOn(d);
     const k = kindOf(d), st = d.status;
@@ -3050,9 +3105,15 @@
       hero += '<div class="stack-center"><span class="big mid">Online</span><span class="big-label">This app does not have controls for this device type yet.</span></div>';
     }
 
+    // In the full-screen control's settings sheet, leave out what the big control already does
+    // (power, brightness and colour, the outlets, curtain position, the AC dial).
+    const qk = settingsOnly ? qcKind(d) : null;
+    const coveredByControl = !!qk && d.online && (qk !== 'switch' || ['switch', 'plug', 'light'].includes(k));
+    const hideHero = coveredByControl || (settingsOnly && k === 'sensor' && d.online);   // the sensor's rows below say the same
+    if (hideHero) hero = '';
     const rows = [];
     const nameRows = k === 'multi' && d.online ? channelCodes(d).map((c) => channelRow(d, c, sfx)) : [];
-    if (hasToggle(d) && !heroHasPower) {
+    if (hasToggle(d) && !heroHasPower && !qk) {
       rows.push('<div class="list-row"><span class="label">Power</span>' + switchBtn(d, sfx) + '</div>');
     }
     if (k === 'sensor') {
@@ -3060,7 +3121,8 @@
       if (tt != null) rows.push('<div class="list-row"><span class="label">Temperature</span><span class="value">' + fmtReading(tt) + '</span></div>');
       if (hh != null) rows.push('<div class="list-row"><span class="label">Humidity</span><span class="value">' + Math.round(hh) + '%</span></div>');
     }
-    if (typeof st.battery_percentage === 'number') rows.push('<div class="list-row"><span class="label">Battery</span><span class="value">' + st.battery_percentage + '%</span></div>');
+    const batt = batteryInfo(d);
+    if (batt) rows.push('<div class="list-row"><span class="label">Battery</span><span class="value' + (batt.low ? ' batt-low' : '') + '">' + batteryGlyph(batt) + batt.text + '</span></div>');
     if (d.ir && d.ir.brand) rows.push('<div class="list-row"><span class="label">Brand</span><span class="value">' + esc(d.ir.brand) + '</span></div>');
     else rows.push('<div class="list-row"><span class="label">Model</span><span class="value">' + esc(d.product || d.category) + '</span></div>');
 
@@ -3070,7 +3132,7 @@
       '<span class="icon-dot head-icon">' + deviceIcon(d) + '</span>' +
       '<div><p class="sub">' + esc((d.room || 'No room') + (d.ir && d.ir.brand ? ', ' + d.ir.brand : '')) + '</p><h2 class="detail-title">' + esc(d.name) + '</h2></div></div>' +
       // AC and thermostat screens skip the photo: the temperature dial is the picture there.
-      '<div class="hero">' + (photoOf(d) && hero.indexOf('<div class="td') === -1 ? '<div class="hero-photo ' + (on && d.online ? 'lit' : 'dim') + '" style="--glow-color:' + photoGlow(d) + '">' + photoImg(photoOf(d)) + '</div>' : '') + hero + '</div>' +
+      (hideHero ? '' : '<div class="hero">' + (photoOf(d) && hero.indexOf('<div class="td') === -1 ? '<div class="hero-photo ' + (on && d.online ? 'lit' : 'dim') + '" style="--glow-color:' + photoGlow(d) + '">' + photoImg(photoOf(d)) + '</div>' : '') + hero + '</div>') +
       (nameRows.length ? '<h3 class="section-title">Switch names</h3><div class="list names-list">' + nameRows.join('') + '</div>' : '') +
       '<div class="list">' + rows.join('') + '</div>' +
       (d.online ? timerSection(d) : '') +
@@ -3957,7 +4019,7 @@
       if (r.temp != null) g += gauge('temp', 'Temperature', fmtReading(r.temp), (r.temp - GAUGE_TEMP[0]) / (GAUGE_TEMP[1] - GAUGE_TEMP[0]));
       if (r.hum != null) g += gauge('hum', 'Humidity', Math.round(r.hum) + '%', r.hum / 100);
     }
-    const low = typeof d.status.battery_percentage === 'number' && d.status.battery_percentage <= 20;
+    const low = batteryLow(d);
     return '<button class="k-w s k-sensor" data-act="open-history" data-id="' + esc(d.id) + '" data-key="ksn-' + esc(d.id) + '" aria-label="' + esc(d.name + ', show history') + '">' +
       '<span class="k-wname">' + esc(d.name) + (low ? '<span class="k-low"> · Battery low</span>' : '') + '</span><span class="k-gauges">' + g + '</span></button>';
   }
@@ -5567,7 +5629,7 @@
         { id: 'dev1', name: 'Ceiling light', category: 'dj', product: 'Smart bulb', online: true, room: 'Living room', status: { switch_led: true, work_mode: 'white', bright_value_v2: 800, temp_value_v2: 0 } },
         { id: 'dev14', name: 'Light strip', category: 'dd', product: 'RGB light strip', online: true, room: 'Living room', status: { switch_led: true, work_mode: 'colour', bright_value_v2: 800, temp_value_v2: 0, colour_data_v2: { h: 275, s: 900, v: 800 } } },
         { id: 'dev2', name: 'Floor lamp', category: 'dj', product: 'Smart bulb', online: true, room: 'Living room', status: { switch_led: false, work_mode: 'white', bright_value_v2: 450, temp_value_v2: 500 } },
-        { id: 'dev9', name: 'Living room climate', category: 'wsdcg', product: 'Temperature and humidity sensor', online: true, room: 'Living room', status: { va_temperature: 215, va_humidity: 48, battery_percentage: 72 } },
+        { id: 'dev9', name: 'Living room climate', category: 'wsdcg', product: 'Temperature and humidity sensor', online: true, room: 'Living room', status: { va_temperature: 215, va_humidity: 48, battery_state: 'middle' } },
         { id: 'dev13', name: 'Bedroom sensor', category: 'wsdcg', product: 'Temperature and humidity sensor', online: true, room: 'Bedroom', status: { va_temperature: 198, va_humidity: 55, battery_percentage: 15 } },
         { id: 'dev3', name: 'Air conditioner', category: 'kt', product: 'AC controller', online: true, room: 'Bedroom', status: { switch: true, temp_set: 24, temp_current: 26, mode: 'cold' } },
         { id: 'dev7', name: 'Bedroom curtains', category: 'cl', product: 'Curtain motor', online: true, room: 'Bedroom', status: { control: 'stop', percent_control: 60, percent_state: 60 } },
