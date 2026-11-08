@@ -5,6 +5,18 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.54.1",
+      "items": [
+        "Tab bar is more like glass: lighter tint and blur so what's behind shows through with more colour, a soft sheen across the top and gentle depth along the bottom (no outline), and a glassy capsule for the current tab. With Reduce Transparency on, it stays solid."
+      ]
+    },
+    {
+      "v": "2.54.0",
+      "items": [
+        "Tab bar like the Home app's: clearer tinted glass, solid icons (grid, sparkles, person), and the current tab shown as a darker capsule with a yellow icon (orange in light mode). No labels and no outline, same three tabs."
+      ]
+    },
+    {
       "v": "2.53.0",
       "items": [
         "Device icons in the Home app style, keeping all the different icons. The main part of each icon is solid (bulb, lamp shade, fan blades, plug, lock) with stands, arms and frames as lines, and details like sockets, keyholes and drums cut out. Each kind of device has its colour: lights yellow, plugs and appliances amber, climate and curtains blue, heaters orange, security teal, TVs and speakers purple, plants green. When on, the circle takes the colour and the icon turns white; when off, the icon is coloured in a grey circle. Also in wall tablet mode.",
@@ -1578,11 +1590,18 @@
   function deviceIcon(d, size) { const ph = photoOf(d); return ph ? photoImg(ph) : glyph(iconKeyOf(d), size); }
 
   // ---------- Views ----------
+  // Solid tab icons, like the Home app's tab bar.
+  const TAB_GLYPHS = {
+    grid: '<rect x="3" y="3" width="7.5" height="7.5" rx="2.2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2.2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2.2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2.2"/>',
+    scenes: '<path d="M10.5 2.5c.6 4.2 2.8 6.4 7 7-4.2.6-6.4 2.8-7 7-.6-4.2-2.8-6.4-7-7 4.2-.6 6.4-2.8 7-7z"/><path d="M18.5 14c.3 2.2 1.3 3.2 3.5 3.5-2.2.3-3.2 1.3-3.5 3.5-.3-2.2-1.3-3.2-3.5-3.5 2.2-.3 3.2-1.3 3.5-3.5z"/>',
+    me: '<circle cx="12" cy="7.5" r="4.5"/><path d="M3.5 21c0-4.6 3.8-7.5 8.5-7.5s8.5 2.9 8.5 7.5z"/>'
+  };
+  const tabGlyph = (k) => '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" aria-hidden="true">' + TAB_GLYPHS[k] + '</svg>';
   function tabs(active) {
     const items = [['devices', 'Devices', 'grid'], ['scenes', 'Scenes', 'scenes'], ['me', 'Me', 'me']];
     return items.map(([id, label, ic]) =>
       '<button class="tab" data-act="tab" data-tab="' + id + '" data-key="tab-' + id + '" aria-label="' + label + '" title="' + label + '"' +
-      (active === id ? ' aria-current="page"' : '') + '><span class="pill">' + icon(ic) + '</span><span class="tab-label">' + label + '</span></button>'
+      (active === id ? ' aria-current="page"' : '') + '><span class="pill">' + tabGlyph(ic) + '</span><span class="tab-label">' + label + '</span></button>'
     ).join('');
   }
 

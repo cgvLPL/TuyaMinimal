@@ -2,6 +2,14 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.54.1
+
+- Tab bar is more like glass: lighter tint and blur so what's behind shows through with more colour, a soft sheen across the top and gentle depth along the bottom (no outline), and a glassy capsule for the current tab. With Reduce Transparency on, it stays solid.
+
+## 2.54.0
+
+- Tab bar like the Home app's: clearer tinted glass, solid icons (grid, sparkles, person), and the current tab shown as a darker capsule with a yellow icon (orange in light mode). No labels and no outline, same three tabs.
+
 ## 2.53.0
 
 - Device icons in the Home app style, keeping all the different icons. The main part of each icon is solid (bulb, lamp shade, fan blades, plug, lock) with stands, arms and frames as lines, and details like sockets, keyholes and drums cut out. Each kind of device has its colour: lights yellow, plugs and appliances amber, climate and curtains blue, heaters orange, security teal, TVs and speakers purple, plants green. When on, the circle takes the colour and the icon turns white; when off, the icon is coloured in a grey circle. Also in wall tablet mode.

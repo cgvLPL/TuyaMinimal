@@ -2411,3 +2411,56 @@ html .grid > .card.compact.offline:not(.active) .card-icon.icon-dot { color: var
 @media (prefers-color-scheme: light) { .grid > .card.compact .off-badge { color: #1c1c1e; } .grid > .card.compact .off-badge path + path { stroke: #fff; } }
 .grid > .card.compact.offline { opacity: 1; }
 .grid > .card.compact.offline .card-text { opacity: .6; }
+/* 2.54: tab bar like the Home app: clear tinted glass, solid icons, the current tab a darker capsule
+   with a coloured icon. No labels, no outline. */
+html .tabbar {
+  background: rgba(255, 255, 255, 0.4);
+  -webkit-backdrop-filter: blur(22px) saturate(190%); backdrop-filter: blur(22px) saturate(190%);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.14);
+  padding: 6px;
+}
+html .tabbar::after { opacity: .6; }
+html .tabbar .tab { min-height: 56px; }
+html .tabbar .tab .pill { width: 92px; height: 50px; border-radius: 25px; background: transparent; color: rgba(28, 28, 30, 0.85); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; transition: background-color .25s ease, color .25s ease; }
+html .tabbar .tab .pill svg { width: 26px; height: 26px; }
+html .tabbar .tab[aria-current="page"] .pill { background: rgba(0, 0, 0, 0.08); color: #ff8a00; }
+@media (prefers-color-scheme: dark) {
+  html .tabbar { background: rgba(255, 255, 255, 0.12); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35); }
+  html .tabbar .tab .pill { color: #fff; }
+  html .tabbar .tab[aria-current="page"] .pill { background: rgba(0, 0, 0, 0.24); color: #ffd66b; }
+}
+html[data-bg] .tabbar { background: rgba(255, 255, 255, 0.12); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); }
+html[data-bg] .tabbar .tab .pill { color: #fff; }
+html[data-bg] .tabbar .tab[aria-current="page"] .pill { background: rgba(0, 0, 0, 0.24); color: #ffd66b; }
+@media (prefers-reduced-transparency: reduce) { html .tabbar { background: var(--surface); } }
+/* 2.54.1: more glass. See-through tint, lighter blur with extra colour, a soft light along the top and
+   depth along the bottom (soft glows, no outline line), and a glassy current-tab capsule. */
+html .tabbar {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.16));
+  -webkit-backdrop-filter: blur(12px) saturate(210%) brightness(1.06); backdrop-filter: blur(12px) saturate(210%) brightness(1.06);
+  box-shadow: inset 0 10px 18px -12px rgba(255, 255, 255, 0.9), inset 0 -10px 18px -12px rgba(0, 0, 0, 0.18), 0 12px 32px rgba(0, 0, 0, 0.16);
+}
+html .tabbar::after {
+  opacity: 1; mix-blend-mode: normal;
+  background: radial-gradient(120% 90% at 22% -10%, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 55%),
+              radial-gradient(80% 70% at 85% 120%, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 60%);
+}
+html .tabbar .tab[aria-current="page"] .pill {
+  background: rgba(0, 0, 0, 0.07);
+  box-shadow: inset 0 6px 12px -8px rgba(255, 255, 255, 0.8), inset 0 -6px 12px -8px rgba(0, 0, 0, 0.12);
+}
+@media (prefers-color-scheme: dark) {
+  html .tabbar {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05));
+    box-shadow: inset 0 10px 18px -12px rgba(255, 255, 255, 0.45), inset 0 -10px 18px -12px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.4);
+  }
+  html .tabbar::after { background: radial-gradient(120% 90% at 22% -10%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 55%), radial-gradient(80% 70% at 85% 120%, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 60%); }
+  html .tabbar .tab[aria-current="page"] .pill { background: rgba(0, 0, 0, 0.22); box-shadow: inset 0 6px 12px -8px rgba(255, 255, 255, 0.3), inset 0 -6px 12px -8px rgba(0, 0, 0, 0.35); }
+}
+html[data-bg] .tabbar {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05));
+  box-shadow: inset 0 10px 18px -12px rgba(255, 255, 255, 0.45), inset 0 -10px 18px -12px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+html[data-bg] .tabbar::after { background: radial-gradient(120% 90% at 22% -10%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 55%), radial-gradient(80% 70% at 85% 120%, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 60%); }
+html[data-bg] .tabbar .tab[aria-current="page"] .pill { background: rgba(0, 0, 0, 0.22); box-shadow: inset 0 6px 12px -8px rgba(255, 255, 255, 0.3), inset 0 -6px 12px -8px rgba(0, 0, 0, 0.35); }
+@media (prefers-reduced-transparency: reduce) { html .tabbar, html[data-bg] .tabbar { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; } }
