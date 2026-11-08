@@ -2,6 +2,24 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.59.1
+
+- Device controls: removed the white outline round the big pills, colour circles and AC dial. A focus ring now shows only when you use a keyboard.
+
+## 2.59.0
+
+- On phones, a device now opens like the Home app: a full-screen control over the blurred home screen, with the name and status at the top. Lights get a brightness pill (filled with the light's colour) and white and colour circles under it; switches a knob; power strips one pill per outlet; curtains a pill you drag to set how far they're open; air conditioners the thermostat dial and modes.
+- The gear opens a sheet with everything else: timers, switch names, energy, model and more. Devices with nothing to show big (sensors, remotes) open straight to it.
+- Close with the X, a tap outside, Back or Escape. Tablets and laptops keep the side panel.
+
+## 2.58.0
+
+- Faster: a tap, a room switch or a live update now changes only the parts of the screen that changed, instead of rebuilding the whole page. A tap does about 40% less work and the slowest taps take half as long; scroll positions, focus and images stay put.
+- Smoother scrolling on the plain background: tiles and panels skip a live blur there (it looked identical, since there's nothing behind them to blur). Photo backgrounds and the tab bar keep their glass.
+- Long-press a power strip or multi-gang switch for one pill per switch, like a light group in the Home app. The heading shows All On, All Off or how many are on.
+- The gear in the quick control now slides up a settings sheet with all of the device's controls over the pills; close it to drop back to them. Open full page is at the bottom.
+- Picking a room (on Home or the wall tablet) crossfades the list into the new set of tiles.
+
 ## 2.57.1
 
 - Laptops and tablets: the top edge of the first row of device tiles no longer gets faded or cut off, including the ring around a selected tile.

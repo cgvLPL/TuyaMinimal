@@ -5,6 +5,30 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.59.1",
+      "items": [
+        "Device controls: removed the white outline round the big pills, colour circles and AC dial. A focus ring now shows only when you use a keyboard."
+      ]
+    },
+    {
+      "v": "2.59.0",
+      "items": [
+        "On phones, a device now opens like the Home app: a full-screen control over the blurred home screen, with the name and status at the top. Lights get a brightness pill (filled with the light's colour) and white and colour circles under it; switches a knob; power strips one pill per outlet; curtains a pill you drag to set how far they're open; air conditioners the thermostat dial and modes.",
+        "The gear opens a sheet with everything else: timers, switch names, energy, model and more. Devices with nothing to show big (sensors, remotes) open straight to it.",
+        "Close with the X, a tap outside, Back or Escape. Tablets and laptops keep the side panel."
+      ]
+    },
+    {
+      "v": "2.58.0",
+      "items": [
+        "Faster: a tap, a room switch or a live update now changes only the parts of the screen that changed, instead of rebuilding the whole page. A tap does about 40% less work and the slowest taps take half as long; scroll positions, focus and images stay put.",
+        "Smoother scrolling on the plain background: tiles and panels skip a live blur there (it looked identical, since there's nothing behind them to blur). Photo backgrounds and the tab bar keep their glass.",
+        "Long-press a power strip or multi-gang switch for one pill per switch, like a light group in the Home app. The heading shows All On, All Off or how many are on.",
+        "The gear in the quick control now slides up a settings sheet with all of the device's controls over the pills; close it to drop back to them. Open full page is at the bottom.",
+        "Picking a room (on Home or the wall tablet) crossfades the list into the new set of tiles."
+      ]
+    },
+    {
       "v": "2.57.1",
       "items": [
         "Laptops and tablets: the top edge of the first row of device tiles no longer gets faded or cut off, including the ring around a selected tile."
@@ -1638,33 +1662,100 @@
   // The tile grows into a tall control over the blurred screen. Switches get a knob that slides up
   // and fills with colour; dimmable lights get a brightness pill you drag. It shrinks back on close.
   let qc = null;
+  const X_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
   const GEAR = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
-  const qcCanOpen = (d) => d && d.online && hasToggle(d) && !isKioskAc(d) && kindOf(d) !== 'cover' && channelCodes(d).length <= 1;
+  const qcCanOpen = (d) => d && d.online && (hasToggle(d) || channelCodes(d).length > 1) && !isKioskAc(d) && kindOf(d) !== 'cover';
   const qcDimmable = (d) => kindOf(d) === 'light' && !!brightCode(d) && !!powerCode(d);
   const qcMotion = () => !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
   function qcTileOf(id) {
     return document.querySelector('.grid > .card[data-card-id="' + CSS.escape(id) + '"]') || document.querySelector('.k26 .k-ctl[data-id="' + CSS.escape(id) + '"]');
   }
-  function qcOpen(d, tile) {
+  // What the big control is for a device: the Home app's full-screen layout.
+  function qcKind(d) {
+    if (isKioskAc(d)) return 'ac';
+    if (kindOf(d) === 'cover' && 'percent_control' in d.status) return 'cover';
+    if (channelCodes(d).length > 1) return 'multi';
+    if (qcDimmable(d)) return 'dim';
+    if (hasToggle(d) && kindOf(d) !== 'cover') return 'switch';
+    return null;
+  }
+  // The brightness / position pill: what it shows, and what a drag or a tap sends.
+  function qcSliderFor(d) {
+    if (qcKind(d) === 'cover') return {
+      pct: (x) => clamp(Number(x.status.percent_control ?? x.status.percent_state) || 0, 0, 100),
+      on: (pct) => pct > 0,
+      text: (pct) => (pct > 0 ? pct + '% open' : 'Closed'),
+      commit: (x, pct) => { qcHold(pct); send(x, [{ code: 'percent_control', value: pct }], { percent_control: pct }); },
+      tap: (x, pct) => { const v = pct > 0 ? 0 : 100; qcHold(v); send(x, [{ code: 'percent_control', value: v }], { percent_control: v }); },
+      label: 'position'
+    };
+    return {
+      pct: (x) => { const bc = brightCode(x); return isOn(x) && bc ? toPct(x.status[bc], lightRange(x, bc)) : 0; },
+      on: (pct) => pct > 0,
+      text: (pct) => (pct > 0 ? pct + '%' : 'Off'),
+      commit: (x, pct) => {
+        const pc = powerCode(x), bc = brightCode(x);
+        if (pct <= 0) { if (x.status[pc]) send(x, [{ code: pc, value: false }], { [pc]: false }); return; }
+        const cmds = [{ code: bc, value: fromPct(pct, lightRange(x, bc)) }];
+        if (!x.status[pc]) cmds.unshift({ code: pc, value: true });
+        send(x, cmds, Object.fromEntries(cmds.map((c) => [c.code, c.value])));
+      },
+      tap: (x) => { const pc = powerCode(x); send(x, [{ code: pc, value: !x.status[pc] }], { [pc]: !x.status[pc] }); },
+      label: 'brightness'
+    };
+  }
+  // Curtains report their new position only once the motor moves: show the one you picked meanwhile.
+  function qcHold(pct) { if (qc) { qc.hold = { pct, until: Date.now() + 4000 }; qcSync(); } }
+  // White and colour circles under a light's pill.
+  function qcSwatches(d) {
+    const wc = warmCode(d), cc = colourCode(d), colour = cc && inColour(d), c = cc ? currentColour(d) : null;
+    const m = cc ? colourMax(cc) : null;
+    let html = '';
+    if (wc) {
+      const w = toPct(d.status[wc], lightRange(d, wc, true));
+      html += [['Warm white', 1, '#ffd29a'], ['Neutral white', 50, '#fff3e0'], ['Cool white', 100, '#e4eeff']].map(([n, p, col]) =>
+        '<button class="qc-sw" style="--sw:' + col + '" data-act="warmth" data-pct="' + p + '" data-id="' + esc(d.id) + '" aria-label="' + n + '" aria-pressed="' + (!colour && isOn(d) && Math.abs(w - p) <= 12) + '"></button>').join('');
+    }
+    if (cc) {
+      const sPct = Math.round((c.s / m.s) * 100);
+      html += SWATCHES.map(([n, h]) => '<button class="qc-sw" style="--sw:' + hsvCss(h, 100) + '" data-act="swatch" data-h="' + h + '" data-id="' + esc(d.id) + '" aria-label="' + n + '" aria-pressed="' + (colour && isOn(d) && sPct >= 85 && Math.min(Math.abs(c.h - h), 360 - Math.abs(c.h - h)) <= 10) + '"></button>').join('');
+    }
+    return html;
+  }
+  function qcOpen(d, tile, opts) {
     if (qc) qcClose(true);
-    const dim = qcDimmable(d);
+    const page = !!(opts && opts.page);
+    const kind = qcKind(d);
+    const codes = channelCodes(d), multi = kind === 'multi';
+    const dim = kind === 'dim' || kind === 'cover';
+    const swatches = kind === 'dim' && (warmCode(d) || colourCode(d));
     const el = document.createElement('div');
-    el.className = 'qc hue-' + hueOf(d) + (dim ? ' qc-dim' : '');
+    el.className = 'qc hue-' + hueOf(d) + (dim ? ' qc-dim' : '') + (multi ? ' qc-multi-on' : '') + (page ? ' qc-page' : '') + (kind === 'ac' ? ' qc-ac-on' : '') + (!kind ? ' qc-none' : '');
     el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', d.name);
     el.innerHTML = '<div class="qc-bg"></div>' +
+      (page ? '<button class="qc-x" aria-label="Close">' + X_ICON + '</button>' : '') +
       '<div class="qc-head"><div class="qc-name">' + esc(d.name) + '</div><div class="qc-status" aria-live="polite"></div></div>' +
-      (dim
-        ? '<div class="qc-pill qc-slider" role="slider" tabindex="0" aria-label="' + esc(d.name) + ' brightness" aria-valuemin="0" aria-valuemax="100"><span class="qc-fill"></span><span class="qc-ico">' + glyph(iconKeyOf(d), 34) + '</span></div>'
+      (!kind ? '<div class="qc-body qc-empty"></div>'
+        : kind === 'ac' ? '<div class="qc-body qc-ac"></div>'
+        : multi
+        ? '<div class="qc-multi qc-body" style="--n:' + codes.length + '">' + codes.map((c) =>
+            '<div class="qc-unit"><button class="qc-pill qc-switch qc-ch" role="switch" aria-label="' + esc(channelName(d, c)) + '" data-act="toggle" data-id="' + esc(d.id) + '" data-code="' + esc(c) + '">' +
+            '<span class="qc-knob">' + glyph(iconKeyOf(d), 30) + '</span></button><span class="qc-ch-name">' + esc(channelName(d, c)) + '</span></div>').join('') + '</div>'
+        : dim
+        ? '<div class="qc-pill qc-slider" role="slider" tabindex="0" aria-label="' + esc(d.name) + ' ' + qcSliderFor(d).label + '" aria-valuemin="0" aria-valuemax="100"><span class="qc-fill"></span><span class="qc-ico">' + glyph(iconKeyOf(d), 34) + '</span></div>' +
+          (swatches ? '<div class="qc-swatches" role="group" aria-label="Colors"></div>' : '')
         : '<button class="qc-pill qc-switch" role="switch" aria-label="' + esc(d.name) + '" data-act="toggle" data-id="' + esc(d.id) + '"><span class="qc-knob">' + glyph(iconKeyOf(d), 34) + '</span></button>') +
       '<button class="qc-gear" aria-label="All controls for ' + esc(d.name) + '">' + GEAR + '</button>';
     shell.app.appendChild(el);
-    qc = { id: d.id, el, last: null, drag: null, focusBack: document.activeElement };
+    qc = { id: d.id, el, last: null, lastCh: {}, drag: null, focusBack: document.activeElement, page, back: !!(opts && opts.back), kind, sl: dim ? qcSliderFor(d) : null };
     qcSync(true);
-    try { history.pushState({ qc: 1 }, '', location.href); qc.pushed = true; } catch (e) { /* fine without */ }
-    const pill = el.querySelector('.qc-pill');
-    el.querySelector('.qc-bg').addEventListener('click', () => qcClose());
-    el.querySelector('.qc-gear').addEventListener('click', () => { const id = qc.id; qcClose(true); go('device/' + encodeURIComponent(id)); });
+    if (!page) { try { history.pushState({ qc: 1 }, '', location.href); qc.pushed = true; } catch (e) { /* fine without */ } }
+    const pill = el.querySelector(multi ? '.qc-multi' : kind === 'ac' ? '.qc-ac' : !kind ? '.qc-empty' : '.qc-pill');
+    el.querySelector('.qc-bg').addEventListener('click', () => qcExit());
+    if (page) el.querySelector('.qc-x').addEventListener('click', () => qcExit());
+    el.querySelector('.qc-gear').addEventListener('click', () => qcSheetOpen());
     if (dim) qcSliderEvents(pill);
+    if (!kind) { qcSheetOpen(true); return; }   // nothing to show big (sensors, remotes...): straight to its settings
     if (qcMotion() && tile && pill.animate) {
       const a = tile.getBoundingClientRect(), b = pill.getBoundingClientRect();
       if (a.width && b.width) {
@@ -1674,9 +1765,57 @@
         ], { duration: 520, easing: 'cubic-bezier(.3, 1.18, .4, 1)' });
       }
       el.querySelector('.qc-bg').animate([{ opacity: 0 }, { opacity: 1 }], { duration: 320, easing: 'ease-out' });
-      [el.querySelector('.qc-head'), el.querySelector('.qc-gear')].forEach((n) => n.animate([{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 360, delay: 120, easing: 'ease-out', fill: 'backwards' }));
+      [el.querySelector('.qc-head'), el.querySelector('.qc-gear'), el.querySelector('.qc-x'), el.querySelector('.qc-swatches')].forEach((n) => n && n.animate([{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 360, delay: 120, easing: 'ease-out', fill: 'backwards' }));
     }
-    setTimeout(() => { if (qc && qc.el === el) pill.focus({ preventScroll: true }); }, 60);
+    // Move focus in only for keyboard users (on touch it showed as a white ring round the control).
+    if (qcKeys) setTimeout(() => { if (qc && qc.el === el) { const f = el.querySelector('.qc-pill, .ka-dial'); if (f) f.focus({ preventScroll: true }); } }, 60);
+  }
+  // Closing by hand. As the device page, that goes back to where you came from (which closes it).
+  let qcKeys = false;
+  document.addEventListener('keydown', (e) => { if (e.key === 'Tab' || e.key === 'Enter' || e.key === ' ' || e.key.startsWith('Arrow')) qcKeys = true; }, true);
+  document.addEventListener('pointerdown', () => { qcKeys = false; }, true);
+  function qcExit() {
+    if (!qc) return;
+    if (!qc.page) { qcClose(); return; }
+    if (qc.back) history.back();
+    else location.replace('#devices');
+  }
+  // The gear slides a sheet up over the control with all of the device's settings (like the Home app);
+  // closing it drops back to the quick control.
+  function qcSheetOpen(auto) {
+    if (!qc || qc.sheet) return;
+    qc.autoSheet = !!auto;
+    const d = findDevice(qc.id); if (!d) return;
+    const sh = document.createElement('div');
+    sh.className = 'qc-sheet';
+    sh.setAttribute('role', 'dialog'); sh.setAttribute('aria-label', d.name + ' settings');
+    sh.innerHTML = '<div class="qc-sheet-head"><span class="qc-sheet-ico">' + deviceIcon(d, 24) + '</span><div class="qc-sheet-title"><div class="qc-sheet-name">' + esc(d.name) + '</div><div class="qc-sheet-status"></div></div>' +
+      '<button class="qc-sheet-x" aria-label="Close">' + X_ICON + '</button></div><div class="qc-sheet-body"></div>';
+    qc.el.appendChild(sh);
+    qc.sheet = sh;
+    qc.el.classList.add('sheet-open');
+    if (S.data && !S.specs[d.id]) loadSpec(d.id, true);
+    qcSync();
+    sh.querySelector('.qc-sheet-x').addEventListener('click', () => (qc && qc.autoSheet ? qcExit() : qcSheetClose()));
+    if (qcMotion() && sh.animate) {
+      sh.animate([{ transform: 'translateY(100%)' }, { transform: 'none' }], { duration: 460, easing: 'cubic-bezier(.25, 1.1, .4, 1)' });
+      const body = !auto && qc.el.querySelector('.qc-body, .qc-pill');
+      if (body) body.animate([{ transform: 'none', opacity: 1 }, { transform: 'scale(.92)', opacity: .35 }], { duration: 420, easing: 'ease-out', fill: 'forwards' });
+    }
+    if (qcKeys) setTimeout(() => { if (qc && qc.sheet === sh) sh.querySelector('.qc-sheet-x').focus({ preventScroll: true }); }, 80);
+  }
+  function qcSheetClose() {
+    if (!qc || !qc.sheet) return;
+    const sh = qc.sheet, el = qc.el;
+    qc.sheet = null;
+    el.classList.remove('sheet-open');
+    const body = el.querySelector('.qc-body, .qc-pill');
+    if (body) body.getAnimations().forEach((a) => a.cancel());
+    if (qcMotion() && sh.animate) {
+      if (body) body.animate([{ transform: 'scale(.92)', opacity: .35 }, { transform: 'none', opacity: 1 }], { duration: 380, easing: 'cubic-bezier(.3, 1.2, .5, 1)' });
+      sh.animate([{ transform: 'none' }, { transform: 'translateY(105%)' }], { duration: 300, easing: 'cubic-bezier(.4, 0, .6, 1)', fill: 'forwards' }).onfinish = () => sh.remove();
+    } else sh.remove();
+    const g = el.querySelector('.qc-gear'); if (g && qcKeys) g.focus({ preventScroll: true });
   }
   function qcClose(instant) {
     if (!qc) return;
@@ -1684,7 +1823,8 @@
     qc = null;
     if (pushed && history.state && history.state.qc) { qcSkipPop = true; history.back(); }
     const done = () => el.remove();
-    const pill = el.querySelector('.qc-pill'), tile = qcTileOf(id);
+    const pill = el.querySelector('.qc-multi') || el.querySelector('.qc-ac') || el.querySelector('.qc-pill') || el.querySelector('.qc-body'), tile = qcTileOf(id);
+    const sheet = el.querySelector('.qc-sheet');
     if (instant || !qcMotion() || !pill.animate) { done(); }
     else {
       el.style.pointerEvents = 'none';
@@ -1693,23 +1833,61 @@
         pill.animate([{ transform: 'none', opacity: 1 }, { transform: 'translate(' + (a.left + a.width / 2 - b.left - b.width / 2) + 'px,' + (a.top + a.height / 2 - b.top - b.height / 2) + 'px) scale(' + (a.width / b.width) + ',' + (a.height / b.height) + ')', opacity: 0 }],
           { duration: 360, easing: 'cubic-bezier(.4, 0, .2, 1)', fill: 'forwards' });
       } else pill.animate([{ transform: 'none', opacity: 1 }, { transform: 'scale(.85)', opacity: 0 }], { duration: 260, fill: 'forwards' });
-      [el.querySelector('.qc-head'), el.querySelector('.qc-gear')].forEach((n) => n.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, fill: 'forwards' }));
+      [el.querySelector('.qc-head'), el.querySelector('.qc-gear'), el.querySelector('.qc-x'), el.querySelector('.qc-swatches'), sheet].forEach((n) => n && n.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, fill: 'forwards' }));
       el.querySelector('.qc-bg').animate([{ opacity: 1 }, { opacity: 0 }], { duration: 340, fill: 'forwards' }).onfinish = done;
       setTimeout(done, 600);
     }
     if (focusBack && focusBack.focus && document.contains(focusBack)) focusBack.focus({ preventScroll: true });
   }
   let qcSkipPop = false;
-  window.addEventListener('popstate', () => { if (qcSkipPop) { qcSkipPop = false; return; } if (qc) { qc.pushed = false; qcClose(); } });
+  window.addEventListener('popstate', () => { if (qcSkipPop) { qcSkipPop = false; return; } if (qc && !qc.page) { qc.pushed = false; qcClose(); } });
   // Keeps the open control in step with the device (also after changes from elsewhere).
   function qcSync(first) {
     if (!qc) return;
     const d = findDevice(qc.id);
     if (!d) { qcClose(true); return; }
     const on = isOn(d) && d.online, el = qc.el;
-    el.classList.toggle('on', on);
-    el.querySelector('.qc-status').textContent = d.online ? (qc.drag ? qc.drag.pct + '%' : statusText(d)) : 'No Response';
-    const sw = el.querySelector('.qc-switch');
+    const chs = el.querySelectorAll('.qc-ch');
+    let statusTxt = d.online ? (qc.drag ? qc.drag.pct + '%' : statusText(d)) : 'No Response';
+    if (chs.length) {
+      let n = 0;
+      chs.forEach((b) => {
+        const c = b.dataset.code, v = !!d.status[c] && d.online;
+        if (v) n++;
+        b.setAttribute('aria-checked', String(v));
+        b.classList.toggle('on', v);
+        if (!first && qc.lastCh[c] != null && qc.lastCh[c] !== v && qcMotion()) {
+          b.querySelector('.qc-knob').animate([{ transform: 'none' }, { transform: 'scale(.94, 1.14)', offset: .35 }, { transform: 'scale(1.03, .97)', offset: .7 }, { transform: 'none' }], { duration: 520, easing: 'ease-out' });
+        }
+        qc.lastCh[c] = v;
+      });
+      if (d.online) statusTxt = n === 0 ? 'All Off' : n === chs.length ? 'All On' : n + ' On';
+    }
+    const slPct = () => {
+      const real = qc.sl.pct(d);
+      if (qc.hold && Date.now() < qc.hold.until && real !== qc.hold.pct) return qc.hold.pct;
+      qc.hold = null; return real;
+    };
+    if (qc.sl && !qc.drag) {
+      const pct = slPct();
+      if (d.online) statusTxt = qc.kind === 'cover' ? qc.sl.text(pct) : statusTxt;
+      el.classList.toggle('on', qc.sl.on(pct) && d.online);
+    } else el.classList.toggle('on', on && !chs.length);
+    el.querySelector('.qc-status').textContent = statusTxt;
+    const acBody = el.querySelector('.qc-ac');
+    if (acBody && !S.dragging) patchHtml(acBody, acPage(d, '-qa'));
+    const sws = el.querySelector('.qc-swatches');
+    if (sws) patchHtml(sws, qcSwatches(d));
+    // A colour light fills its pill with the colour it's showing.
+    if (qc.kind === 'dim' && colourCode(d) && inColour(d)) {
+      const c = currentColour(d), m = colourMax(colourCode(d));
+      el.style.setProperty('--hue', hsvCss(c.h, Math.round((c.s / m.s) * 100)));
+    } else el.style.removeProperty('--hue');
+    if (qc.sheet && !S.dragging) {
+      qc.sheet.querySelector('.qc-sheet-status').textContent = statusTxt;
+      patchHtml(qc.sheet.querySelector('.qc-sheet-body'), detailView(d, true, '-q'));
+    }
+    const sw = chs.length ? null : el.querySelector('.qc-switch');
     if (sw) {
       sw.setAttribute('aria-checked', String(on));
       if (!first && qc.last !== null && qc.last !== on && qcMotion()) {
@@ -1717,10 +1895,10 @@
       }
     }
     const sl = el.querySelector('.qc-slider');
-    if (sl && !qc.drag) {
-      const bc = brightCode(d), pct = on && bc ? toPct(d.status[bc], lightRange(d, bc)) : 0;
+    if (sl && !qc.drag && qc.sl) {
+      const pct = slPct();
       sl.style.setProperty('--qc-pct', pct + '%');
-      sl.setAttribute('aria-valuenow', String(pct)); sl.setAttribute('aria-valuetext', on ? pct + '%' : 'Off');
+      sl.setAttribute('aria-valuenow', String(pct)); sl.setAttribute('aria-valuetext', qc.sl.text(pct));
     }
     qc.last = on;
   }
@@ -1728,19 +1906,13 @@
     const setPct = (pct) => {
       qc.drag.pct = pct;
       sl.style.setProperty('--qc-pct', pct + '%');
-      qc.el.classList.toggle('on', pct > 0);
-      qc.el.querySelector('.qc-status').textContent = pct > 0 ? pct + '%' : 'Off';
+      qc.el.classList.toggle('on', qc.sl.on(pct));
+      qc.el.querySelector('.qc-status').textContent = qc.sl.text(pct);
     };
-    const commit = (d, pct) => {
-      const pc = powerCode(d), bc = brightCode(d);
-      if (pct <= 0) { if (d.status[pc]) send(d, [{ code: pc, value: false }], { [pc]: false }); return; }
-      const cmds = [{ code: bc, value: fromPct(pct, lightRange(d, bc)) }];
-      if (!d.status[pc]) cmds.unshift({ code: pc, value: true });
-      send(d, cmds, Object.fromEntries(cmds.map((c) => [c.code, c.value])));
-    };
+    const commit = (d, pct) => qc.sl.commit(d, pct);
     sl.addEventListener('pointerdown', (e) => {
       const d = findDevice(qc.id); if (!d) return;
-      const bc = brightCode(d), start = isOn(d) ? toPct(d.status[bc], lightRange(d, bc)) : 0;
+      const start = qc.sl.pct(d);
       qc.drag = { y0: e.clientY, start, pct: start, moved: false, h: sl.getBoundingClientRect().height };
       S.dragging = true;
       try { sl.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
@@ -1759,20 +1931,20 @@
       sl.classList.remove('dragging');
       const d = findDevice(qc.id); if (!d) return;
       if (moved) commit(d, pct);
-      else { const pc = powerCode(d); send(d, [{ code: pc, value: !d.status[pc] }], { [pc]: !d.status[pc] }); }
+      else qc.sl.tap(d, qc.sl.pct(d));
       qcSync();
     };
     sl.addEventListener('pointerup', end);
     sl.addEventListener('pointercancel', end);
     sl.addEventListener('keydown', (e) => {
       const d = findDevice(qc.id); if (!d) return;
-      const bc = brightCode(d), cur = isOn(d) ? toPct(d.status[bc], lightRange(d, bc)) : 0;
+      const cur = qc.sl.pct(d);
       const step = { ArrowUp: 10, ArrowRight: 10, ArrowDown: -10, ArrowLeft: -10 }[e.key];
       if (step) { e.preventDefault(); commit(d, clamp(cur + step, 0, 100)); }
-      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); const pc = powerCode(d); send(d, [{ code: pc, value: !d.status[pc] }], { [pc]: !d.status[pc] }); }
+      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); qc.sl.tap(d, cur); }
     });
   }
-  document.addEventListener('keydown', (e) => { if (qc && e.key === 'Escape') { e.preventDefault(); qcClose(); } });
+  document.addEventListener('keydown', (e) => { if (qc && e.key === 'Escape') { e.preventDefault(); if (qc.sheet && !qc.autoSheet) qcSheetClose(); else qcExit(); } });
   // Long press (about half a second) on a device tile opens it; a normal tap still switches it.
   let lp = null, lpFired = 0;
   const lpCancel = () => { if (lp) { clearTimeout(lp.t); lp.tile.classList.remove('lp-hold'); lp = null; } };
@@ -2815,11 +2987,11 @@
       '<div class="ends three"><span>Low</span><span>Medium</span><span>High</span></div></div></div>';
   }
 
-  function detailView(d, inPanel) {
+  function detailView(d, inPanel, sfxOver) {
     if (!d) return '<div class="empty"><strong>Pick a device</strong><p>Its controls appear here.</p></div>';
     const on = isOn(d);
     const k = kindOf(d), st = d.status;
-    const sfx = inPanel ? '-p' : '-d';
+    const sfx = sfxOver || (inPanel ? '-p' : '-d');
     const dis = d.online ? '' : ' disabled';
     let hero = '';
     let heroHasPower = false;
@@ -4262,7 +4434,7 @@
   function animateRoute(from, to, isWide) {
     if (skipAnim) { skipAnim = false; return; }
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    if (isWide && (from === 'devices' || from === 'device') && (to === 'devices' || to === 'device')) return; // panel swap on tablets
+    if ((from === 'devices' || from === 'device') && (to === 'devices' || to === 'device')) return; // panel swap / full-screen control
     const a = DEPTH[from] || 1, b = DEPTH[to] || 1;
     const cls = b > a ? 'enter-forward' : b < a ? 'enter-back' : 'enter-fade';
     const el = shell.main;
@@ -4271,6 +4443,61 @@
     el.classList.add(cls);
     clearTimeout(animateRoute.t);
     animateRoute.t = setTimeout(() => el.classList.remove(cls), 400);
+  }
+
+  // ---------- In-place redraw ----------
+  // A redraw on the same screen (a tile switching, a poll bringing new readings) updates only what
+  // changed instead of rebuilding the whole page: no re-created images, blurs or SVGs, scroll and focus
+  // stay put, and the browser only re-lays-out the bits that moved. Elements are matched by position
+  // and data-key. Unchanged containers are skipped outright.
+  const tplEl = document.createElement('template');
+  function patchHtml(el, html, trustCache) {
+    if (trustCache && el._html === html) return false;   // only where nothing else edits the DOM
+    el._html = html;
+    if (!el.firstChild || !html) { el.innerHTML = html; return true; }
+    tplEl.innerHTML = html;
+    morphKids(el, tplEl.content);
+    tplEl.innerHTML = '';
+    return true;
+  }
+  function setHtml(el, html) { el._html = html; el.innerHTML = html; }
+  const keyOf = (n) => (n.nodeType === 1 ? n.getAttribute('data-key') : null);
+  const sameKind = (a, b) => a.nodeType === b.nodeType && a.nodeName === b.nodeName && keyOf(a) === keyOf(b);
+  function morphKids(from, to) {
+    let o = from.firstChild, n = to.firstChild;
+    while (n) {
+      const next = n.nextSibling;
+      if (o && sameKind(o, n)) { morphNode(o, n); o = o.nextSibling; }
+      else {
+        const k = keyOf(n);
+        let found = null;
+        if (k) for (let c = o; c; c = c.nextSibling) if (keyOf(c) === k && c.nodeName === n.nodeName) { found = c; break; }
+        if (found) { from.insertBefore(found, o); morphNode(found, n); }
+        else from.insertBefore(n, o);   // moves the new node out of the template
+      }
+      n = next;
+    }
+    while (o) { const nx = o.nextSibling; from.removeChild(o); o = nx; }
+  }
+  function morphNode(a, b) {
+    if (a.nodeType !== 1) { if (a.nodeValue !== b.nodeValue) a.nodeValue = b.nodeValue; return; }
+    if (a.isEqualNode(b)) return;
+    const ba = b.attributes, aa = a.attributes;
+    for (let i = aa.length - 1; i >= 0; i--) { const nm = aa[i].name; if (!b.hasAttribute(nm)) a.removeAttribute(nm); }
+    for (let i = 0; i < ba.length; i++) { const at = ba[i]; if (a.getAttribute(at.name) !== at.value) a.setAttribute(at.name, at.value); }
+    if (a.nodeName === 'INPUT') {
+      if (a !== document.activeElement && b.hasAttribute('value') && a.value !== b.getAttribute('value')) a.value = b.getAttribute('value');
+      a.checked = b.hasAttribute('checked');
+    } else if (a.nodeName === 'TEXTAREA') {
+      if (a !== document.activeElement && a.value !== b.textContent) a.value = b.textContent;
+      return;
+    } else if (a.nodeName === 'SELECT') {
+      morphKids(a, b);
+      const sel = b.querySelector('option[selected]');
+      if (sel && a !== document.activeElement) a.value = sel.value;
+      return;
+    }
+    morphKids(a, b);
   }
 
   function render() {
@@ -4300,10 +4527,10 @@
 
     if (r.view === 'history') {
       mainHtml = historyView(r.id);
-    } else if (r.view === 'device' && !isWide) {
-      mainHtml = detailView(findDevice(r.id), false);
-      if (r.id && S.data && !S.specs[r.id]) loadSpec(r.id, true);
+    } else if (r.view === 'device' && !isWide && !S.data) {
+      mainHtml = detailView(null, false);
     } else if (activeTab === 'devices') {
+      if (r.view === 'device' && r.id && S.data && !S.specs[r.id]) loadSpec(r.id, true);
       const devices = S.data ? S.data.devices : [];
       const firstCard = devices.find((d) => !isReadingDevice(d)) || devices[0];
       const selId = (r.view === 'device' && r.id) || (firstCard && firstCard.id);
@@ -4344,9 +4571,13 @@
       mainHtml = meView();
     }
 
-    const mainTop = shell.main.scrollTop, panelTop = shell.panel.scrollTop;
-    const oldList = shell.main.querySelector('.dv-scroll'), listTop = oldList ? oldList.scrollTop : 0;
-    const devicesPage = activeTab === 'devices' && !(r.view === 'device' && !isWide) && !!S.data;
+    const sameScreen = (r.view + ':' + (r.id || '')) === lastRouteKey;
+    const oldList = shell.main.querySelector('.dv-scroll');
+    const mainTop = sameScreen ? 0 : shell.main.scrollTop, panelTop = sameScreen ? 0 : shell.panel.scrollTop;
+    const listTop = oldList && !sameScreen ? oldList.scrollTop : 0;
+    if (oldList) oldList._sc = oldList.classList.contains('scrolled');
+    const devicesPage = activeTab === 'devices' && !!S.data;
+    const hadRoute = !!lastRouteKey;
     shell.main.classList.toggle('devices-view', devicesPage);
     document.documentElement.classList.toggle('lock-scroll', devicesPage);
     if (r.view !== 'devices' && S.reorder) S.reorder = false;
@@ -4355,18 +4586,27 @@
     if (r.view !== 'kiosk' && kiosk.on) kioskStop();
     document.documentElement.classList.toggle('in-editor', r.view === 'scene-edit' || r.view === 'auto-edit');
     shell.app.className = 'app' + (panelHtml == null ? ' no-panel' : '');
-    shell.rail.innerHTML = '<span class="mark" aria-hidden="true"><img src="/icons/logo.webp" alt="" width="48" height="48" draggable="false"></span>' + tabs(activeTab);
-    const glassWas = shell.tabbar.querySelector('.tab-glass'), glassRect = glassWas && glassWas.getBoundingClientRect();
-    shell.tabbar.innerHTML = tabs(activeTab);
-    glassGlide(glassRect);
+    patchHtml(shell.rail, '<span class="mark" aria-hidden="true"><img src="/icons/logo.webp" alt="" width="48" height="48" draggable="false"></span>' + tabs(activeTab), true);
+    const tabHtml = tabs(activeTab);
+    if (shell.tabbar._html !== tabHtml) {
+      const glassWas = shell.tabbar.querySelector('.tab-glass'), glassRect = glassWas && glassWas.getBoundingClientRect();
+      setHtml(shell.tabbar, tabHtml);
+      glassGlide(glassRect);
+    }
     qcSync();
-    shell.main.innerHTML = mainHtml;
-    shell.panel.innerHTML = panelHtml || '';
-    shell.main.scrollTop = mainTop;
-    shell.panel.scrollTop = panelTop;
+    // A new screen is built fresh (its slide-in animation expects that); the same screen is patched.
+    if (sameScreen) { patchHtml(shell.main, mainHtml); patchHtml(shell.panel, panelHtml || ''); }
+    else { setHtml(shell.main, mainHtml); setHtml(shell.panel, panelHtml || ''); }
+    // Patched in place, the scroll areas never left, so their positions are already right
+    // (setting them again would force an immediate layout).
     const newList = shell.main.querySelector('.dv-scroll');
-    if (newList && oldList) newList.scrollTop = listTop;
-    if (newList) newList.classList.toggle('scrolled', newList.scrollTop > 2);
+    if (!sameScreen) {
+      shell.main.scrollTop = mainTop;
+      shell.panel.scrollTop = panelTop;
+      if (newList && oldList) newList.scrollTop = listTop;
+    }
+    if (newList && newList !== oldList) newList.classList.toggle('scrolled', newList.scrollTop > 2);
+    else if (newList && newList._sc) newList.classList.add('scrolled');
 
     const routeKey = r.view + ':' + (r.id || '');
     if (routeKey !== lastRouteKey && lastRouteKey) animateRoute(lastRouteKey.split(':')[0], r.view, isWide);
@@ -4380,15 +4620,30 @@
       lastTab = activeTab;
     }
 
-    if (focusKey) {
+    const ae = document.activeElement;
+    if (focusKey && !(ae && ae.isConnected && ae.dataset && ae.dataset.key === focusKey)) {
       const target = Array.from(document.querySelectorAll('[data-key="' + CSS.escape(focusKey) + '"]:not([disabled])'))
         .find((n) => n.offsetParent !== null);
       if (target) target.focus({ preventScroll: true });
     }
     replayMotion();
     restoreRows(rowScroll);
+    // Phones: a device opens as the Home app's full-screen control over the home screen.
+    if (r.view === 'device' && !isWide && S.data) {
+      const d = findDevice(r.id);
+      if (d && !(qc && qc.page && qc.id === d.id)) qcOpen(d, qcTileOf(d.id), { page: true, back: hadRoute });
+      else if (!d) location.replace('#devices');
+    } else if (qc && qc.page) qcClose();
     qcSync();
+    // Picking a room: the list crossfades into the new set, like the Home app's category chips.
+    if (roomFade) {
+      const n = document.querySelector(roomFade); roomFade = null;
+      if (n && n.animate && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        n.animate([{ opacity: 0, transform: 'translateY(8px) scale(.985)' }, { opacity: 1, transform: 'none' }], { duration: 280, easing: 'cubic-bezier(.25, .9, .35, 1)' });
+      }
+    }
   }
+  let roomFade = null;
   function restoreRows(saved) {
     document.querySelectorAll('.ka-icons[data-key]').forEach((n) => {
       if (n.scrollWidth <= n.clientWidth + 1) return;
@@ -4441,8 +4696,8 @@
 
     switch (act) {
       case 'tab': if (inEditor() && editorDirty()) leaveEditor(el.dataset.tab); else go(el.dataset.tab); break;
-      case 'room': S.room = el.dataset.room; S.allOffArmed = 0; render(); break;
-      case 'kroom': S.kRoom = el.dataset.room; store.set('kRoom', S.kRoom); render(); break;
+      case 'room': if (S.room !== el.dataset.room) roomFade = '.dv-scroll'; S.room = el.dataset.room; S.allOffArmed = 0; render(); break;
+      case 'kroom': if (S.kRoom !== el.dataset.room) roomFade = '.k-grid'; S.kRoom = el.dataset.room; store.set('kRoom', S.kRoom); render(); break;
       case 'open': go('device/' + encodeURIComponent(id)); break;
       case 'back': go('devices'); break;
       case 'reorder': S.reorder = !S.reorder; render(); break;

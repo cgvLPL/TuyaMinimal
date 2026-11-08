@@ -2588,3 +2588,82 @@ html input, html textarea, html select, html [contenteditable], html [contentedi
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 16px, #000 calc(100% - 8px), transparent 100%);
   mask-image: linear-gradient(to bottom, transparent 0, #000 16px, #000 calc(100% - 8px), transparent 100%); }
 @media (prefers-contrast: more) { .dv-scroll, .dv-scroll.scrolled { -webkit-mask-image: none; mask-image: none; } }
+
+/* ---------- 2.58.0 performance ---------- */
+/* On the plain backdrop the only thing behind tiles and panels is a flat colour, which looks the
+   same blurred or not, so skip the live blur there (each blur costs a GPU pass every scroll frame).
+   Photo backgrounds keep their glass; the tab bar keeps its glass everywhere (content slides under it). */
+html:not([data-bg]) :is(.grid > .card, .room-box, .summary, .list, .hero, .reading, .scene, .section-count, .empty, .banner, .icon-dot, .se-item) {
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+
+/* ---------- 2.58.0 quick control: one pill per switch, and the settings sheet ---------- */
+.qc-multi { position: relative; display: grid; grid-template-columns: repeat(2, auto); justify-content: center; gap: 22px 26px;
+  max-height: 66vh; overflow-y: auto; scrollbar-width: none; padding: 6px 10px 12px; overscroll-behavior: contain; }
+.qc-multi::-webkit-scrollbar { display: none; }
+.qc-unit { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.qc-ch.qc-pill { width: min(104px, 28vw); height: min(250px, 31vh); border-radius: 32px; }
+.qc-ch .qc-knob { left: 7px; right: 7px; height: calc(50% - 10px); top: calc(50% + 3px); border-radius: 26px; }
+.qc-ch.on .qc-knob { top: 7px; background: var(--hue, #ffd60a); color: rgba(0, 0, 0, 0.55); }
+.qc-ch .qc-knob svg { width: 30px; height: 30px; }
+.qc-ch-name { font-size: 15px; font-weight: 600; color: rgba(255, 255, 255, 0.72); max-width: 120px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A single centred knob is kept for one-switch devices; groups scroll when they don't fit */
+.qc.qc-multi-on { gap: 26px; }
+
+.qc-sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; margin: 0 auto; width: 100%; max-width: 560px;
+  max-height: calc(100% - env(safe-area-inset-top) - 40px); display: flex; flex-direction: column;
+  background: var(--bg); color: var(--text); border-radius: 30px 30px 0 0;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.35); overflow: hidden; }
+@media (min-width: 700px) { .qc-sheet { bottom: 24px; border-radius: 30px; max-height: calc(100% - 64px); } }
+.qc-sheet-head { display: flex; align-items: center; gap: 12px; padding: 18px 16px 12px 18px; flex: none; }
+.qc-sheet-ico { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex: none;
+  background: var(--chip); color: var(--hue, #ffb300); overflow: hidden; }
+.qc-sheet-ico img { width: 100%; height: 100%; object-fit: contain; }
+.qc-sheet-title { flex: 1; min-width: 0; }
+.qc-sheet-name { font-size: 17px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qc-sheet-status { font-size: 14px; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+.qc-sheet-x { width: 34px; height: 34px; border-radius: 50%; border: 0; flex: none; display: flex; align-items: center; justify-content: center;
+  background: var(--chip); color: var(--text); cursor: pointer; }
+.qc-sheet-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 16px 8px; -webkit-overflow-scrolling: touch; }
+.qc-sheet-more { flex: none; margin: 4px 16px calc(env(safe-area-inset-bottom) + 14px); height: 46px; border-radius: 14px; border: 0;
+  font: inherit; font-size: 16px; font-weight: 600; background: var(--chip); color: var(--text); cursor: pointer; }
+.qc.sheet-open .qc-gear { opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+/* Pills over an already-blurred backdrop: no second blur (it showed as a lighter box inside the scroll area) */
+.qc-ch.qc-pill { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(255, 255, 255, 0.16); }
+.qc-multi { -webkit-mask-image: linear-gradient(#000 calc(100% - 26px), transparent); mask-image: linear-gradient(#000 calc(100% - 26px), transparent); }
+/* The sheet has its own title row, so the page's header is left out */
+.qc .qc-sheet-body .detail-head { display: none !important; }
+.qc-ch.qc-pill { box-shadow: inset 0 10px 18px -12px rgba(255, 255, 255, 0.4), inset 0 -10px 18px -12px rgba(0, 0, 0, 0.35); }
+
+/* ---------- 2.59.0 device page = the Home app's full-screen control ---------- */
+.qc-x { position: absolute; top: calc(env(safe-area-inset-top) + 14px); right: 16px; z-index: 1; width: 36px; height: 36px; border-radius: 50%; border: 0;
+  display: flex; align-items: center; justify-content: center; color: #fff; cursor: pointer;
+  background: rgba(255, 255, 255, 0.16); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+.qc-swatches { position: relative; display: flex; gap: 14px; overflow-x: auto; scrollbar-width: none; max-width: min(360px, 92vw); padding: 6px 4px; margin-top: -10px; }
+.qc-swatches::-webkit-scrollbar { display: none; }
+.qc-sw { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; background: var(--sw);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.25); transition: transform .2s ease, box-shadow .2s ease; }
+.qc-sw[aria-pressed="true"] { box-shadow: 0 0 0 3px rgba(20, 16, 24, 0.6), 0 0 0 5px #fff; }
+.qc-sw:active { transform: scale(.9); }
+.qc-sw:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+/* Curtains: the position pill */
+.hue-blue.qc .qc-fill { background: var(--hue, #0a84ff); }
+/* AC: the thermostat dial on the dark backdrop */
+.qc-ac { position: relative; width: min(380px, 94vw); color: #fff; }
+.qc-ac .ka-page { padding: 0; background: transparent; }
+.qc-ac .ka { background: transparent; box-shadow: none; color: #fff; }
+.qc-empty { display: none; }
+.qc.qc-none .qc-gear { display: none; }
+.qc-ac .ka.on .ka-num { color: #fff; }
+.qc-ac .ka:not(.on) .ka-num { color: rgba(255, 255, 255, 0.5); }
+.qc-ac .ka-mode-name, .qc-ac .ka-label, .qc-ac .ka-side, .qc-ac .ka-g { color: rgba(255, 255, 255, 0.75); }
+.qc-swatches { justify-content: safe center; }
+.qc .qc-ac .ka.on .ka-num { color: #fff !important; }
+.qc .qc-ac .ka:not(.on) .ka-num { color: rgba(255, 255, 255, 0.5) !important; }
+/* 2.59.1: no white rim on the big controls; a focus ring only when using a keyboard */
+.qc-pill, .qc-ch.qc-pill { box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25); }
+.qc-ch.qc-pill { box-shadow: none; }
+.qc-pill:focus:not(:focus-visible), .qc-sw:focus:not(:focus-visible), .qc .ka-dial:focus:not(:focus-visible) { outline: none; box-shadow: none; }
+.qc .ka-dial:focus-visible { box-shadow: none; }
+.qc-pill:focus-visible { outline: 3px solid rgba(255, 255, 255, 0.85); outline-offset: 4px; }
+.qc-sw { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); }
