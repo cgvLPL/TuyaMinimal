@@ -5,6 +5,18 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.56.0",
+      "items": [
+        "Switching devices on and off is animated like the Home app: the tile lights up (or dims) with a small squeeze and bounce, the icon's circle fills with colour from the centre (or drains back to it), the icon pops as it changes colour, and the status fades in. Also on wall tablet tiles. With Reduce Motion on, it just switches."
+      ]
+    },
+    {
+      "v": "2.55.0",
+      "items": [
+        "iOS 26 glass motion on the tab bar: switching tabs makes the glass capsule glide to the new tab, stretching like a droplet on the way and springing into place as the icon pops. Pressing a tab makes the glass swell and brighten under your finger. With Reduce Motion on, it just switches."
+      ]
+    },
+    {
       "v": "2.54.1",
       "items": [
         "Tab bar is more like glass: lighter tint and blur so what's behind shows through with more colour, a soft sheen across the top and gentle depth along the bottom (no outline), and a glassy capsule for the current tab. With Reduce Transparency on, it stays solid."
@@ -1597,11 +1609,29 @@
     me: '<circle cx="12" cy="7.5" r="4.5"/><path d="M3.5 21c0-4.6 3.8-7.5 8.5-7.5s8.5 2.9 8.5 7.5z"/>'
   };
   const tabGlyph = (k) => '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" aria-hidden="true">' + TAB_GLYPHS[k] + '</svg>';
+  // iOS 26 tab bar: when the tab changes, the glass capsule glides from the old tab to the new one,
+  // stretching like a droplet on the way and springing into place.
+  document.addEventListener('touchstart', () => {}, { passive: true });   // lets :active (the press effect) work on iPhone
+  function glassGlide(from) {
+    const g = shell && shell.tabbar && shell.tabbar.querySelector('.tab-glass');
+    if (!g || !from || !from.width || !g.animate) return;
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const to = g.getBoundingClientRect(), dx = from.left - to.left;
+    if (Math.abs(dx) < 2 || !to.width) return;
+    g.animate([
+      { transform: 'translateX(' + dx + 'px) scale(' + (from.width / to.width) + ', 1)' },
+      { transform: 'translateX(' + (dx * 0.4) + 'px) scale(1.3, 0.84)', offset: 0.42 },
+      { transform: 'translateX(' + (-dx * 0.03) + 'px) scale(0.95, 1.05)', offset: 0.78 },
+      { transform: 'none' }
+    ], { duration: 560, easing: 'cubic-bezier(.22, .8, .3, 1)' });
+    const svg = g.parentNode.querySelector('svg');
+    if (svg) svg.animate([{ transform: 'scale(.82)', opacity: .6 }, { transform: 'scale(1.12)', offset: .6 }, { transform: 'none', opacity: 1 }], { duration: 480, easing: 'cubic-bezier(.3, 1.3, .5, 1)' });
+  }
   function tabs(active) {
     const items = [['devices', 'Devices', 'grid'], ['scenes', 'Scenes', 'scenes'], ['me', 'Me', 'me']];
     return items.map(([id, label, ic]) =>
       '<button class="tab" data-act="tab" data-tab="' + id + '" data-key="tab-' + id + '" aria-label="' + label + '" title="' + label + '"' +
-      (active === id ? ' aria-current="page"' : '') + '><span class="pill">' + tabGlyph(ic) + '</span><span class="tab-label">' + label + '</span></button>'
+      (active === id ? ' aria-current="page"' : '') + '><span class="pill">' + (active === id ? '<span class="tab-glass" aria-hidden="true"></span>' : '') + tabGlyph(ic) + '</span><span class="tab-label">' + label + '</span></button>'
     ).join('');
   }
 
@@ -4130,7 +4160,9 @@
     document.documentElement.classList.toggle('in-editor', r.view === 'scene-edit' || r.view === 'auto-edit');
     shell.app.className = 'app' + (panelHtml == null ? ' no-panel' : '');
     shell.rail.innerHTML = '<span class="mark" aria-hidden="true"><img src="/icons/logo.webp" alt="" width="48" height="48"></span>' + tabs(activeTab);
+    const glassWas = shell.tabbar.querySelector('.tab-glass'), glassRect = glassWas && glassWas.getBoundingClientRect();
     shell.tabbar.innerHTML = tabs(activeTab);
+    glassGlide(glassRect);
     shell.main.innerHTML = mainHtml;
     shell.panel.innerHTML = panelHtml || '';
     shell.main.scrollTop = mainTop;
@@ -4177,10 +4209,12 @@
   // switch picks the slide up where the previous copy was (a negative animation delay), so the
   // motion plays once, start to finish, however many times the screen is redrawn meanwhile.
   const motion = {};            // data-key -> { t: when tapped, on: the state it's moving to }
-  const MOTION_MS = 480;
+  const MOTION_MS = 620;
+  // Switches report aria-checked; wall tablet tiles report aria-pressed.
+  const stateAttr = (el) => (el.hasAttribute('aria-checked') ? 'aria-checked' : el.hasAttribute('aria-pressed') ? 'aria-pressed' : null);
   function noteMotion(el) {
-    if (!el || !el.dataset || !el.dataset.key || !el.hasAttribute('aria-checked')) return;
-    motion[el.dataset.key] = { t: performance.now(), on: el.getAttribute('aria-checked') !== 'true' };
+    if (!el || !el.dataset || !el.dataset.key || !stateAttr(el)) return;
+    motion[el.dataset.key] = { t: performance.now(), on: el.getAttribute(stateAttr(el)) !== 'true' };
   }
   function replayMotion() {
     const now = performance.now();
@@ -4188,10 +4222,14 @@
       const m = motion[key], elapsed = now - m.t;
       if (elapsed > MOTION_MS) { delete motion[key]; continue; }
       document.querySelectorAll('[data-key="' + CSS.escape(key) + '"]').forEach((el) => {
-        if ((el.getAttribute('aria-checked') === 'true') !== m.on) return;   // didn't change (yet): nothing to animate
+        const a = stateAttr(el);
+        if (!a || (el.getAttribute(a) === 'true') !== m.on) return;   // didn't change (yet): nothing to animate
         el.classList.remove('m-on', 'm-off');
         el.style.setProperty('--m-delay', (-elapsed).toFixed(0) + 'ms');
         el.classList.add(m.on ? 'm-on' : 'm-off');
+        // The whole tile plays along, like the Home app (light up / dim with a little squeeze).
+        const tile = el.classList.contains('card-icon') ? el.closest('.card') : null;
+        if (tile) { tile.classList.remove('m-on', 'm-off'); tile.style.setProperty('--m-delay', (-elapsed).toFixed(0) + 'ms'); tile.classList.add(m.on ? 'm-on' : 'm-off'); }
       });
     }
   }

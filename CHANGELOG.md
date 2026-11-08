@@ -2,6 +2,14 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.56.0
+
+- Switching devices on and off is animated like the Home app: the tile lights up (or dims) with a small squeeze and bounce, the icon's circle fills with colour from the centre (or drains back to it), the icon pops as it changes colour, and the status fades in. Also on wall tablet tiles. With Reduce Motion on, it just switches.
+
+## 2.55.0
+
+- iOS 26 glass motion on the tab bar: switching tabs makes the glass capsule glide to the new tab, stretching like a droplet on the way and springing into place as the icon pops. Pressing a tab makes the glass swell and brighten under your finger. With Reduce Motion on, it just switches.
+
 ## 2.54.1
 
 - Tab bar is more like glass: lighter tint and blur so what's behind shows through with more colour, a soft sheen across the top and gentle depth along the bottom (no outline), and a glassy capsule for the current tab. With Reduce Transparency on, it stays solid.
