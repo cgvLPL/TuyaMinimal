@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.56.2
+
+- Fixed: IR air conditioners now show changes made on another phone, the wall tablet or the Tuya app within about 12 seconds (temperature, mode, fan, on/off) on the tile, the AC screen and wall tablet mode. Before, it could take up to a minute, or five when idle. Your own changes aren't undone while they're being sent. To save Tuya API calls, AC settings are checked on every third update and shared between open screens.
+
 ## 2.56.1
 
 - A long press on iPhone, iPad or Android no longer starts selecting text or opens a Copy / Look Up / Save image menu, anywhere in the app, and images can't be dragged. Text boxes (names, passwords, PINs) still let you select, copy and paste, and right-click with a mouse works as before.

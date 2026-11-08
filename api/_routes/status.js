@@ -1,4 +1,6 @@
-// GET /api/status?ids=a,b,c → { at, devices: { id: { online, status } } }
+// GET /api/status?ids=a,b,c[&ir=hubId:remoteId,...] → { at, devices: { id: { online, status } }, irac: { remoteId: { power, mode, temp, wind } } }
+// IR air conditioners have no status of their own in the device list; their last settings (from any
+// phone or the Tuya app) come from the IR hub, so another device's change shows here too.
 // A light, single-request poll for live device states. The full /api/state call (homes, rooms,
 // scenes...) runs less often; this one keeps switches and readings current between them.
 const { call, config, TuyaError } = require('../_lib/tuya');
@@ -8,6 +10,8 @@ const { cached } = require('../_lib/cache');
 
 // Every open screen polls this. Within a couple of seconds they all share one Tuya call.
 const STATUS_TTL = 2500;
+// IR AC settings change less often; screens share one answer per AC for a few seconds.
+const IR_TTL = 5000;
 
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 
@@ -27,5 +31,15 @@ module.exports = handler(['GET'], async (req) => {
     for (const s of d.status || []) status[s.code] = s.value;
     devices[d.id] = { online: !!d.online, status };
   }
-  return { at: Date.now(), devices };
+  const irac = {};
+  const pairs = String((req.query && req.query.ir) || '').split(',').map((x) => x.split(':'))
+    .filter((p) => p.length === 2 && ID.test(p[0]) && ID.test(p[1])).slice(0, 20);
+  await Promise.all(pairs.map(async ([hub, remote]) => {
+    if (allowed && !allowed.has(remote) && !allowed.has(hub)) return;
+    try {
+      const st = await cached('acst:' + hub + ':' + remote, IR_TTL, () => call('GET', `/v2.0/infrareds/${hub}/remotes/${remote}/ac/status`));
+      if (st) irac[remote] = { power: String(st.power) === '1', mode: Number(st.mode) || 0, temp: Number(st.temp) || 24, wind: Number(st.wind) || 0 };
+    } catch (e) { /* that AC just isn't updated this time */ }
+  }));
+  return { at: Date.now(), devices, irac };
 });

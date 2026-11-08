@@ -5,6 +5,12 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.56.2",
+      "items": [
+        "Fixed: IR air conditioners now show changes made on another phone, the wall tablet or the Tuya app within about 12 seconds (temperature, mode, fan, on/off) on the tile, the AC screen and wall tablet mode. Before, it could take up to a minute, or five when idle. Your own changes aren't undone while they're being sent. To save Tuya API calls, AC settings are checked on every third update and shared between open screens."
+      ]
+    },
+    {
       "v": "2.56.1",
       "items": [
         "A long press on iPhone, iPad or Android no longer starts selecting text or opens a Copy / Look Up / Save image menu, anywhere in the app, and images can't be dragged. Text boxes (names, passwords, PINs) still let you select, copy and paste, and right-click with a mouse works as before."
@@ -1405,7 +1411,7 @@
 
   function findDevice(id) { return S.data && S.data.devices.find((x) => x.id === id); }
   // A change waiting to be sent (debounced) or on its way: a status refresh mustn't undo it.
-  function hasLocalChange(id) { return isPending(id) || Object.values(pendingSend).some((p) => p.id === id); }
+  function hasLocalChange(id) { return isPending(id) || !!irPending[id] || Object.values(pendingSend).some((p) => p.id === id); }
 
   // ---------- Icons (inline stroke SVG) ----------
   const P = {
@@ -2440,6 +2446,7 @@
     for (const k of Object.keys(patch)) if (st2[k] !== patch[k]) irPending[d.id].changed.add(k);
     if (patch.wind) d.ir.lastWind = patch.wind;
     Object.assign(st2, patch);
+    S.touched[d.id] = Date.now();
     render();
     clearTimeout(irPending[d.id].t);
     irPending[d.id].t = setTimeout(async () => {
@@ -2457,6 +2464,7 @@
         d.ir.state = before;
         toast(d.name + ': ' + e.message);
       } finally {
+        S.touched[d.id] = Date.now();
         markPending(d.id, -1); render();
       }
     }, 500);
@@ -5022,14 +5030,16 @@
   // Two speeds of updates: a light status poll every few seconds (just device states, one request),
   // and a full refresh (rooms, scenes, automations...) once a minute.
   const FULL_MS = 60000;
-  let lastFull = 0, statusBusy = false, pollTimer = null;
+  let lastFull = 0, statusBusy = false, pollTimer = null, pollN = 0;
   async function pollStatus() {
     if (statusBusy || S.loading || !S.data || S.gate || document.visibilityState !== 'visible') return;
     const ids = S.data.devices.filter((d) => !d.ir || d.ir.hub === null || d.sensorOnly).map((d) => d.id);
-    if (!ids.length) return;
+    // IR air conditioners: their settings (changed here, on another phone or in the Tuya app) on every 3rd check.
+    const irs = (++pollN % 3 === 0) ? S.data.devices.filter((d) => d.ir && d.ir.ac && d.ir.hub).map((d) => d.ir.hub + ':' + d.id) : [];
+    if (!ids.length && !irs.length) return;
     statusBusy = true;
     try {
-      const r = await api('status?ids=' + encodeURIComponent(ids.join(',')));
+      const r = await api('status?ids=' + encodeURIComponent(ids.join(',')) + (irs.length ? '&ir=' + encodeURIComponent(irs.join(',')) : ''));
       let changed = false;
       const now = Date.now();
       for (const d of S.data.devices) {
@@ -5041,6 +5051,12 @@
         if (d.online !== fresh.online || JSON.stringify(d.status) !== JSON.stringify(fresh.status)) {
           d.online = fresh.online; d.status = fresh.status; changed = true;
         }
+      }
+      for (const [id, st] of Object.entries(r.irac || {})) {
+        const d = findDevice(id);
+        if (!d || !d.ir || !d.ir.ac) continue;
+        if (now - (S.touched[d.id] || 0) < 4000 || hasLocalChange(d.id) || S.dragging) continue;   // a change of ours is still on its way
+        if (JSON.stringify(d.ir.state || {}) !== JSON.stringify(st)) { d.ir.state = st; changed = true; }
       }
       if (changed) S.data.at = r.at;
       const typing = document.activeElement && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName) && document.activeElement.type !== 'range';
@@ -5276,7 +5292,9 @@
       if (path.startsWith('status')) {
         const out = {};
         db.devices.forEach((x) => { out[x.id] = { online: x.online, status: clone(x.status) }; });
-        return { at: Date.now(), devices: out };
+        const irac = {};
+        if (/[?&]ir=/.test(path)) (db.irRemotes || db.devices).forEach((x) => { if (x.ir && x.ir.ac && x.ir.state) irac[x.id] = clone(x.ir.state); });
+        return { at: Date.now(), devices: out, irac };
       }
       if (path === 'settings') { Object.entries((b.icons) || {}).forEach(([k, v]) => { if (v === null) delete demoIcons[k]; else demoIcons[k] = v; }); return { icons: demoIcons }; }
       if (path === 'logout') return { ok: true };
