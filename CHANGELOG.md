@@ -2,6 +2,9 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.72.1
+- Tapping **Outdoor air** now opens it like a device: the same zoom-out-of-the-chip animation and blurred background, and the air quality monitor's page (AQI ring, a tile each for PM2.5, PM10, ozone and NO₂, and where the data comes from). Tap outside or go back to close. It replaces the list that used to expand under the chips.
+
 ## 2.72.0
 - Outdoor air quality: when the home has no air quality sensor reporting, Home (and the wall tablet) shows an **Outdoor air** chip with the US AQI for the home's location, coloured like indoor readings. Tap it for PM2.5, PM10, ozone and nitrogen dioxide, plus where the data comes from and when it was checked.
 - Data comes from the Open-Meteo air quality API (Copernicus CAMS; free, no key), fetched with the weather for the home's address and cached for 30 minutes. If it is unavailable, the chip simply doesn't show; the weather is unaffected.

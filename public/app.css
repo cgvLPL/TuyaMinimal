@@ -2019,7 +2019,8 @@ html.kiosk body, html.kiosk .app, html.kiosk .main { background: transparent !im
 .summary[aria-expanded="true"] { box-shadow: 0 0 0 2px var(--ink), var(--content-shadow, none); }
 .sum-warn { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #ff9f0a; }
 .climate-list { margin: -4px 0 16px; }
-.outair-note { margin: 0; padding: 10px 16px 12px; font-size: 12px; line-height: 1.35; color: var(--muted); }
+.qc-nogear .qc-gear { display: none; }
+.air-note { margin: 18px auto 0; max-width: 340px; padding: 0 8px; font-size: 12.5px; line-height: 1.4; text-align: center; color: var(--muted); }
 .clim-room { display: block; font-size: 12px; font-weight: 600; color: var(--muted); }
 
 /* Wall tablet: climate summaries as glass capsules, centred like the scene row */

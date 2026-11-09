@@ -5,6 +5,12 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.72.1",
+      "items": [
+        "Outdoor air opens like a device: it zooms out of the chip into a full-screen page over the blurred background, with the AQI ring and a tile for PM2.5, PM10, ozone and NO₂"
+      ]
+    },
+    {
       "v": "2.72.0",
       "items": [
         "No air quality sensor? Home now shows Outdoor air: the AQI for your home's location from the internet (Open-Meteo / Copernicus)",
@@ -1270,6 +1276,11 @@
     if (r.voc != null) out.push(['VOC', f2(r.voc), 'mg/m³', r.voc <= 0.3 ? 25 : r.voc <= 0.6 ? 75 : 175]);
     if (r.temp != null) out.push(['Temperature', fmtReading(r.temp), '', null]);
     if (r.hum != null) out.push(['Humidity', Math.round(r.hum), '%', null]);
+    if (d.outdoor) {
+      const ug = (v) => (v >= 10 ? Math.round(v) : v);
+      if (d.o3 != null) out.push(['Ozone', ug(d.o3), 'µg/m³', null]);
+      if (d.no2 != null) out.push(['NO₂', ug(d.no2), 'µg/m³', null]);
+    }
     return out;
   }
   function airPanel(d) {
@@ -1284,6 +1295,8 @@
         '<div class="air-mid">' + (a && a.aqi != null ? '<span class="air-k">AQI</span><span class="air-num">' + a.aqi + '</span>' : '<span class="air-num air-word">' + esc(a ? a.label : '–') + '</span>') +
         (a && a.aqi != null ? '<span class="air-label">' + esc(a.label) + '</span>' : '') + '</div></div>' +
       '<div class="air-grid">' + items.map(([name, v, unit, band]) => '<div class="air-item' + bandOf(band) + '"><span class="air-name">' + name + '</span><span class="air-val">' + esc(String(v)) + (unit ? '<small>' + unit + '</small>' : '') + '</span></div>').join('') + '</div>' +
+      (d.outdoor ? '<p class="air-note">Outdoor, for your home\'s area. No air quality sensor is reporting, so this comes from the internet (Copernicus via Open-Meteo), checked ' +
+        esc(new Date(d.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })) + '.</p>' : '') +
       '</div>';
   }
   function isReadingDevice(d) {
@@ -1330,19 +1343,6 @@
     const band = AQI_BANDS.find(([max]) => a.aqi <= max) || AQI_BANDS[AQI_BANDS.length - 1];
     return { aqi: a.aqi, label: band[1], key: band[2], a, at: w.at };
   }
-  function outdoorAirList(out) {
-    const a = out.a, rows = [];
-    const ug = (v) => (v == null ? null : (v >= 10 ? Math.round(v) : v) + ' µg/m³');
-    rows.push(['Air quality index', out.aqi + ' · ' + out.label]);
-    if (a.pm25 != null) rows.push(['PM2.5', ug(a.pm25)]);
-    if (a.pm10 != null) rows.push(['PM10', ug(a.pm10)]);
-    if (a.o3 != null) rows.push(['Ozone', ug(a.o3)]);
-    if (a.no2 != null) rows.push(['Nitrogen dioxide', ug(a.no2)]);
-    const when = new Date(out.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    return '<div class="list climate-list outair-list" data-key="outair-list">' + rows.map(([k, v]) =>
-      '<div class="list-row"><span class="label">' + esc(k) + '</span><span class="value">' + esc(v) + '</span></div>').join('') +
-      '<p class="outair-note">Outdoor, for your home\'s area. No air quality sensor is reporting, so this comes from the internet (Copernicus via Open-Meteo), checked ' + esc(when) + '.</p></div>';
-  }
   function climateSummaries(readings, inKiosk) {
     const live = readings.filter((d) => d.online).map((d) => ({ d, r: readingsOf(d) }));
     const temps = live.map((x) => x.r.temp).filter((v) => v != null);
@@ -1376,7 +1376,7 @@
     // No air quality sensor reporting: show outdoor air quality for the home's location instead.
     const out = !airs.length ? outdoorAirInfo() : null;
     if (out) {
-      html += '<button class="summary aq-' + out.key + '" data-act="outdoor-air" aria-expanded="' + !!S.outAirOpen + '" data-key="sum-outair" aria-label="' +
+      html += '<button class="summary aq-' + out.key + '" data-act="outdoor-air" data-key="sum-outair" aria-label="' +
         esc('Outdoor air quality ' + out.aqi + ', ' + out.label + ', from the internet for your home\'s area') + '">' +
         '<span class="sum-icon aqi">' + icon('air', 16) + '</span><span class="sum-text"><span class="sum-title">Outdoor air</span><span class="sum-value">' +
         esc(out.aqi + ' · ' + out.label) + '</span></span></button>';
@@ -1384,7 +1384,6 @@
     if (!t && !h && !airs.length && readings.length) html += btn('off', 'temp', 'Climate', 'Offline', 'Climate sensors offline');
     if (low) html += '<span class="sum-warn" role="status">' + icon('alert', 14) + 'Sensor battery low</span>';
     html += '</div>';
-    if (out && S.outAirOpen) html += outdoorAirList(out);
     // Expanded: one row per sensor (room, temperature, humidity), each opening its history.
     if (!one && S.climateOpen) {
       html += '<div class="list climate-list">' + readings.map((d) => {
@@ -1881,7 +1880,18 @@
     }, 600);
   }
 
-  function findDevice(id) { return S.data && S.data.devices.find((x) => x.id === id); }
+  function findDevice(id) { return id === OUT_AIR_ID ? outdoorDevice() : S.data && S.data.devices.find((x) => x.id === id); }
+  // Outdoor air quality as a read-only "device", so its chip opens the same full-screen air page
+  // (ring, reading tiles, zoom animation, blurred background) as a real air quality monitor.
+  const OUT_AIR_ID = 'outdoor-air';
+  function outdoorDevice() {
+    const o = outdoorAirInfo(); if (!o) return null;
+    const a = o.a;
+    const st = { air_quality_index: o.aqi };
+    if (a.pm25 != null) st.pm25_value = a.pm25;
+    if (a.pm10 != null) st.pm10_value = a.pm10;
+    return { id: OUT_AIR_ID, name: 'Outdoor air', category: 'hjjcy', product: 'Outdoor air quality', online: true, room: '', status: st, outdoor: true, o3: a.o3, no2: a.no2, at: o.at };
+  }
   // A change waiting to be sent (debounced) or on its way: a status refresh mustn't undo it.
   function hasLocalChange(id) { return isPending(id) || !!irPending[id] || Object.values(pendingSend).some((p) => p.id === id); }
 
@@ -2145,6 +2155,7 @@
   const qcDimmable = (d) => kindOf(d) === 'light' && !!brightCode(d) && !!powerCode(d);
   const qcMotion = () => !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
   function qcTileOf(id) {
+    if (id === OUT_AIR_ID) return document.querySelector('[data-key="sum-outair"]');
     return document.querySelector('.grid > .card[data-card-id="' + CSS.escape(id) + '"]') || document.querySelector('.k26 .k-ctl[data-id="' + CSS.escape(id) + '"]');
   }
   // What the big control is for a device: the Home app's full-screen layout.
@@ -2257,7 +2268,7 @@
     const dim = kind === 'dim' || kind === 'cover';
     const swatches = kind === 'dim' && (warmCode(d) || colourCode(d));
     const el = document.createElement('div');
-    el.className = 'qc hue-' + hueOf(d) + (dim ? ' qc-dim' : '') + (kind === 'cover' ? ' qc-cover' : '') + (multi ? ' qc-multi-on' : '') + (page ? ' qc-page' : '') + (kind === 'ac' ? ' qc-ac-on' : '') + (!kind ? ' qc-none' : '');
+    el.className = 'qc hue-' + hueOf(d) + (dim ? ' qc-dim' : '') + (kind === 'cover' ? ' qc-cover' : '') + (multi ? ' qc-multi-on' : '') + (page ? ' qc-page' : '') + (kind === 'ac' ? ' qc-ac-on' : '') + (!kind ? ' qc-none' : '') + (d.outdoor ? ' qc-nogear' : '');
     el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', d.name);
     el.innerHTML = '<div class="qc-bg"></div>' +
       (page ? '<button class="qc-x" aria-label="Close">' + X_ICON + '</button>' : '') +
@@ -2283,7 +2294,7 @@
     const pill = el.querySelector(multi ? '.qc-multi' : kind === 'ac' ? '.qc-ac' : kind === 'remote' ? '.qc-remote' : kind === 'air' ? '.qc-air' : !kind ? '.qc-empty' : '.qc-pill');
     el.querySelector('.qc-bg').addEventListener('click', () => qcExit());
     if (page) el.querySelector('.qc-x').addEventListener('click', () => qcExit());
-    el.querySelector('.qc-gear').addEventListener('click', () => qcSheetOpen());
+    if (!d.outdoor) el.querySelector('.qc-gear').addEventListener('click', () => qcSheetOpen());
     if (dim) qcSliderEvents(pill);
     if (!kind) { qcSheetOpen(true); return; }   // nothing to show big (sensors, remotes...): straight to its settings
     if (qcMotion() && tile && pill.animate) {
@@ -2404,6 +2415,7 @@
       if (d.online) statusTxt = qc.kind === 'cover' ? (coverMotion(d) ? coverStatus(d) : qc.sl.text(pct)) : statusTxt;
       el.classList.toggle('on', qc.sl.on(pct) && d.online);
     } else el.classList.toggle('on', on && !chs.length);
+    if (d.outdoor) statusTxt = 'Outdoor · from the internet';
     el.querySelector('.qc-status').textContent = statusTxt;
     const rmBody = el.querySelector('.qc-remote');
     if (rmBody) patchHtml(rmBody, irRemotePad(d, '-qr'));
@@ -5759,7 +5771,7 @@
       case 'alloff': allOff(); break;
       case 'act-more': loadActivity(true); break;
       case 'climate-toggle': S.climateOpen = !S.climateOpen; render(); break;
-      case 'outdoor-air': S.outAirOpen = !S.outAirOpen; render(); break;
+      case 'outdoor-air': { const od = outdoorDevice(); if (od) qcOpen(od, el); break; }
       case 'open-history': S.history = null; go('history/' + encodeURIComponent(id)); break;
       case 'hist-range': S.histHours = Number(el.dataset.h) === 168 ? 168 : 24; S.history = null; render(); break;
       case 'timer-add': if (d) addTimer(d, Number(el.dataset.m)); break;
