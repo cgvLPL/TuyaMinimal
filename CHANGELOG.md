@@ -2,6 +2,15 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.75.1
+- Tablets and laptops: in the scene and automation editors, the Save / Cancel bar floated about 130 px above the bottom of the screen, covering the buttons under it. It now sits at the bottom (16 px from the edge) while you scroll, and after the last item at the end of the page. Phones are unchanged.
+
+## 2.75.0
+- **Wall tablet:** each AC card's name now has an arrow; tapping it opens the AC's full-screen control (the same as on a phone: zoom animation, blurred background, all modes, fan and the settings gear). The dial and buttons on the card itself work as before.
+- **Wall tablet:** IR remotes (TV etc.) now have a tile that opens the full-screen remote.
+- **Wall tablet:** the Climate, Humidity, Air and Outdoor air chips already open their full-screen pages here.
+- **Wall tablet:** pressing Esc with a control open closes the control, instead of also leaving wall tablet mode.
+
 ## 2.74.0
 - **Tablets and laptops:** the air conditioner, IR remotes (TV etc.) and air quality monitors now open the same full-screen control as on a phone (zoom out of the tile, blurred background, gear for settings) instead of the side panel. Back, Esc or tapping outside closes it. Other devices keep the side panel.
 - **Air chip:** tapping the AQI chip now opens the monitor's full-screen page (the one with the most worrying reading, when there are several) on every screen size, like Climate and Humidity, instead of jumping to the history list.

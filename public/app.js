@@ -5,6 +5,20 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.75.1",
+      "items": [
+        "Tablets and laptops: the Save bar in the scene and automation editors sits at the bottom of the screen again, instead of floating over the controls"
+      ]
+    },
+    {
+      "v": "2.75.0",
+      "items": [
+        "Wall tablet: tap an AC's name (now with an arrow) for its full-screen control, like on a phone; the dial and buttons on the card still work as before",
+        "Wall tablet: TV and other IR remotes get a tile that opens the full-screen remote",
+        "Wall tablet: Esc closes an open control first instead of leaving wall tablet mode"
+      ]
+    },
+    {
       "v": "2.74.0",
       "items": [
         "Tablets and laptops: the AC, IR remotes and air quality monitors open full-screen like on a phone, zooming out of the tile over the blurred background",
@@ -2238,7 +2252,8 @@
     if (id === OUT_AIR_ID) return document.querySelector('[data-key="sum-outair"]');
     if (/^clim-(temp|hum)/.test(id)) return document.querySelector('[data-key="sum-' + (id.indexOf('clim-hum') === 0 ? 'hum' : 'temp') + '"]');
     if (qc && qc.fromChip && qc.id === id) { const chip = document.querySelector('[data-key="sum-air"]'); if (chip) return chip; }
-    return document.querySelector('.grid > .card[data-card-id="' + CSS.escape(id) + '"]') || document.querySelector('.k26 .k-ctl[data-id="' + CSS.escape(id) + '"]');
+    return document.querySelector('.grid > .card[data-card-id="' + CSS.escape(id) + '"]') || document.querySelector('.k26 .k-ctl[data-id="' + CSS.escape(id) + '"]') ||
+      document.querySelector('.k26 .k-ac[data-id="' + CSS.escape(id) + '"]');
   }
   // What the big control is for a device: the Home app's full-screen layout.
   function qcKind(d) {
@@ -4833,6 +4848,12 @@
   // A Control Center-style tile: glyph in a circle at the top, name and state at the bottom.
   // Off it's glass; on it turns bright, like accessories in the Home app.
   function kioskTile(d) {
+    if (d.ir && qcKind(d) === 'remote') {
+      // IR remotes (TV etc.): the tile opens the full-screen remote, like on a phone.
+      return '<button class="k-w s k-ctl k-remote hue-' + hueOf(d) + '" data-act="k-open" data-id="' + esc(d.id) + '" data-key="k-' + esc(d.id) + '" aria-label="' + esc(d.name + ', remote control') + '">' +
+        '<span class="k-glyph">' + deviceIcon(d, 24) + '</span>' +
+        '<span class="k-ctl-text"><span class="k-name">' + esc(d.name) + '</span><span class="k-status">Remote</span></span></button>';
+    }
     const on = isOn(d) && d.online, busy = isPending(d.id);
     return '<button class="k-w s k-ctl hue-' + hueOf(d) + (on ? ' on' : '') + (busy ? ' pending' : '') + '" data-act="toggle" data-id="' + esc(d.id) + '" data-key="k-' + esc(d.id) + '"' +
       ' aria-pressed="' + isOn(d) + '" aria-label="' + esc(d.name + ', ' + (d.online ? statusText(d) : 'Offline')) + '"' + (d.online ? '' : ' disabled') + '>' +
@@ -4929,8 +4950,8 @@
   }
   function kioskAcCard(d) {
     const t = acThermo(d, '-k');
-    return '<section class="k-w l k-ac ka ka-' + t.theme + (t.fan ? ' has-fan' : '') + (t.on ? ' on' : '') + '" aria-label="' + esc(d.name) + '">' +
-      '<div class="ka-head"><span class="k-name">' + esc(d.name) + '</span>' + (t.sub ? '<span class="ka-sub">' + esc(t.sub) + '</span>' : '') + '</div>' +
+    return '<section class="k-w l k-ac ka ka-' + t.theme + (t.fan ? ' has-fan' : '') + (t.on ? ' on' : '') + '" data-id="' + esc(d.id) + '" aria-label="' + esc(d.name) + '">' +
+      '<div class="ka-head"><button class="k-name ka-open" data-act="k-open" data-id="' + esc(d.id) + '" data-key="ka-open-' + esc(d.id) + '" aria-label="' + esc(d.name + ', open full controls') + '"><span>' + esc(d.name) + '</span>' + icon('chevron', 14) + '</button>' + (t.sub ? '<span class="ka-sub">' + esc(t.sub) + '</span>' : '') + '</div>' +
       t.body + '</section>';
   }
   // On the AC's own screen: the same thermostat, laid out in a column.
@@ -5002,7 +5023,8 @@
     const now = new Date();
     document.documentElement.classList.toggle('k-night', kioskIsNight(now));
     // Rooms: a compact row of pills. Only rooms with something to show here are listed.
-    const kShows = (d) => isReadingDevice(d) || isKioskAc(d) || (hasToggle(d) && !d.ir);
+    const isKRemote = (d) => d.ir && !isKioskAc(d) && qcKind(d) === 'remote';
+    const kShows = (d) => isReadingDevice(d) || isKioskAc(d) || (hasToggle(d) && !d.ir) || isKRemote(d);
     const kAll = data.devices.filter(kShows);
     const kRooms = (data.rooms || []).filter((r) => kAll.some((d) => d.room === r));
     const kRoomList = kRooms.length ? ['All'].concat(kRooms, kAll.some((d) => !d.room) ? ['Other'] : []) : [];
@@ -5010,7 +5032,7 @@
     const inRoom = (d) => S.kRoom === 'All' || (S.kRoom === 'Other' ? !d.room : d.room === S.kRoom);
     const readings = data.devices.filter((d) => isReadingDevice(d) && inRoom(d));
     const acs = sortByOrder(data.devices.filter((d) => isKioskAc(d) && inRoom(d) && !isHidden(d)), data.homeId);
-    const devices = sortByOrder(data.devices.filter((d) => !isReadingDevice(d) && !isKioskAc(d) && hasToggle(d) && !d.ir && inRoom(d) && !isHidden(d)), data.homeId).slice(0, 12);
+    const devices = sortByOrder(data.devices.filter((d) => !isReadingDevice(d) && !isKioskAc(d) && ((hasToggle(d) && !d.ir) || isKRemote(d)) && inRoom(d) && !isHidden(d)), data.homeId).slice(0, 12);
     const scenes = data.scenes || [];
     const w = S.weather;
     const wx = w && w.available && w.homeId === data.homeId && w.unit === S.tempUnit
@@ -5059,7 +5081,7 @@
   };
   document.addEventListener('pointerup', kioskHoldEnd);
   document.addEventListener('pointercancel', kioskHoldEnd);
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && kiosk.on && route().view === 'kiosk') { kioskStop(); go('me'); } });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !e.defaultPrevented && !qc && kiosk.on && route().view === 'kiosk') { kioskStop(); go('me'); } });
 
   // ---------- Me ----------
   // The main page keeps only what people reach for; everything else lives one tap away.
@@ -5858,6 +5880,7 @@
       case 'alloff': allOff(); break;
       case 'act-more': loadActivity(true); break;
       case 'climate-toggle': S.climateOpen = !S.climateOpen; render(); break;
+      case 'k-open': { const kd = findDevice(id); if (kd) qcOpen(kd, qcTileOf(id) || el); break; }
       case 'air-open': { const ad = findDevice(id); if (ad) { qcOpen(ad, el); if (qc) qc.fromChip = true; } break; }
       case 'outdoor-air': { const od = outdoorDevice(); if (od) qcOpen(od, el); break; }
       case 'clim-open': { const cd = climDevice('clim-' + el.dataset.kind + (el.closest('.k26') ? '-k' : '')); if (cd) qcOpen(cd, el); break; }

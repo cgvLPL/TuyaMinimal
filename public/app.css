@@ -1529,7 +1529,13 @@ html[data-bg] { --photo-stage: linear-gradient(180deg, #DCDBD6 0%, #CBCAC4 100%)
 .se-sticky .btn { flex: 0 0 auto; min-width: 120px; }
 .se-sticky .se-status { flex: 1; font-size: 13px; font-weight: 600; color: var(--muted); text-align: center; }
 .se-sticky .btn.ghost { padding: 0 14px; }
-@media (min-width: 900px) { .se-sticky { bottom: 16px; } }
+@media (min-width: 900px) {
+  .se-sticky { bottom: 16px; }
+  /* A sticky bar stops at the scroller's bottom padding; in the editor that padding (room for floating
+     buttons elsewhere) left the Save bar floating mid-screen on tablets. Keep the gap on the bar instead. */
+  .in-editor .main { padding-bottom: 0; }
+  .in-editor .se-sticky { margin-bottom: 16px; }
+}
 /* In the editor the phone tab bar steps aside; the editor has its own back button and Save bar. */
 @media (max-width: 899px) {
   .in-editor .tabbar { display: none; }
@@ -2222,6 +2228,13 @@ html[data-bg] .grid > .card:not(.active) .icon-dot { background: rgba(255, 255, 
 .k26 .ka { grid-row: span 5; display: flex; flex-direction: column; gap: 8px; padding: 18px 20px 20px; }
 .k26 .ka .ka-head { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; }
 .k26 .ka .ka-head .k-name { font-size: 20px; font-weight: 700; }
+/* The AC's name opens its full-screen control */
+.k26 .ka-open { display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%; padding: 4px 8px; margin: -4px -8px; border: 0; border-radius: 10px; background: none;
+  font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background .2s ease, transform .3s var(--spring, ease); }
+.k26 .ka-open > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.k26 .ka-open svg { flex: none; opacity: .55; }
+.k26 .ka-open:active { background: rgba(255, 255, 255, 0.12); transform: scale(.97); }
+.k26 .ka-open:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 .k26 .ka .ka-sub { font-size: 15px; font-weight: 600; color: #64d2ff; }
 :is(.k26, .ka-page) .ka-heat .ka-sub { color: #ffb340; }
 :is(.k26, .ka-page) .ka-off .ka-sub { color: var(--muted); }
