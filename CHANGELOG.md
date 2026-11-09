@@ -2,6 +2,15 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.72.0
+- Outdoor air quality: when the home has no air quality sensor reporting, Home (and the wall tablet) shows an **Outdoor air** chip with the US AQI for the home's location, coloured like indoor readings. Tap it for PM2.5, PM10, ozone and nitrogen dioxide, plus where the data comes from and when it was checked.
+- Data comes from the Open-Meteo air quality API (Copernicus CAMS; free, no key), fetched with the weather for the home's address and cached for 30 minutes. If it is unavailable, the chip simply doesn't show; the weather is unaffected.
+- As soon as an air quality sensor is online in any room, its reading is used instead.
+
+## 2.71.2
+- Room capsules and the Climate/Humidity/Air chips: their shadows were cut off by the sideways-scrolling row, leaving a hard dark band. The rows now leave room for a slightly tighter shadow, so it fades out evenly. Spacing between the rows is unchanged.
+- On a photo background, the selected room's name no longer shows a grey box (a text shadow meant for text sitting on the photo).
+
 ## 2.71.1
 - The Climate, Humidity and Air chips are now the same size as the room capsules (42 pt, same icon and text sizes), so the two rows line up. The wall tablet is unchanged.
 

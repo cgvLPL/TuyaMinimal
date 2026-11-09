@@ -98,6 +98,7 @@
 - Rooms as Home app-style capsules with filled room icons and live "3 on" counts; inside a room, devices are grouped under Climate, Lights, Shades, Security, Speakers & TVs and Switches & Outlets
 - Full-screen device controls on phones, like the Home app: brightness pills, outlet pills, a thermostat dial, a TV remote, an air quality ring and a roller blind you drag; the gear opens the device's settings
 - Air quality monitors: an AQI chip on Home (worked out from PM2.5/PM10 when the monitor doesn't give one) and every reading on the monitor's page
+- No air quality monitor? Home shows an Outdoor air chip instead: the AQI for your home's location from Open-Meteo (Copernicus data, free, no key), with PM2.5, PM10, ozone and NO₂ when tapped
 - Smart circuit breakers: live power, voltage and current, total energy, leakage current and trip alarms
 - Hide devices from Home in Arrange (they keep working in scenes and automations)
 - Automation list like the Home app's: trigger icon → the devices it controls, the trigger as the title, and an Enable switch in the editor
@@ -137,7 +138,7 @@ api/_routes/       the endpoints (folders starting with _ aren't deployed as sep
   timer.js         one-off device timers ("turn off in 30 min") via Tuya cloud schedules
   history.js       sensor history charts from the device's report log
   activity.js      the activity log: who did what (needs the database)
-  weather.js       current weather at the home's location (Open-Meteo, cached 10 minutes)
+  weather.js       current weather and outdoor air quality at the home's location (Open-Meteo, cached 10 / 30 minutes)
 api/_lib/          report-log paging, Tuya client and signing, sign-in, home access checks, scene/automation validation, Neon helpers
 ```
 

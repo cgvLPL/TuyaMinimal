@@ -5,6 +5,21 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.72.0",
+      "items": [
+        "No air quality sensor? Home now shows Outdoor air: the AQI for your home's location from the internet (Open-Meteo / Copernicus)",
+        "Tap it for PM2.5, PM10, ozone and nitrogen dioxide; it also shows on the wall tablet",
+        "As soon as an air quality sensor is reporting, its reading is used instead"
+      ]
+    },
+    {
+      "v": "2.71.2",
+      "items": [
+        "Room capsules and climate chips: shadows fade out evenly instead of ending in a hard dark line",
+        "No more grey box behind the selected room's name on a photo background"
+      ]
+    },
+    {
       "v": "2.71.1",
       "items": [
         "Climate, Humidity and Air chips now match the room capsules, so both rows line up"
@@ -1305,6 +1320,29 @@
     const lo = Math.min(...vals), hi = Math.max(...vals);
     return fmt(lo) === fmt(hi) ? fmt(lo) : fmt(lo).replace(/[^\d.\-]+$/, '') + '–' + fmt(hi);
   }
+  // Outdoor air quality from the weather service (Open-Meteo / Copernicus), for homes without an
+  // air quality sensor. Same US AQI scale and colours as indoor monitors.
+  function outdoorAirInfo() {
+    const w = S.weather, a = w && !w.error && w.available && w.homeId === (S.data && S.data.homeId) ? w.air : null;
+    if (!a) return null;
+    // Only when the home has no air quality sensor reporting (in any room).
+    if (S.data.devices.some((d) => d.online && isAirDevice(d) && aqiInfo(d))) return null;
+    const band = AQI_BANDS.find(([max]) => a.aqi <= max) || AQI_BANDS[AQI_BANDS.length - 1];
+    return { aqi: a.aqi, label: band[1], key: band[2], a, at: w.at };
+  }
+  function outdoorAirList(out) {
+    const a = out.a, rows = [];
+    const ug = (v) => (v == null ? null : (v >= 10 ? Math.round(v) : v) + ' µg/m³');
+    rows.push(['Air quality index', out.aqi + ' · ' + out.label]);
+    if (a.pm25 != null) rows.push(['PM2.5', ug(a.pm25)]);
+    if (a.pm10 != null) rows.push(['PM10', ug(a.pm10)]);
+    if (a.o3 != null) rows.push(['Ozone', ug(a.o3)]);
+    if (a.no2 != null) rows.push(['Nitrogen dioxide', ug(a.no2)]);
+    const when = new Date(out.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return '<div class="list climate-list outair-list" data-key="outair-list">' + rows.map(([k, v]) =>
+      '<div class="list-row"><span class="label">' + esc(k) + '</span><span class="value">' + esc(v) + '</span></div>').join('') +
+      '<p class="outair-note">Outdoor, for your home\'s area. No air quality sensor is reporting, so this comes from the internet (Copernicus via Open-Meteo), checked ' + esc(when) + '.</p></div>';
+  }
   function climateSummaries(readings, inKiosk) {
     const live = readings.filter((d) => d.online).map((d) => ({ d, r: readingsOf(d) }));
     const temps = live.map((x) => x.r.temp).filter((v) => v != null);
@@ -1335,9 +1373,18 @@
       html += '<' + tag + ' class="summary aq-' + worst.key + '" ' + aAct + (airOne.length === 1 ? '' : pressed) + ' data-key="sum-air" aria-label="' + esc('Air quality ' + (worst.aqi != null ? worst.aqi + ', ' : '') + worst.label) + '">' +
         '<span class="sum-icon aqi">' + icon('air', 16) + '</span><span class="sum-text"><span class="sum-title">Air</span><span class="sum-value">' + esc(worst.aqi != null ? worst.aqi + ' · ' + worst.label : worst.label) + '</span></span></' + tag + '>';
     }
-    if (!t && !h && !airs.length) html += btn('off', 'temp', 'Climate', 'Offline', 'Climate sensors offline');
+    // No air quality sensor reporting: show outdoor air quality for the home's location instead.
+    const out = !airs.length ? outdoorAirInfo() : null;
+    if (out) {
+      html += '<button class="summary aq-' + out.key + '" data-act="outdoor-air" aria-expanded="' + !!S.outAirOpen + '" data-key="sum-outair" aria-label="' +
+        esc('Outdoor air quality ' + out.aqi + ', ' + out.label + ', from the internet for your home\'s area') + '">' +
+        '<span class="sum-icon aqi">' + icon('air', 16) + '</span><span class="sum-text"><span class="sum-title">Outdoor air</span><span class="sum-value">' +
+        esc(out.aqi + ' · ' + out.label) + '</span></span></button>';
+    }
+    if (!t && !h && !airs.length && readings.length) html += btn('off', 'temp', 'Climate', 'Offline', 'Climate sensors offline');
     if (low) html += '<span class="sum-warn" role="status">' + icon('alert', 14) + 'Sensor battery low</span>';
     html += '</div>';
+    if (out && S.outAirOpen) html += outdoorAirList(out);
     // Expanded: one row per sensor (room, temperature, humidity), each opening its history.
     if (!one && S.climateOpen) {
       html += '<div class="list climate-list">' + readings.map((d) => {
@@ -2805,7 +2852,8 @@
     try {
       const r = await api('weather?homeId=' + encodeURIComponent(homeId) + '&unit=' + S.tempUnit);
       S.weather = { homeId, unit: S.tempUnit, at: Date.now(), available: !!r.available, temp: r.temp, code: r.code, isDay: r.isDay, unitLabel: r.unit === '°F' ? '°F' : '°C',
-        lat: typeof r.lat === 'number' ? r.lat : null, lon: typeof r.lon === 'number' ? r.lon : null };
+        lat: typeof r.lat === 'number' ? r.lat : null, lon: typeof r.lon === 'number' ? r.lon : null,
+        air: r.air && typeof r.air.aqi === 'number' ? r.air : null, place: r.place || '' };
       updatePosition();
     } catch (e) {
       S.weather = { homeId, unit: S.tempUnit, at: Date.now(), error: true };
@@ -2863,7 +2911,7 @@
     const allCards = sortByOrder(shown.filter((d) => !isReadingDevice(d)), data.homeId);
     const hiddenN = allCards.filter(isHidden).length;
     const cards = S.reorder ? allCards : allCards.filter((d) => !isHidden(d));
-    if (readings.length) html += climateSummaries(readings);
+    if (readings.length || (S.room === 'All' && outdoorAirInfo())) html += climateSummaries(readings);
     if (cards.length) {
       const arrange = allCards.length > 0
         ? '<button class="icon-btn arrange-btn' + (S.reorder ? ' on' : '') + '" data-act="reorder" data-key="reorder" aria-pressed="' + S.reorder + '"' +
@@ -4878,7 +4926,7 @@
       '<button class="k-exit" data-key="k-exit" aria-label="Leave wall tablet mode (press and hold)" title="Press and hold to leave">' +
       '<svg class="k-exit-ring" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="20"/></svg>' + icon('close', 18) + '</button></header>';
     // Temperature and humidity as Home app summaries.
-    if (readings.length) html += '<div class="k-climate">' + climateSummaries(readings, true) + '</div>';
+    if (readings.length || outdoorAirInfo()) html += '<div class="k-climate">' + climateSummaries(readings, true) + '</div>';
     // Scenes as a row of capsules, like the Home app.
     if (scenes.length) {
       html += '<div class="k-scenes26" role="group" aria-label="Scenes">' + scenes.map((sc) => {
@@ -5711,6 +5759,7 @@
       case 'alloff': allOff(); break;
       case 'act-more': loadActivity(true); break;
       case 'climate-toggle': S.climateOpen = !S.climateOpen; render(); break;
+      case 'outdoor-air': S.outAirOpen = !S.outAirOpen; render(); break;
       case 'open-history': S.history = null; go('history/' + encodeURIComponent(id)); break;
       case 'hist-range': S.histHours = Number(el.dataset.h) === 168 ? 168 : 24; S.history = null; render(); break;
       case 'timer-add': if (d) addTimer(d, Number(el.dataset.m)); break;
@@ -6354,7 +6403,8 @@
         { id: 'dev8', name: 'Bedside lamp', category: 'dj', product: 'Smart bulb', online: true, room: 'Bedroom', status: { switch_led: false, work_mode: 'white', bright_value_v2: 300, temp_value_v2: 0 } },
         { id: 'dev11', name: 'Donut Lamp', category: 'kg', product: '2-gang switch', online: true, room: 'Living room', status: { switch_1: true, switch_2: false } },
         { id: 'dev12', name: 'Desk power strip', category: 'pc', product: 'Power strip with USB', online: true, room: 'Bedroom', status: { switch_1: true, switch_2: true, switch_3: false, switch_usb1: true, cur_power: 865, cur_voltage: 2298, cur_current: 380, add_ele: 0 } },
-        { id: 'dev20', name: 'Air monitor', category: 'hjjcy', product: 'Air quality monitor', online: true, room: 'Living room', status: { pm25_value: 18, pm10_value: 31, co2_value: 712, ch2o_value: 12, voc_value: 85, va_temperature: 263, va_humidity: 58, battery_percentage: 76 } },
+        { id: 'dev20', name: 'Air monitor', category: 'hjjcy', product: 'Air quality monitor', online: !/[?&]noair\b/.test(location.search),   // demo: ?demo&noair shows outdoor air instead
+           room: 'Living room', status: { pm25_value: 18, pm10_value: 31, co2_value: 712, ch2o_value: 12, voc_value: 85, va_temperature: 263, va_humidity: 58, battery_percentage: 76 } },
         { id: 'dev21', name: 'Main breaker', category: 'dlq', product: 'Smart circuit breaker', online: true, room: 'Other', status: { switch: true, phase_a: 'CPEABfAAAWg=', total_forward_energy: 128473, leakage_current: 2, temp_current: 34, fault: 0 } },
         { id: 'dev4', name: 'Kettle plug', category: 'cz', product: 'Smart plug with energy monitoring', online: true, room: 'Kitchen', status: { switch_1: false, cur_power: 0, cur_voltage: 2301, cur_current: 0, add_ele: 0 } },
         { id: 'dev5', name: 'Front door', category: 'mcs', product: 'Door sensor', online: true, room: 'Hallway', status: { doorcontact_state: false, battery_percentage: 86 } },
@@ -6490,7 +6540,8 @@
       }
       if (path.startsWith('weather')) {
         const f = /unit=f/.test(path);
-        return { available: true, temp: f ? 75 : 24, code: 2, isDay: true, unit: f ? '°F' : '°C', place: 'Demo', lat: 51.5074, lon: -0.1278 };
+        return { available: true, temp: f ? 75 : 24, code: 2, isDay: true, unit: f ? '°F' : '°C', place: 'Demo', lat: 51.5074, lon: -0.1278,
+          air: { aqi: 42, pm25: 9.8, pm10: 16.4, o3: 61, no2: 18.2, time: null } };
       }
       if (path.startsWith('history')) {
         const hours = /hours=168/.test(path) ? 168 : 24, end = Date.now(), start = end - hours * 3600000;

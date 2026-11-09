@@ -1,6 +1,6 @@
-// GET /api/weather?homeId=..&unit=c|f → current weather at the home's location
-// The location comes from the home's address in the Tuya app. Weather data comes from
-// Open-Meteo (free, no API key). Results are cached for 10 minutes.
+// GET /api/weather?homeId=..&unit=c|f → current weather and outdoor air quality at the home's location
+// The location comes from the home's address in the Tuya app. Weather and air quality come from
+// Open-Meteo (free, no API key). Weather is cached for 10 minutes, air quality for 30.
 const { TuyaError } = require('../_lib/tuya');
 const { getJson, homeLocation } = require('../_lib/location');
 const { handler, requireId } = require('../_lib/http');
@@ -8,6 +8,24 @@ const { cached } = require('../_lib/cache');
 const access = require('../_lib/access');
 
 const TEN_MIN = 10 * 60 * 1000;
+const HALF_HOUR = 30 * 60 * 1000;
+
+// Outdoor air quality (US AQI, the same scale the app uses for indoor monitors). Used when the
+// home has no air quality sensor of its own. Never fails the weather: no data just means null.
+async function outdoorAir(lat, lon) {
+  try {
+    const key = 'aq1:' + lat.toFixed(2) + ',' + lon.toFixed(2);
+    const a = await cached(key, HALF_HOUR, () => getJson(
+      'https://air-quality-api.open-meteo.com/v1/air-quality?latitude=' + lat.toFixed(4) + '&longitude=' + lon.toFixed(4) +
+      '&current=us_aqi,pm2_5,pm10,ozone,nitrogen_dioxide&timezone=auto'));
+    const c = a && a.current;
+    if (!c || typeof c.us_aqi !== 'number') return null;
+    const n = (v) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v * 10) / 10 : null);
+    return { aqi: Math.round(c.us_aqi), pm25: n(c.pm2_5), pm10: n(c.pm10), o3: n(c.ozone), no2: n(c.nitrogen_dioxide), time: c.time || null };
+  } catch (e) {
+    return null;
+  }
+}
 
 // The forecast model's weather code says "drizzle" or "rain" whenever a trace of rain is
 // possible in the hour, which in the tropics is most of the time, so it can sit on Drizzle all day.
@@ -33,6 +51,7 @@ module.exports = handler(['GET'], async (req) => {
   const { lat, lon, place } = loc;
 
   const key = 'wx2:' + lat.toFixed(2) + ',' + lon.toFixed(2) + ':' + unit;
+  const airP = outdoorAir(lat, lon);
   const w = await cached(key, TEN_MIN, () => getJson(
     'https://api.open-meteo.com/v1/forecast?latitude=' + lat.toFixed(4) + '&longitude=' + lon.toFixed(4) +
     '&current=temperature_2m,weather_code,is_day,precipitation,rain,showers,cloud_cover' + (unit === 'f' ? '&temperature_unit=fahrenheit' : '')));
@@ -46,6 +65,7 @@ module.exports = handler(['GET'], async (req) => {
     unit: unit === 'f' ? '°F' : '°C',
     place,
     lat: Math.round(lat * 10000) / 10000,
-    lon: Math.round(lon * 10000) / 10000
+    lon: Math.round(lon * 10000) / 10000,
+    air: await airP
   };
 });
