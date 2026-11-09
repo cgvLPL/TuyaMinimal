@@ -84,6 +84,7 @@
   location is compared with the home's location on the phone itself and never sent to the server.
 - Readings: temperature/humidity (and CO₂, PM2.5) sensors appear as a strip of readings above
   your devices instead of as cards, including IR blasters with a built-in thermometer
+- Sensor history charts (24 hours or 7 days) you can drag across, like Apple Health: the reading and time at your finger, with temperature and humidity following the same moment. A mouse shows readings on hover, and the arrow keys step through them
 - Tap-to-run scenes: run, create, edit, duplicate and delete them (devices, outlets, brightness, AC settings,
   curtains, waits); IR remotes can be used too (AC settings, or any remote button)
 - Automations: create, edit and delete them (admins). When: a time on chosen days, or a device

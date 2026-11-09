@@ -5,6 +5,14 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.71.0",
+      "items": [
+        "Temperature and humidity charts are interactive: drag across one to see the reading and time at any moment",
+        "Every chart on the page follows the same moment, so you can compare temperature and humidity",
+        "Mouse hover and arrow keys work too; vertical swipes still scroll the page"
+      ]
+    },
+    {
       "v": "2.70.1",
       "items": [
         "Smaller empty space above the greeting on phones",
@@ -1477,7 +1485,13 @@
     if (sp && typeof sp.scale === 'number') return raw / Math.pow(10, sp.scale);
     return /temp/.test(code) && Math.abs(raw) >= 60 ? raw / 10 : raw;
   }
-  function chartSvg(points, unit, hours) {
+  // Each chart's numbers, kept outside the markup so scrubbing can find the nearest reading quickly.
+  const histPlots = {};
+  const histTime = (t, hours) => {
+    const dd = new Date(t), hm = dd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return hours > 24 ? dd.toLocaleDateString([], { weekday: 'short' }) + ' ' + hm : hm;
+  };
+  function chartSvg(points, unit, hours, code, fmtVal) {
     const W = 320, H = 120, P = 6;
     const vs = points.map((p) => p[1]);
     let min = Math.min(...vs), max = Math.max(...vs);
@@ -1491,11 +1505,90 @@
       const dd = new Date(t);
       return hours > 24 ? dd.toLocaleDateString([], { weekday: 'short' }) : dd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
-    return '<svg class="hist-chart" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' +
-      '<path class="hist-area" d="' + area + '"/><path class="hist-line" d="' + line + '" vector-effect="non-scaling-stroke"/>' +
-      '<circle class="hist-dot" cx="' + x(t1).toFixed(1) + '" cy="' + y(points[points.length - 1][1]).toFixed(1) + '" r="3.5" vector-effect="non-scaling-stroke"/></svg>' +
+    histPlots[code] = { points, fmtVal, hours, t0, span, x, y, W, H };
+    const last = points[points.length - 1];
+    // The resting dot sits on the newest reading; while you scrub it follows your finger.
+    const pin = 'left:' + (x(last[0]) / W * 100).toFixed(2) + '%;top:' + (y(last[1]) / H * 100).toFixed(2) + '%';
+    return '<div class="hist-plot" data-plot="' + esc(code) + '" data-key="plot-' + esc(code) + '" tabindex="0" role="img" aria-label="Chart. Drag across it, or use the arrow keys, to see earlier readings">' +
+      '<svg class="hist-chart" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' +
+      '<path class="hist-area" d="' + area + '"/><path class="hist-line" d="' + line + '" vector-effect="non-scaling-stroke"/></svg>' +
+      '<span class="hist-cur" aria-hidden="true"></span><span class="hist-pin" style="' + pin + '" aria-hidden="true"></span></div>' +
       '<div class="hist-axis"><span>' + fmt(t0) + '</span><span>Now</span></div>';
   }
+  // Scrubbing: drag (or tap) across a chart to read any moment; every chart on the page follows the
+  // same moment, so temperature and humidity can be compared. Vertical swipes still scroll the page.
+  const histScrub = { el: null, idx: null };
+  function histNearest(pl, t) {
+    const pts = pl.points;
+    let lo = 0, hi = pts.length - 1;
+    while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (pts[mid][0] < t) lo = mid; else hi = mid; }
+    return Math.abs(pts[lo][0] - t) <= Math.abs(pts[hi][0] - t) ? lo : hi;
+  }
+  function histShow(t) {
+    document.querySelectorAll('.hist-plot').forEach((el) => {
+      const pl = histPlots[el.dataset.plot]; if (!pl) return;
+      const card = el.closest('.hist-card'), now = card && card.querySelector('.hist-now'), when = card && card.querySelector('.hist-when');
+      const cur = el.querySelector('.hist-cur'), pin = el.querySelector('.hist-pin');
+      const i = histNearest(pl, t), p = pl.points[i];
+      const lx = (pl.x(p[0]) / pl.W * 100).toFixed(2) + '%', ly = (pl.y(p[1]) / pl.H * 100).toFixed(2) + '%';
+      el.classList.add('scrub');
+      if (cur) cur.style.left = lx;
+      if (pin) { pin.style.left = lx; pin.style.top = ly; }
+      if (now) { if (now.dataset.rest == null) now.dataset.rest = now.textContent; now.textContent = pl.fmtVal(p[1]); }
+      if (when) when.textContent = histTime(p[0], pl.hours);
+    });
+  }
+  function histHide() {
+    histScrub.el = null; histScrub.idx = null;
+    document.querySelectorAll('.hist-plot.scrub').forEach((el) => {
+      const pl = histPlots[el.dataset.plot], card = el.closest('.hist-card');
+      const now = card && card.querySelector('.hist-now'), when = card && card.querySelector('.hist-when'), pin = el.querySelector('.hist-pin');
+      el.classList.remove('scrub');
+      if (now && now.dataset.rest != null) { now.textContent = now.dataset.rest; delete now.dataset.rest; }
+      if (when) when.textContent = '';
+      if (pl && pin) { const last = pl.points[pl.points.length - 1]; pin.style.left = (pl.x(last[0]) / pl.W * 100).toFixed(2) + '%'; pin.style.top = (pl.y(last[1]) / pl.H * 100).toFixed(2) + '%'; }
+    });
+  }
+  function histAt(el, clientX) {
+    const pl = histPlots[el.dataset.plot]; if (!pl) return;
+    const r = el.getBoundingClientRect();
+    const fx = Math.min(1, Math.max(0, (clientX - r.left) / r.width)) * pl.W;
+    const t = pl.t0 + ((fx - 6) / (pl.W - 12)) * pl.span;
+    histScrub.idx = histNearest(pl, t);
+    histShow(pl.points[histScrub.idx][0]);
+  }
+  document.addEventListener('pointerdown', (e) => {
+    const el = e.target.closest && e.target.closest('.hist-plot');
+    if (!el || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    histScrub.el = el;
+    histAt(el, e.clientX);
+  });
+  document.addEventListener('pointermove', (e) => {
+    if (histScrub.el) { histAt(histScrub.el, e.clientX); return; }
+    // A mouse or trackpad shows readings on hover, too.
+    if (e.pointerType === 'mouse') {
+      const el = e.target.closest && e.target.closest('.hist-plot');
+      if (el) histAt(el, e.clientX); else if (document.querySelector('.hist-plot.scrub')) histHide();
+    }
+  }, { passive: true });
+  ['pointerup', 'pointercancel'].forEach((n) => document.addEventListener(n, (e) => {
+    if (!histScrub.el) return;
+    if (e.pointerType === 'mouse' && n === 'pointerup') { histScrub.el = null; return; }
+    histHide();
+  }));
+  document.addEventListener('keydown', (e) => {
+    const el = document.activeElement && document.activeElement.closest && document.activeElement.closest('.hist-plot');
+    if (!el || !['ArrowLeft', 'ArrowRight', 'Home', 'End', 'Escape'].includes(e.key)) return;
+    const pl = histPlots[el.dataset.plot]; if (!pl) return;
+    e.preventDefault();
+    if (e.key === 'Escape') { histHide(); return; }
+    const n = pl.points.length;
+    let i = histScrub.idx == null ? n - 1 : histScrub.idx;
+    i = e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : Math.min(n - 1, Math.max(0, i + (e.key === 'ArrowLeft' ? -1 : 1)));
+    histScrub.idx = i;
+    histShow(pl.points[i][0]);
+  });
+  document.addEventListener('focusout', (e) => { if (e.target.closest && e.target.closest('.hist-plot') && !histScrub.el) histHide(); });
   function historyView(id) {
     const d = findDevice(id);
     let html = '<div class="detail-head se-head-top"><button class="round-btn" data-act="tab" data-tab="devices" data-key="hist-back" aria-label="Back to devices">' + icon('back', 20) + '</button>' +
@@ -1522,8 +1615,8 @@
       const vs = pts.map((p) => p[1]);
       const unit = kind === 'temp' ? '°' : kind === 'hum' ? '%' : kind === 'co2' ? ' ppm' : ' µg/m³';
       const f = (v) => (kind === 'temp' ? (Math.round(v * 10) / 10).toFixed(1) : Math.round(v)) + unit;
-      html += '<section class="hist-card list"><div class="hist-head"><span class="se-label">' + label + '</span><span class="hist-now">' + f(vs[vs.length - 1]) + '</span></div>' +
-        chartSvg(pts, unit, H.hours) +
+      html += '<section class="hist-card list"><div class="hist-head"><span class="hist-lbl"><span class="se-label">' + label + '</span><span class="hist-when" aria-live="polite"></span></span><span class="hist-now">' + f(vs[vs.length - 1]) + '</span></div>' +
+        chartSvg(pts, unit, H.hours, code, f) +
         '<div class="hist-stats"><span>Low <b>' + f(Math.min(...vs)) + '</b></span><span>Average <b>' + f(vs.reduce((a, b) => a + b, 0) / vs.length) + '</b></span><span>High <b>' + f(Math.max(...vs)) + '</b></span></div></section>';
     });
     return html;
@@ -5154,6 +5247,15 @@
   }
 
   function render() {
+    renderInner();
+    // A redraw mid-drag (background refresh) would reset the chart readout: put it back.
+    if (histScrub.idx != null && histScrub.el) {
+      const el = document.querySelector('.hist-plot[data-plot="' + histScrub.el.dataset.plot + '"]');
+      const pl = el && histPlots[el.dataset.plot];
+      if (pl && pl.points[histScrub.idx]) { histScrub.el = el; histShow(pl.points[histScrub.idx][0]); } else histHide();
+    }
+  }
+  function renderInner() {
     const app = $('#app');
     const focusKey = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.key : null;
     const rowScroll = {};   // sideways rows (AC modes) keep their position across redraws
