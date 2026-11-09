@@ -5,6 +5,13 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.70.1",
+      "items": [
+        "Smaller empty space above the greeting on phones",
+        "Slimmer room capsules (42 pt instead of 52) so the room selector takes less room"
+      ]
+    },
+    {
       "v": "2.70.0",
       "items": [
         "Faster launch: the app opens from its saved copy straight away instead of waiting on the network, and refreshes it in the background",
@@ -2748,7 +2755,7 @@
       };
       html += '<div class="room-pills" role="group" aria-label="Rooms">' + rooms.map((r) =>
         '<button class="room-pill" data-act="room" data-room="' + esc(r) + '" data-key="room-' + esc(r) + '" aria-pressed="' + (r === S.room) + '" aria-label="' + esc(r + ', ' + roomLine(r)) + '">' +
-        '<span class="room-ico">' + roomGlyph(roomIcon(r), 18) + '</span><span class="room-txt"><span class="room-name">' + esc(r) + '</span><span class="room-sub">' + esc(roomLine(r)) + '</span></span></button>').join('') + '</div>';
+        '<span class="room-ico">' + roomGlyph(roomIcon(r), 16) + '</span><span class="room-txt"><span class="room-name">' + esc(r) + '</span><span class="room-sub">' + esc(roomLine(r)) + '</span></span></button>').join('') + '</div>';
     }
     if (!data.devices.length) {
       return html + '</div><div class="dv-scroll"><div class="empty"><strong>No devices found</strong><p>Link your Tuya app account to your cloud project (see the README), then tap Refresh in Me.</p></div></div>';

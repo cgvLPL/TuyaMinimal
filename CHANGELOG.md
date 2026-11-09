@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.70.1
+- Phones: less empty space between the status bar and the greeting.
+- Room selector: slimmer capsules (42 pt tall instead of 52) with a smaller icon and text, so it takes less space.
+
 ## 2.70.0
 - Faster launch: the app now opens from its saved copy straight away instead of waiting on the network, then refreshes that copy in the background. Updates still arrive through the usual update check.
 - Device icons now share one set of cut-out masks with fixed ids, so redraws leave them untouched. Layout work per tile tap is roughly halved.

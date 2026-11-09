@@ -888,10 +888,10 @@ html, body { overscroll-behavior-y: contain; }
 /* iPhone (iOS 26): the system blurs content under the status bar with a soft edge that reaches a bit
    below it. Start the page low enough that the greeting and headings never sit in that blur. */
 @media (max-width: 899px) {
-  .main { padding-top: calc(var(--safe-top) + 30px); }
+  .main { padding-top: calc(var(--safe-top) + 10px); }
 }
 @media (max-width: 899px) and (display-mode: standalone) {
-  .main { padding-top: calc(max(var(--safe-top), 20px) + 30px); }
+  .main { padding-top: calc(max(var(--safe-top), 20px) + 10px); }
 }
 
 /* ---------- Touch polish (phones) ---------- */
@@ -2838,19 +2838,19 @@ html .tabbar .tab .pill .tab-glass { will-change: transform; }
 
 /* ---------- 2.66.0 rooms as Home app capsules ---------- */
 .room-pills { display: flex; gap: 10px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; overscroll-behavior-x: contain;
-  margin: 0 calc(-1 * var(--sum-bleed, 20px)) 12px; padding: 2px var(--sum-bleed, 20px) 4px; -webkit-overflow-scrolling: touch; }
+  margin: 0 calc(-1 * var(--sum-bleed, 20px)) 10px; padding: 2px var(--sum-bleed, 20px) 4px; -webkit-overflow-scrolling: touch; }
 .room-pills::-webkit-scrollbar { display: none; }
-.room-pill { flex: none; display: inline-flex; align-items: center; gap: 10px; height: 52px; padding: 0 18px 0 8px; border: 0; border-radius: 999px; cursor: pointer;
+.room-pill { flex: none; display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 15px 0 6px; border: 0; border-radius: 999px; cursor: pointer;
   background: var(--content, var(--surface)); color: var(--text); text-align: left; font: inherit;
   -webkit-backdrop-filter: var(--content-blur, none); backdrop-filter: var(--content-blur, none);
   box-shadow: var(--content-shadow, none), inset 0 0 0 1px var(--content-edge, transparent);
   -webkit-tap-highlight-color: transparent; transition: transform .45s var(--spring, ease), background-color .25s ease, color .25s ease; }
 .room-pill:active { transform: scale(.95); }
-.room-ico { width: 36px; height: 36px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center;
+.room-ico { width: 30px; height: 30px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center;
   background: var(--chip); color: var(--text); transition: background-color .25s ease, color .25s ease; }
-.room-txt { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
-.room-pill .room-name { font-size: 15px; font-weight: 700; color: inherit; white-space: nowrap; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
-.room-sub { font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.room-txt { display: flex; flex-direction: column; line-height: 1.1; min-width: 0; }
+.room-pill .room-name { font-size: 14px; font-weight: 700; color: inherit; white-space: nowrap; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+.room-sub { font-size: 11.5px; font-weight: 600; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* The room you're looking at: a bright capsule, like a selected Home app button */
 .room-pill[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18); }
 .room-pill[aria-pressed="true"] .room-ico { background: var(--on-ink); color: var(--ink); }
