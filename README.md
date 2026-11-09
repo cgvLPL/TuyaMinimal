@@ -98,6 +98,7 @@
 - Rooms as Home app-style capsules with filled room icons and live "3 on" counts; inside a room, devices are grouped under Climate, Lights, Shades, Security, Speakers & TVs and Switches & Outlets
 - Full-screen device controls on phones, like the Home app: brightness pills, outlet pills, a thermostat dial, a TV remote, an air quality ring and a roller blind you drag; the gear opens the device's settings
 - Air quality monitors: an AQI chip on Home (worked out from PM2.5/PM10 when the monitor doesn't give one) and every reading on the monitor's page
+- The Climate and Humidity chips open like a device: a full-screen ring with the reading (or the average and range of several sensors, coloured by how it feels) and a tile per sensor that opens its history
 - No air quality monitor? Home shows an Outdoor air chip instead: the AQI for your home's location from Open-Meteo (Copernicus data, free, no key), and tapping it opens a full-screen page like a monitor's: AQI ring plus PM2.5, PM10, ozone and NO₂
 - Smart circuit breakers: live power, voltage and current, total energy, leakage current and trip alarms
 - Hide devices from Home in Arrange (they keep working in scenes and automations)

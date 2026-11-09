@@ -2020,6 +2020,11 @@ html.kiosk body, html.kiosk .app, html.kiosk .main { background: transparent !im
 .sum-warn { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #ff9f0a; }
 .climate-list { margin: -4px 0 16px; }
 .qc-nogear .qc-gear { display: none; }
+.clim-item { border: 0; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform .3s var(--spring, ease); }
+button.clim-item:active { transform: scale(.96); }
+.clim-other { font-size: 12.5px; font-weight: 600; color: var(--a-sub); }
+.clim .air-num { font-size: 52px; }
+.clim-range { margin: -8px 0 0; font-size: 14px; font-weight: 600; color: var(--a-sub); font-variant-numeric: tabular-nums; }
 .air-note { margin: 18px auto 0; max-width: 340px; padding: 0 8px; font-size: 12.5px; line-height: 1.4; text-align: center; color: var(--muted); }
 .clim-room { display: block; font-size: 12px; font-weight: 600; color: var(--muted); }
 

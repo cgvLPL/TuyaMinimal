@@ -5,6 +5,14 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.73.0",
+      "items": [
+        "Climate and Humidity open like a device: they zoom out of the chip into a full-screen page over the blurred background",
+        "A big ring shows the reading, or the average and range of several sensors, coloured by how it feels (Cool, Comfortable, Warm, Dry, Humid…)",
+        "A tile per sensor (with its other reading and a low-battery note) opens that sensor's history chart"
+      ]
+    },
+    {
       "v": "2.72.1",
       "items": [
         "Outdoor air opens like a device: it zooms out of the chip into a full-screen page over the blurred background, with the AQI ring and a tile for PM2.5, PM10, ozone and NO₂"
@@ -1361,9 +1369,12 @@
     let html = '<div class="summaries" role="group" aria-label="Climate">';
     const t = rangeText(temps, fmtReading);
     const h = rangeText(hums, (v) => Math.round(v) + '%');
-    const hint = one && !inKiosk ? ', show history' : '';
-    if (t) html += btn('temp', 'temp', 'Climate', t, 'Temperature ' + t + hint);
-    if (h) html += btn('hum', 'hum', 'Humidity', h, 'Humidity ' + h + hint);
+    const cbtn = (key, title, value, label) =>
+      '<button class="summary" data-act="clim-open" data-kind="' + key + '" data-key="sum-' + key + '" aria-label="' + esc(label + ', show details') + '">' +
+      '<span class="sum-icon ' + key + '">' + icon(key === 'temp' ? 'thermo' : 'drop', 16) + '</span>' +
+      '<span class="sum-text"><span class="sum-title">' + title + '</span><span class="sum-value">' + esc(value) + '</span></span></button>';
+    if (t) html += cbtn('temp', 'Climate', t, 'Temperature ' + t);
+    if (h) html += cbtn('hum', 'Humidity', h, 'Humidity ' + h);
     const airs = live.map((x) => aqiInfo(x.d)).filter(Boolean);
     if (airs.length) {
       const rank = (a) => AQI_BANDS.findIndex((b) => b[2] === a.key) * 1000 + (a.aqi || 0);
@@ -1880,7 +1891,65 @@
     }, 600);
   }
 
-  function findDevice(id) { return id === OUT_AIR_ID ? outdoorDevice() : S.data && S.data.devices.find((x) => x.id === id); }
+  function findDevice(id) {
+    if (id === OUT_AIR_ID) return outdoorDevice();
+    if (/^clim-(temp|hum)(-k)?$/.test(id)) return climDevice(id);
+    return S.data && S.data.devices.find((x) => x.id === id);
+  }
+  // The Climate and Humidity chips open like a device too: a full-screen page with a big ring
+  // (the reading, or the average of several sensors) and a tile per sensor that opens its history.
+  // id: clim-temp / clim-hum, with -k on the wall tablet (its own room filter, and no navigating away).
+  function climSensors(kiosk) {
+    if (!S.data) return [];
+    const room = kiosk ? S.kRoom : S.room;
+    const inRoom = (d) => !room || room === 'All' || (room === 'Other' ? !d.room : d.room === room);
+    return S.data.devices.filter((d) => isReadingDevice(d) && inRoom(d));
+  }
+  function climDevice(id) {
+    const kind = id.indexOf('clim-hum') === 0 ? 'hum' : 'temp', kiosk = /-k$/.test(id);
+    const sensors = climSensors(kiosk).filter((d) => readingsOf(d)[kind] != null || !d.online);
+    if (!sensors.length) return null;
+    return { id, name: kind === 'temp' ? 'Climate' : 'Humidity', category: 'wsdcg', product: '', online: true, room: '', status: {}, clim: kind, kiosk, sensors };
+  }
+  function climPanel(d) {
+    const kind = d.clim, live = d.sensors.filter((x) => x.online && readingsOf(x)[kind] != null);
+    const vals = live.map((x) => readingsOf(x)[kind]);
+    const fmt = kind === 'temp' ? fmtReading : (v) => Math.round(v) + '%';
+    const num = kind === 'temp' ? (v) => fmtReading(v) : (v) => String(Math.round(v));
+    const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+    const c = avg == null ? null : kind === 'temp' ? (S.tempUnit === 'f' ? (avg - 32) * 5 / 9 : avg) : avg;
+    // Ring: temperature across 0–40 °C, humidity across 0–100 %; coloured by how it feels.
+    const frac = c == null ? 0 : Math.min(1, Math.max(0, kind === 'temp' ? c / 40 : c / 100));
+    const col = c == null ? '#8e8e93' : kind === 'temp'
+      ? (c < 18 ? '#64d2ff' : c < 20 ? '#5ac8fa' : c <= 26 ? '#30d158' : c <= 30 ? '#ff9f0a' : '#ff453a')
+      : (c < 30 ? '#ff9f0a' : c <= 60 ? '#0a84ff' : c <= 70 ? '#5ac8fa' : '#bf5af2');
+    const feel = c == null ? '' : kind === 'temp'
+      ? (c < 18 ? 'Cold' : c < 20 ? 'Cool' : c <= 26 ? 'Comfortable' : c <= 30 ? 'Warm' : 'Hot')
+      : (c < 30 ? 'Dry' : c <= 60 ? 'Comfortable' : c <= 70 ? 'Humid' : 'Very humid');
+    const R = 80, C = 2 * Math.PI * R, arc = C * 0.75;
+    const lo = vals.length ? Math.min(...vals) : null, hi = vals.length ? Math.max(...vals) : null;
+    const several = vals.length > 1;
+    const big = avg == null ? '–' : num(avg).replace(/°[CF]?$/, '°');
+    const sensorTile = (x) => {
+      const r = readingsOf(x), v = x.online && r[kind] != null ? fmt(r[kind]) : 'Offline';
+      const other = x.online ? (kind === 'temp' ? (r.hum != null ? Math.round(r.hum) + '% humidity' : '') : (r.temp != null ? fmtReading(r.temp) : '')) : '';
+      const dupRoom = !x.room || d.sensors.filter((y) => y.room === x.room).length > 1;
+      const inner = '<span class="air-name">' + esc(dupRoom ? x.name : x.room) + (batteryLow(x) ? ' · battery low' : '') + '</span><span class="air-val">' + esc(v) + '</span>' +
+        (other ? '<span class="clim-other">' + esc(other) + '</span>' : '');
+      return d.kiosk ? '<div class="air-item clim-item">' + inner + '</div>'
+        : '<button class="air-item clim-item" data-act="open-history" data-id="' + esc(x.id) + '" data-key="clim-s-' + esc(x.id) + '" aria-label="' + esc((x.room || x.name) + ', ' + v + ', show history') + '">' + inner + '</button>';
+    };
+    return '<div class="air clim" style="--aq:' + col + '">' +
+      '<div class="air-ring" role="img" aria-label="' + esc((kind === 'temp' ? 'Temperature ' : 'Humidity ') + (avg == null ? 'unknown' : (several ? 'average ' : '') + fmt(avg) + ', ' + feel)) + '">' +
+        '<svg viewBox="0 0 200 200" aria-hidden="true"><circle cx="100" cy="100" r="' + R + '" class="air-track" stroke-dasharray="' + arc.toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(135 100 100)"/>' +
+        '<circle cx="100" cy="100" r="' + R + '" class="air-fill" stroke-dasharray="' + (arc * frac).toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(135 100 100)"/></svg>' +
+        '<div class="air-mid"><span class="air-k">' + (several ? 'AVERAGE' : kind === 'temp' ? 'NOW' : 'HUMIDITY') + '</span><span class="air-num">' + esc(kind === 'hum' && avg != null ? big + '%' : big) + '</span>' +
+        (feel ? '<span class="air-label">' + feel + '</span>' : '') + '</div></div>' +
+      (several ? '<p class="clim-range">' + esc(fmt(lo)) + ' – ' + esc(fmt(hi)) + ' across ' + live.length + ' sensors</p>' : '') +
+      '<div class="air-grid">' + d.sensors.map(sensorTile).join('') + '</div>' +
+      (d.kiosk ? '' : '<p class="air-note">Tap a sensor to see its history.</p>') +
+      '</div>';
+  }
   // Outdoor air quality as a read-only "device", so its chip opens the same full-screen air page
   // (ring, reading tiles, zoom animation, blurred background) as a real air quality monitor.
   const OUT_AIR_ID = 'outdoor-air';
@@ -2156,10 +2225,12 @@
   const qcMotion = () => !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
   function qcTileOf(id) {
     if (id === OUT_AIR_ID) return document.querySelector('[data-key="sum-outair"]');
+    if (/^clim-(temp|hum)/.test(id)) return document.querySelector('[data-key="sum-' + (id.indexOf('clim-hum') === 0 ? 'hum' : 'temp') + '"]');
     return document.querySelector('.grid > .card[data-card-id="' + CSS.escape(id) + '"]') || document.querySelector('.k26 .k-ctl[data-id="' + CSS.escape(id) + '"]');
   }
   // What the big control is for a device: the Home app's full-screen layout.
   function qcKind(d) {
+    if (d.clim) return 'clim';
     if (isKioskAc(d)) return 'ac';
     if (kindOf(d) === 'irremote') return 'remote';
     if (kindOf(d) === 'sensor' && isAirDevice(d)) return 'air';
@@ -2268,7 +2339,7 @@
     const dim = kind === 'dim' || kind === 'cover';
     const swatches = kind === 'dim' && (warmCode(d) || colourCode(d));
     const el = document.createElement('div');
-    el.className = 'qc hue-' + hueOf(d) + (dim ? ' qc-dim' : '') + (kind === 'cover' ? ' qc-cover' : '') + (multi ? ' qc-multi-on' : '') + (page ? ' qc-page' : '') + (kind === 'ac' ? ' qc-ac-on' : '') + (!kind ? ' qc-none' : '') + (d.outdoor ? ' qc-nogear' : '');
+    el.className = 'qc hue-' + hueOf(d) + (dim ? ' qc-dim' : '') + (kind === 'cover' ? ' qc-cover' : '') + (multi ? ' qc-multi-on' : '') + (page ? ' qc-page' : '') + (kind === 'ac' ? ' qc-ac-on' : '') + (!kind ? ' qc-none' : '') + (d.outdoor || d.clim ? ' qc-nogear' : '');
     el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', d.name);
     el.innerHTML = '<div class="qc-bg"></div>' +
       (page ? '<button class="qc-x" aria-label="Close">' + X_ICON + '</button>' : '') +
@@ -2277,6 +2348,7 @@
         : kind === 'ac' ? '<div class="qc-body qc-ac"></div>'
         : kind === 'remote' ? '<div class="qc-body qc-remote"></div>'
         : kind === 'air' ? '<div class="qc-body qc-air"></div>'
+        : kind === 'clim' ? '<div class="qc-body qc-air qc-clim"></div>'
         : multi
         ? '<div class="qc-multi qc-body" style="--n:' + codes.length + '">' + codes.map((c) =>
             '<div class="qc-unit"><button class="qc-pill qc-switch qc-ch" role="switch" aria-label="' + esc(channelName(d, c)) + '" data-act="toggle" data-id="' + esc(d.id) + '" data-code="' + esc(c) + '">' +
@@ -2291,10 +2363,10 @@
     qc = { id: d.id, el, last: null, lastCh: {}, drag: null, focusBack: document.activeElement, page, back: !!(opts && opts.back), kind, sl: dim ? qcSliderFor(d) : null };
     qcSync(true);
     if (!page) { try { history.pushState({ qc: 1 }, '', location.href); qc.pushed = true; } catch (e) { /* fine without */ } }
-    const pill = el.querySelector(multi ? '.qc-multi' : kind === 'ac' ? '.qc-ac' : kind === 'remote' ? '.qc-remote' : kind === 'air' ? '.qc-air' : !kind ? '.qc-empty' : '.qc-pill');
+    const pill = el.querySelector(multi ? '.qc-multi' : kind === 'ac' ? '.qc-ac' : kind === 'remote' ? '.qc-remote' : kind === 'air' || kind === 'clim' ? '.qc-air' : !kind ? '.qc-empty' : '.qc-pill');
     el.querySelector('.qc-bg').addEventListener('click', () => qcExit());
     if (page) el.querySelector('.qc-x').addEventListener('click', () => qcExit());
-    if (!d.outdoor) el.querySelector('.qc-gear').addEventListener('click', () => qcSheetOpen());
+    if (!d.outdoor && !d.clim) el.querySelector('.qc-gear').addEventListener('click', () => qcSheetOpen());
     if (dim) qcSliderEvents(pill);
     if (!kind) { qcSheetOpen(true); return; }   // nothing to show big (sensors, remotes...): straight to its settings
     if (qcMotion() && tile && pill.animate) {
@@ -2416,11 +2488,12 @@
       el.classList.toggle('on', qc.sl.on(pct) && d.online);
     } else el.classList.toggle('on', on && !chs.length);
     if (d.outdoor) statusTxt = 'Outdoor · from the internet';
+    if (d.clim) { const n = d.sensors.length; statusTxt = n === 1 ? (d.sensors[0].room || d.sensors[0].name) : n + ' sensors' + (S.room && S.room !== 'All' && !d.kiosk ? ' · ' + S.room : ''); }
     el.querySelector('.qc-status').textContent = statusTxt;
     const rmBody = el.querySelector('.qc-remote');
     if (rmBody) patchHtml(rmBody, irRemotePad(d, '-qr'));
     const airBody = el.querySelector('.qc-air');
-    if (airBody) patchHtml(airBody, airPanel(d));
+    if (airBody) patchHtml(airBody, d.clim ? climPanel(d) : airPanel(d));
     const acBody = el.querySelector('.qc-ac');
     if (acBody && !S.dragging) patchHtml(acBody, acPage(d, '-qa'));
     const sws = el.querySelector('.qc-swatches');
@@ -5772,7 +5845,14 @@
       case 'act-more': loadActivity(true); break;
       case 'climate-toggle': S.climateOpen = !S.climateOpen; render(); break;
       case 'outdoor-air': { const od = outdoorDevice(); if (od) qcOpen(od, el); break; }
-      case 'open-history': S.history = null; go('history/' + encodeURIComponent(id)); break;
+      case 'clim-open': { const cd = climDevice('clim-' + el.dataset.kind + (el.closest('.k26') ? '-k' : '')); if (cd) qcOpen(cd, el); break; }
+      case 'open-history': {
+        S.history = null;
+        // From inside a full-screen page: swap the page's history entry for the chart, so Back goes home.
+        if (qc && qc.pushed) { qc.pushed = false; qcClose(true); location.replace('#history/' + encodeURIComponent(id)); break; }
+        if (qc) qcClose(true);
+        go('history/' + encodeURIComponent(id)); break;
+      }
       case 'hist-range': S.histHours = Number(el.dataset.h) === 168 ? 168 : 24; S.history = null; render(); break;
       case 'timer-add': if (d) addTimer(d, Number(el.dataset.m)); break;
       case 'timer-del': if (d) deleteTimer(d, el.dataset.t); break;

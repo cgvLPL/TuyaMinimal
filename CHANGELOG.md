@@ -2,6 +2,12 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.73.0
+- **Climate** and **Humidity** chips now open like a device, the same as Outdoor air: the zoom-out-of-the-chip animation, the blurred background, and a full-screen page.
+- The page has a big ring with the reading (or the average of several sensors plus their range), coloured and labelled by how it feels: Cold / Cool / Comfortable / Warm / Hot for temperature, Dry / Comfortable / Humid / Very humid for humidity.
+- Below it, a tile per sensor with its reading, its other reading (humidity or temperature) and a low-battery note. Tapping a tile opens that sensor's history chart; Back returns to Home. Inside a room, only that room's sensors are included.
+- On the wall tablet the page opens too (tiles are display-only there). The old list that expanded under the chips is no longer used for temperature and humidity.
+
 ## 2.72.1
 - Tapping **Outdoor air** now opens it like a device: the same zoom-out-of-the-chip animation and blurred background, and the air quality monitor's page (AQI ring, a tile each for PM2.5, PM10, ozone and NO₂, and where the data comes from). Tap outside or go back to close. It replaces the list that used to expand under the chips.
 
