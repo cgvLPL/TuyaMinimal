@@ -5,6 +5,12 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.71.1",
+      "items": [
+        "Climate, Humidity and Air chips now match the room capsules, so both rows line up"
+      ]
+    },
+    {
       "v": "2.71.0",
       "items": [
         "Temperature and humidity charts are interactive: drag across one to see the reading and time at any moment",
@@ -1312,7 +1318,7 @@
     const tag = still ? 'div' : 'button';
     const btn = (key, kind, title, value, label) =>
       '<' + tag + ' class="summary" ' + act + pressed + ' data-key="sum-' + key + '"' + (still ? ' role="img"' : '') + ' aria-label="' + esc(label) + '">' +
-      '<span class="sum-icon ' + kind + '">' + icon(kind === 'temp' ? 'thermo' : 'drop', 18) + '</span>' +
+      '<span class="sum-icon ' + kind + '">' + icon(kind === 'temp' ? 'thermo' : 'drop', 16) + '</span>' +
       '<span class="sum-text"><span class="sum-title">' + title + '</span><span class="sum-value">' + esc(value) + '</span></span></' + tag + '>';
     let html = '<div class="summaries" role="group" aria-label="Climate">';
     const t = rangeText(temps, fmtReading);
@@ -1327,7 +1333,7 @@
       const airOne = readings.filter(isAirDevice);
       const aAct = airOne.length === 1 && !inKiosk ? 'data-act="open-history" data-id="' + esc(airOne[0].id) + '"' : act;
       html += '<' + tag + ' class="summary aq-' + worst.key + '" ' + aAct + (airOne.length === 1 ? '' : pressed) + ' data-key="sum-air" aria-label="' + esc('Air quality ' + (worst.aqi != null ? worst.aqi + ', ' : '') + worst.label) + '">' +
-        '<span class="sum-icon aqi">' + icon('air', 18) + '</span><span class="sum-text"><span class="sum-title">Air</span><span class="sum-value">' + esc(worst.aqi != null ? worst.aqi + ' · ' + worst.label : worst.label) + '</span></span></' + tag + '>';
+        '<span class="sum-icon aqi">' + icon('air', 16) + '</span><span class="sum-text"><span class="sum-title">Air</span><span class="sum-value">' + esc(worst.aqi != null ? worst.aqi + ' · ' + worst.label : worst.label) + '</span></span></' + tag + '>';
     }
     if (!t && !h && !airs.length) html += btn('off', 'temp', 'Climate', 'Offline', 'Climate sensors offline');
     if (low) html += '<span class="sum-warn" role="status">' + icon('alert', 14) + 'Sensor battery low</span>';

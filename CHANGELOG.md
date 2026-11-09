@@ -2,6 +2,9 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.71.1
+- The Climate, Humidity and Air chips are now the same size as the room capsules (42 pt, same icon and text sizes), so the two rows line up. The wall tablet is unchanged.
+
 ## 2.71.0
 - Sensor history charts are interactive, like Apple Health: drag (or tap) across a chart to see the reading and its time at that point. Let go to return to the latest reading.
 - All charts on the page follow the same moment, so temperature and humidity can be compared at a glance.

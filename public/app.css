@@ -1997,20 +1997,20 @@ html.kiosk body, html.kiosk .app, html.kiosk .main { background: transparent !im
 /* ---------- Climate summaries (like the Home app) ---------- */
 .summaries { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 4px 0 14px; }
 .summary {
-  display: inline-flex; align-items: center; gap: 10px; height: 56px; padding: 0 18px 0 10px; border: 0; border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 15px 0 6px; border: 0; border-radius: 999px;
   background: var(--content, var(--surface)); color: var(--text); text-align: left; cursor: pointer;
   -webkit-backdrop-filter: var(--content-blur, none); backdrop-filter: var(--content-blur, none);
   box-shadow: var(--content-shadow, none), inset 0 0 0 1px var(--content-edge, transparent);
   transition: transform .45s var(--spring, ease);
 }
 .summary:active { transform: scale(.95); }
-.sum-icon { width: 36px; height: 36px; border-radius: 999px; flex: none; display: flex; align-items: center; justify-content: center; color: #fff; }
+.sum-icon { width: 30px; height: 30px; border-radius: 999px; flex: none; display: flex; align-items: center; justify-content: center; color: #fff; }
 .sum-icon.temp { background: #32ade6; }
 .sum-icon.hum { background: #0a84ff; }
 .sum-icon svg { stroke-width: 2.2; }
-.sum-text { display: flex; flex-direction: column; line-height: 1.15; }
-.sum-title { font-size: 15px; font-weight: 700; }
-.sum-value { font-size: 14px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+.sum-text { display: flex; flex-direction: column; line-height: 1.1; }
+.sum-title { font-size: 14px; font-weight: 700; }
+.sum-value { font-size: 11.5px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
 .summary[aria-expanded="true"] { box-shadow: 0 0 0 2px var(--ink), var(--content-shadow, none); }
 .sum-warn { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #ff9f0a; }
 .climate-list { margin: -4px 0 16px; }
@@ -2024,6 +2024,9 @@ html.kiosk body, html.kiosk .app, html.kiosk .main { background: transparent !im
   box-shadow: var(--kg-shadow), var(--kg-rim);
 }
 .k26 .k-climate .sum-icon { width: 44px; height: 44px; }
+.k26 .k-climate .summary { gap: 10px; }
+.k26 .k-climate .sum-text { line-height: 1.15; }
+.k26 .k-climate .sum-icon svg { width: 18px; height: 18px; }
 .k26 .k-climate .sum-title { font-size: 16px; }
 .k26 .k-climate .sum-value { font-size: 15px; color: var(--muted); }
 .k26 .k-climate .summary[aria-expanded="true"] { box-shadow: 0 0 0 2px #fff, var(--kg-shadow); }
@@ -2792,7 +2795,7 @@ html .tabbar .tab .pill .tab-glass { will-change: transform; }
 .summaries::-webkit-scrollbar { display: none; }
 .summaries > * { flex: none; }
 .sum-warn { white-space: nowrap; }
-.summary.sum-mini { padding-left: 14px; }
+.summary.sum-mini { padding-left: 12px; }
 .sum-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--aq, #30d158); flex: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--aq, #30d158) 25%, transparent); }
 .summary .sum-value { white-space: nowrap; }
 .k26 .k-climate .summaries { justify-content: safe center; margin-left: 0; margin-right: 0; padding: 2px 4px; }
