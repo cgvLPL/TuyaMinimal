@@ -2747,3 +2747,240 @@ html .tabbar .tab .pill .tab-glass { will-change: transform; }
 .tvr-num .tvr-key { font-size: 21px; }
 .tvr-key span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 360px) { .tvr-pad { width: 210px; height: 210px; } .tvr-up, .tvr-down { left: 66px; } .tvr-left, .tvr-right { top: 66px; } .tvr-grid { grid-template-columns: 76px 1fr 76px; } }
+
+/* ---------- 2.63.0 air quality ---------- */
+.air, .summary[class*="aq-"], .aq-good, .aq-moderate, .aq-usg, .aq-unhealthy, .aq-very, .aq-hazard { --aq: #30d158; }
+.aq-moderate { --aq: #e6b800; } .aq-usg { --aq: #ff9f0a; } .aq-unhealthy { --aq: #ff453a; } .aq-very { --aq: #bf5af2; } .aq-hazard { --aq: #a2242f; }
+.sum-icon.aqi { background: var(--aq, #30d158); color: #fff; }
+.summary[class*="aq-"] .sum-value { color: var(--text); }
+.air { display: flex; flex-direction: column; align-items: center; gap: 22px; width: 100%; max-width: 360px; margin: 0 auto;
+  --g-fill: rgba(127, 127, 127, 0.14); --g-rim: inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 0 0 0.5px rgba(127, 127, 127, 0.25); --a-ink: var(--text); --a-sub: var(--muted); }
+.qc .air { --g-fill: rgba(255, 255, 255, 0.12); --g-rim: inset 0 1px 0 rgba(255, 255, 255, 0.26); --a-ink: #fff; --a-sub: rgba(255, 255, 255, 0.7); }
+@media (prefers-color-scheme: dark) { .air { --g-fill: rgba(255, 255, 255, 0.1); --g-rim: inset 0 1px 0 rgba(255, 255, 255, 0.18); } }
+.air-ring { position: relative; width: 210px; height: 210px; }
+.air-ring svg { width: 100%; height: 100%; }
+.air-track, .air-fill { fill: none; stroke-width: 16; stroke-linecap: round; }
+.air-track { stroke: var(--g-fill); }
+.air-fill { stroke: var(--aq); transition: stroke-dasharray .6s ease; filter: drop-shadow(0 0 8px color-mix(in srgb, var(--aq) 45%, transparent)); }
+.air-mid { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--a-ink); text-align: center; }
+.air-k { font-size: 13px; font-weight: 700; letter-spacing: .1em; color: var(--a-sub); }
+.air-num { font-size: 64px; font-weight: 700; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.air-num.air-word { font-size: 28px; }
+.air-label { margin-top: 6px; font-size: 15px; font-weight: 600; color: var(--aq); max-width: 150px; line-height: 1.2; }
+.air-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; width: 100%; }
+.air-item { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 20px; background: var(--g-fill); box-shadow: var(--g-rim); color: var(--a-ink); position: relative; }
+.air-item[class*="aq-"]::after { content: ""; position: absolute; top: 14px; right: 14px; width: 8px; height: 8px; border-radius: 50%; background: var(--aq); }
+.air-name { font-size: 13px; font-weight: 600; color: var(--a-sub); }
+.air-val { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.air-val small { font-size: 12px; font-weight: 600; color: var(--a-sub); margin-left: 4px; }
+.qc-air { position: relative; width: min(360px, 92vw); max-height: calc(100% - 200px); overflow-y: auto; scrollbar-width: none; padding-bottom: 20px; }
+.qc-air::-webkit-scrollbar { display: none; }
+
+/* 2.63.1: climate, humidity and air readings in one row that scrolls sideways */
+.summaries { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; overscroll-behavior-x: contain;
+  margin-left: calc(-1 * var(--sum-bleed, 20px)); margin-right: calc(-1 * var(--sum-bleed, 20px)); padding: 2px var(--sum-bleed, 20px);
+  scroll-padding-inline: var(--sum-bleed, 20px); -webkit-overflow-scrolling: touch; }
+.summaries::-webkit-scrollbar { display: none; }
+.summaries > * { flex: none; }
+.sum-warn { white-space: nowrap; }
+.summary.sum-mini { padding-left: 14px; }
+.sum-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--aq, #30d158); flex: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--aq, #30d158) 25%, transparent); }
+.summary .sum-value { white-space: nowrap; }
+.k26 .k-climate .summaries { justify-content: safe center; margin-left: 0; margin-right: 0; padding: 2px 4px; }
+.main { --sum-bleed: 20px; } @media (min-width: 900px) { .main { --sum-bleed: 32px; } }
+
+/* 2.64.0: hide / show devices in Arrange */
+.card-hide { flex: none; width: 34px; height: 34px; border-radius: 17px; border: 0; padding: 0; margin-right: 6px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; background: var(--chip); color: var(--text); position: relative; z-index: 3;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12); -webkit-tap-highlight-color: transparent; transition: transform .15s ease; }
+.card-hide:active { transform: scale(.9); }
+.card-hide[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); }
+.card-hide:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.grid.reordering > .card.is-hidden { opacity: .45; }
+.grid.reordering > .card.is-hidden .card-hide, .grid.reordering > .card.is-hidden .card-grip { opacity: 1; }
+.grid.reordering > .card.is-hidden .card-status::before { content: "Hidden · "; }
+.grid.reordering > .card.ac-big .card-hide { position: absolute; top: 10px; right: 54px; }
+.hidden-hint { margin: -4px 0 10px; font-size: 13px; }
+.hidden-hint .link-btn { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--muted); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+/* The eye sits as a badge on the tile's corner so the name keeps its room */
+.grid.reordering > .card .card-hide, .grid.reordering > .card.ac-big .card-hide {
+  position: absolute; top: -7px; left: -7px; right: auto; margin: 0; width: 28px; height: 28px; border-radius: 14px; z-index: 4;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), 0 0 0 2px var(--bg); }
+.grid.reordering > .card .card-hide svg { width: 15px; height: 15px; }
+.grid.reordering { padding-top: 8px; padding-left: 4px; }
+.grid.reordering > .card { overflow: visible; }
+
+/* ---------- 2.65.0 curtains and roller blinds ---------- */
+/* The pill is the window: the blind's fabric comes down from the top (slats and a bottom bar),
+   the open part below. Dragging moves the bottom bar with your finger. */
+.qc-cover .qc-slider { background: rgba(255, 255, 255, 0.16); }
+.qc.qc-cover .qc-slider .qc-fill { top: 0; bottom: auto; height: calc(100% - var(--qc-pct, 0%)); background:
+  repeating-linear-gradient(to bottom, color-mix(in srgb, var(--hue, #0a84ff) 92%, #fff) 0 13px, color-mix(in srgb, var(--hue, #0a84ff) 70%, #000) 13px 15px);
+  transition: height .45s cubic-bezier(.3, 1, .4, 1); }
+.qc-cover.moving .qc-fill { transition: height 2.2s linear; }
+.qc-cover .qc-fill::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: 6px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.85); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); }
+.qc-cover .qc-ico { color: rgba(255, 255, 255, 0.9); }
+.qc-cover.on .qc-ico svg { opacity: 1; }
+.qc-cover.on .qc-ico { color: rgba(255, 255, 255, 0.9); }
+.qc-cover-btns { position: relative; display: flex; gap: 14px; margin-top: -6px; }
+.cov-btn { width: 76px; height: 64px; border-radius: 22px; border: 0; padding: 0; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; -webkit-tap-highlight-color: transparent;
+  background: var(--chip); color: var(--text); transition: transform .15s ease, background-color .2s ease, opacity .2s ease; }
+.qc .cov-btn { background: rgba(255, 255, 255, 0.14); color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24); }
+.cov-btn:active { transform: scale(.92); }
+.cov-btn[aria-disabled="true"] { opacity: .4; }
+.cov-btn.going { background: var(--hue, #0a84ff); color: #fff; animation: cov-pulse 1.4s ease-in-out infinite; }
+.qc .cov-btn.going { background: var(--hue, #0a84ff); }
+.cov-btn.cov-stop { }
+@keyframes cov-pulse { 50% { opacity: .75; } }
+.cov-row { display: flex; justify-content: center; gap: 12px; margin-top: 4px; }
+@media (prefers-reduced-motion: reduce) { .cov-btn.going { animation: none; } .qc-cover.moving .qc-fill { transition: none; } }
+
+/* ---------- 2.66.0 rooms as Home app capsules ---------- */
+.room-pills { display: flex; gap: 10px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; overscroll-behavior-x: contain;
+  margin: 0 calc(-1 * var(--sum-bleed, 20px)) 12px; padding: 2px var(--sum-bleed, 20px) 4px; -webkit-overflow-scrolling: touch; }
+.room-pills::-webkit-scrollbar { display: none; }
+.room-pill { flex: none; display: inline-flex; align-items: center; gap: 10px; height: 52px; padding: 0 18px 0 8px; border: 0; border-radius: 999px; cursor: pointer;
+  background: var(--content, var(--surface)); color: var(--text); text-align: left; font: inherit;
+  -webkit-backdrop-filter: var(--content-blur, none); backdrop-filter: var(--content-blur, none);
+  box-shadow: var(--content-shadow, none), inset 0 0 0 1px var(--content-edge, transparent);
+  -webkit-tap-highlight-color: transparent; transition: transform .45s var(--spring, ease), background-color .25s ease, color .25s ease; }
+.room-pill:active { transform: scale(.95); }
+.room-ico { width: 36px; height: 36px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center;
+  background: var(--chip); color: var(--text); transition: background-color .25s ease, color .25s ease; }
+.room-txt { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+.room-pill .room-name { font-size: 15px; font-weight: 700; color: inherit; white-space: nowrap; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+.room-sub { font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* The room you're looking at: a bright capsule, like a selected Home app button */
+.room-pill[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18); }
+.room-pill[aria-pressed="true"] .room-ico { background: var(--on-ink); color: var(--ink); }
+.room-pill[aria-pressed="true"] .room-sub { color: color-mix(in srgb, var(--on-ink) 65%, transparent); }
+.room-pill:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+@media (min-width: 601px) { .room-pills { flex-wrap: wrap; overflow: visible; margin-left: 0; margin-right: 0; padding-left: 0; padding-right: 0; } }
+.k-room { display: inline-flex; align-items: center; gap: 6px; } .k-room svg { flex: none; opacity: .9; }
+
+/* 2.67.0: devices grouped by category inside a room, like the Home app */
+.dv-scroll.grouped .cat + .cat { margin-top: 26px; }
+.cat-head { margin: 4px 2px 12px; font-size: 22px; font-weight: 700; letter-spacing: -.01em; color: var(--text); }
+.k26 .cat-head { color: #fff; }
+
+/* ---------- 2.68.0 Automation, like the Home app's Automation tab ---------- */
+.auto-head { display: flex; align-items: center; justify-content: space-between; margin-top: 34px; }
+.auto-h { font-size: 30px; font-weight: 800; letter-spacing: -.02em; margin: 0; }
+.auto-lede { margin: 6px 0 16px; font-size: 17px; font-weight: 600; color: var(--text); line-height: 1.3; }
+.round-add { width: 44px; height: 44px; border-radius: 50%; border: 0; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  background: var(--content, var(--surface)); color: var(--text); box-shadow: var(--content-shadow, none), inset 0 0 0 1px var(--content-edge, transparent);
+  -webkit-backdrop-filter: var(--content-blur, none); backdrop-filter: var(--content-blur, none); }
+.round-add:active { transform: scale(.92); }
+.auto-card { border-radius: 26px; overflow: hidden; background: var(--content, var(--surface));
+  box-shadow: var(--content-shadow, none), inset 0 0 0 1px var(--content-edge, transparent);
+  -webkit-backdrop-filter: var(--content-blur, none); backdrop-filter: var(--content-blur, none); }
+.at-row { position: relative; display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto auto; column-gap: 8px; width: 100%;
+  padding: 16px 18px 15px; border: 0; background: none; color: var(--text); text-align: left; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.at-row + .at-row::before { content: ""; position: absolute; top: 0; left: 18px; right: 18px; height: 1px; background: var(--line, rgba(127, 127, 127, 0.22)); }
+.at-row:active { background: rgba(127, 127, 127, 0.12); }
+.at-icons { grid-column: 1; display: flex; align-items: center; gap: 10px; min-height: 36px; flex-wrap: nowrap; overflow: hidden; }
+.at-trig { flex: none; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; color: #f2994a; }
+.at-trig.at-dev { width: 34px; height: 34px; border-radius: 50%; background: var(--chip); color: var(--hue, #f2994a); }
+.at-trig.at-dev svg { width: 22px; height: 22px; }
+.at-arrow { flex: none; color: var(--muted); opacity: .8; margin: 0 4px; display: flex; }
+.at-dev-ico { flex: none; display: flex; color: var(--muted); opacity: .75; }
+.at-dev-ico.on { color: var(--hue, #ffd60a); opacity: 1; }
+.at-more { font-size: 13px; font-weight: 700; color: var(--muted); }
+.at-title { grid-column: 1; margin-top: 10px; font-size: 19px; font-weight: 700; line-height: 1.2; }
+.at-sub { grid-column: 1; margin-top: 2px; font-size: 15px; font-weight: 500; color: var(--muted); }
+.at-chev { grid-column: 2; grid-row: 1 / 4; align-self: center; color: var(--muted); display: flex; }
+.at-row.off .at-trig, .at-row.off .at-dev-ico { filter: grayscale(1); opacity: .55; }
+.se-enable { margin-bottom: 16px; }
+.at-photo { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; }
+.at-photo img, .at-photo .dev-photo { max-width: 100%; max-height: 100%; object-fit: contain; }
+.at-dev-ico:not(.on) .at-photo { filter: grayscale(1) brightness(.8); }
+
+/* ---------- 2.69.0 PIN screen in Liquid Glass ----------
+   Following Apple's guidance: glass only on the controls (the keys), so the wallpaper stays visible
+   through them; round, finger-shaped keys; a key responds instantly when touched by lighting up and
+   swelling, then settles; the keypad materialises (sharpening from a blur) instead of fading in;
+   solid keys when Reduce Transparency or Increase Contrast is on. */
+.pin-box { gap: 14px; }
+.pin-box .title { font-size: 30px; letter-spacing: -.02em; }
+.keypad { grid-template-columns: repeat(3, 80px); gap: 16px 26px; margin-top: 10px; }
+.keypad .key {
+  position: relative; width: 80px; height: 80px; border-radius: 50%; border: 0; padding: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
+  color: #fff; background: rgba(255, 255, 255, 0.12);
+  -webkit-backdrop-filter: blur(18px) saturate(180%) brightness(1.08); backdrop-filter: blur(18px) saturate(180%) brightness(1.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -1px 0 rgba(255, 255, 255, 0.08), inset 0 0 0 0.5px rgba(255, 255, 255, 0.18), 0 8px 24px rgba(0, 0, 0, 0.18);
+  transition: background-color .5s ease-out, transform .45s cubic-bezier(.3, 1.6, .5, 1), box-shadow .5s ease-out;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+html:not([data-bg]) .keypad .key { color: var(--text); background: color-mix(in srgb, var(--text) 9%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 0 0 0.5px color-mix(in srgb, var(--text) 14%, transparent), 0 6px 18px rgba(0, 0, 0, 0.06); }
+/* Touch: the glass flexes and fills with light straight away, then eases back */
+.keypad .key:active:not(:disabled) { transform: scale(1.08); background: rgba(255, 255, 255, 0.42); transition: background-color 0s, transform .12s ease-out;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), inset 0 0 0 1px rgba(255, 255, 255, 0.35), 0 0 28px rgba(255, 255, 255, 0.25); }
+html:not([data-bg]) .keypad .key:active:not(:disabled) { background: color-mix(in srgb, var(--text) 26%, transparent); }
+.key-n { font-size: 34px; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.key-abc { font-size: 10px; font-weight: 700; letter-spacing: .18em; line-height: 1; margin-top: 3px; min-height: 10px; opacity: .85; padding-left: .18em; }
+.keypad .key-del { background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.keypad .key-del:active:not(:disabled) { background: rgba(255, 255, 255, 0.18); box-shadow: none; }
+.keypad .key-del:disabled { opacity: 0; }
+/* The dots are little glass beads that fill with light */
+.pin-dots { gap: 18px; min-height: 16px; margin: 6px 0 4px; }
+.pin-dots .dot { width: 14px; height: 14px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.75); transition: background-color .2s ease, transform .3s cubic-bezier(.3, 1.8, .5, 1); }
+.pin-dots .dot.filled { background: #fff; box-shadow: 0 0 10px rgba(255, 255, 255, 0.55); transform: scale(1.12); }
+html:not([data-bg]) .pin-dots .dot { background: transparent; box-shadow: inset 0 0 0 1.5px var(--text); }
+html:not([data-bg]) .pin-dots .dot.filled { background: var(--text); box-shadow: none; }
+/* "Use password instead" as a glass capsule */
+.pin-box .btn.ghost { margin-top: 8px; padding: 0 22px; height: 44px; border-radius: 22px; text-decoration: none; font-weight: 600;
+  background: rgba(255, 255, 255, 0.12); color: inherit; -webkit-backdrop-filter: blur(18px) saturate(180%); backdrop-filter: blur(18px) saturate(180%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 0 0 0.5px rgba(255, 255, 255, 0.18); }
+html:not([data-bg]) .pin-box .btn.ghost { background: color-mix(in srgb, var(--text) 8%, transparent); }
+/* Materialise: the keys come into focus from a blur, one after another */
+@keyframes glass-in { from { opacity: 0; transform: scale(.86); filter: blur(10px); } to { opacity: 1; transform: none; filter: none; } }
+.pin-box .keypad .key { animation: glass-in .5s cubic-bezier(.2, .9, .3, 1) both; }
+.pin-box .keypad > :nth-child(3n+2) { animation-delay: .04s; } .pin-box .keypad > :nth-child(3n) { animation-delay: .08s; }
+.pin-box .keypad > :nth-child(n+4) { animation-delay: .06s; } .pin-box .keypad > :nth-child(n+7) { animation-delay: .1s; } .pin-box .keypad > :nth-child(n+10) { animation-delay: .14s; }
+/* Wrong PIN: the dots shake, like the iPhone lock screen */
+.pin-dots.shake { animation: pin-shake .42s cubic-bezier(.36, .07, .19, .97); }
+@keyframes pin-shake { 15%, 55% { transform: translateX(-9px); } 35%, 75% { transform: translateX(9px); } 90% { transform: translateX(-3px); } }
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .keypad .key, .pin-box .btn.ghost { -webkit-backdrop-filter: none; backdrop-filter: none; background: #2c2c2e; color: #fff; }
+  html:not([data-bg]) .keypad .key, html:not([data-bg]) .pin-box .btn.ghost { background: var(--surface); color: var(--text); }
+}
+@media (prefers-reduced-motion: reduce) { .pin-box .keypad .key { animation: none; } .pin-dots { animation: none !important; } }
+html .keypad .key.key-del { background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+html .keypad .key.key-del:active:not(:disabled) { background: color-mix(in srgb, currentColor 16%, transparent); }
+
+/* ---------- 2.69.1 PIN screen like the iPhone lock screen ---------- */
+.gate-pin .gate-box.ios-pin { max-width: 380px; min-height: min(760px, calc(100dvh - 40px)); justify-content: space-between; gap: 0; padding: 40px 0 16px; background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.ios-pin .pin-top { display: flex; flex-direction: column; align-items: center; gap: 16px; padding-top: 6vh; }
+.ios-pin .pin-title { margin: 0; font-size: 22px; font-weight: 400; letter-spacing: 0; }
+.ios-pin .pin-sub { margin: -8px 0 0; font-size: 14px; color: var(--muted); max-width: 30ch; text-align: center; }
+html[data-bg] .ios-pin .pin-title, html[data-bg] .ios-pin { color: #fff; }
+html[data-bg] .ios-pin .pin-sub { color: rgba(255, 255, 255, 0.75); }
+/* Thin hollow rings that fill in */
+.ios-pin .pin-dots { gap: 24px; margin: 4px 0 0; }
+.ios-pin .pin-dots .dot { width: 13px; height: 13px; background: transparent; box-shadow: inset 0 0 0 1.4px currentColor; transform: none; }
+.ios-pin .pin-dots .dot.filled { background: currentColor; box-shadow: none; transform: none; }
+.ios-pin .pin-err { margin: 0; font-size: 14px; font-weight: 600; color: #ff9f0a; }
+.ios-pin .pin-continue { height: 40px; padding: 0 22px; border-radius: 20px; border: 0; font: inherit; font-size: 16px; font-weight: 600; color: inherit;
+  background: rgba(255, 255, 255, 0.2); -webkit-backdrop-filter: blur(14px) saturate(160%); backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45); }
+html:not([data-bg]) .ios-pin .pin-continue { background: color-mix(in srgb, var(--text) 10%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 25%, transparent); }
+/* The keys: bright glass discs with a crisp rim and a lens shine; thin digits, spaced letters */
+.ios-pin .keypad { grid-template-columns: repeat(3, 78px); gap: 18px 24px; margin: 0; }
+.ios-pin .keypad .key { width: 78px; height: 78px; color: #fff;
+  background: radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05) 55%, rgba(255, 255, 255, 0.2) 100%), rgba(255, 255, 255, 0.14);
+  -webkit-backdrop-filter: blur(6px) saturate(170%) brightness(1.18); backdrop-filter: blur(6px) saturate(170%) brightness(1.18);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55), inset 0 1.5px 0 rgba(255, 255, 255, 0.7), inset 0 -2px 3px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.22), 0 6px 16px rgba(0, 0, 0, 0.1); }
+html:not([data-bg]) .ios-pin .keypad .key { color: var(--text); background: radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.15) 60%, rgba(255, 255, 255, 0.35)), color-mix(in srgb, var(--text) 7%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 16%, transparent), inset 0 1.5px 0 rgba(255, 255, 255, 0.8), 0 6px 16px rgba(0, 0, 0, 0.06); }
+.ios-pin .key-n { font-size: 38px; font-weight: 400; letter-spacing: 0; }
+.ios-pin .key-abc { font-size: 10.5px; font-weight: 600; letter-spacing: .28em; padding-left: .28em; margin-top: 1px; opacity: 1; }
+.ios-pin .keypad .key:active:not(:disabled) { background: rgba(255, 255, 255, 0.55); transform: scale(1.06); }
+html:not([data-bg]) .ios-pin .keypad .key:active:not(:disabled) { background: color-mix(in srgb, var(--text) 24%, transparent); }
+/* Bottom corners: plain text buttons, like Emergency and Cancel */
+.ios-pin .pin-bottom { display: grid; grid-template-columns: 1fr 1fr; width: 100%; max-width: 330px; margin-top: 28px; }
+.ios-pin .pin-text { border: 0; background: none; padding: 10px 6px; font: inherit; font-size: 18px; font-weight: 400; color: inherit; cursor: pointer; justify-self: center; min-height: 44px; }
+.ios-pin .pin-text:active { opacity: .5; }

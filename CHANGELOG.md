@@ -2,6 +2,58 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.70.0
+- Faster launch: the app now opens from its saved copy straight away instead of waiting on the network, then refreshes that copy in the background. Updates still arrive through the usual update check.
+- Device icons now share one set of cut-out masks with fixed ids, so redraws leave them untouched. Layout work per tile tap is roughly halved.
+- Every screen was checked pixel by pixel against 2.69.1: nothing looks or works differently.
+
+## 2.69.1
+
+- PIN screen laid out like the iPhone lock screen: a light title and thin hollow rings at the top, then bright glass keys with a crisp rim, thin digits and spaced-out letters, with 0 on its own row. Plain text buttons sit in the bottom corners: 'Use Password' (or Cancel when setting a PIN) on the left, and Delete on the right once you've typed. When choosing a PIN, Continue appears under the rings once it's long enough.
+
+## 2.69.0
+
+- PIN screen in Liquid Glass, following Apple's design guidance. The keys are clear glass rounds, so your wallpaper shows through, with the iPhone's ABC letters under the digits. A key lights up and swells the moment you touch it, then settles back. The keypad comes into focus from a blur when the screen opens, and the dots are glass beads that fill with light. A wrong PIN shakes the dots, and the delete key only appears once you've typed something.
+- 'Use password instead' (and Cancel) are glass capsules. With Reduce Transparency or Increase Contrast turned on, the keys are solid instead of glass.
+
+## 2.68.0
+
+- Automations look like the Home app's Automation tab: one card with a row per automation. Each row shows a round trigger icon (a clock for times and sunrise/sunset, the device for device triggers), an arrow, and the devices it controls (in colour when it turns them on, grey when off). The trigger is the title ('Sunset, Daily', '7:00 PM, Daily'), with 'Disabled' or what it controls underneath. Tap a row to edit it; the Enable switch is now at the top of the editor, and + makes a new one.
+- README: new screenshots of the current design (room groups, full-screen light, AC, TV remote, air quality, blind, automations) and new GIFs for rooms and blinds; the other GIFs were re-recorded.
+
+## 2.67.0
+
+- Inside a room, devices are grouped like the Home app under Climate, Lights, Shades, Security, Speakers & TVs, Switches & Outlets and Other, each with its own heading. Lamps plugged into a smart plug count as Lights (by their photo or a name like 'lamp' or 'light'). 'All' and Arrange stay one grid.
+- Opening a room slides its devices in from the side, and going back to All slides them back. The room you pick scrolls fully into view in the rooms row.
+
+## 2.66.0
+
+- Rooms look like the Home app's buttons along the top: capsules in one row that scrolls sideways, matching the Climate chips. Each has a round icon, the room name and how many devices are on ('3 on', 'All off'). The room you're viewing is a bright, inverted capsule.
+- New filled room icons in the Home app's style: All, living room (sofa), bedroom (double bed), kitchen (pot), dining (fork and knife), bathroom (bathtub), laundry (washer), hallway (door), garden (leaf), office (monitor), garage (car) and home. Indonesian room names (tamu, tidur, dapur, makan, mandi, cuci) are recognised too. The wall tablet's room pills use the same icons.
+
+## 2.65.0
+
+- Curtains and roller blinds: the full-screen control shows the blind itself. Fabric with slats comes down from the top with a bar at the bottom, the open window below, and you drag the bar to set the position. Open, Stop and Close buttons sit underneath (Stop halts it where it is).
+- While a blind moves, it says 'Opening to 80%…' or 'Closing…' on its page and tile, the active button pulses, and the app checks on it every couple of seconds so the pill follows the real position until it arrives.
+- Long-press a curtain or blind tile to open its quick control. The tablet panel's Open, Stop and Close buttons have icons and show the same moving status.
+
+## 2.64.0
+
+- Hide devices from Home: tap the Arrange button and each tile gets an eye badge in its corner. Tap it to hide that device; hidden tiles stay faded in Arrange so you can bring them back. Hidden devices leave Home and the wall tablet but still work in scenes, automations and 'turn everything off'. A '2 hidden devices' link under the Devices heading takes you back to Arrange. Hidden devices sync between your devices like the tile order.
+
+## 2.63.2
+
+- Home: the climate row shows just the Air (AQI) chip beside Climate and Humidity, still in one row that scrolls sideways. PM2.5, CO₂ and the other readings are on the monitor's full-screen page.
+
+## 2.63.1
+
+- Home: Climate, Humidity and the air readings now sit in one row that scrolls sideways. After the Air (AQI) chip come PM2.5, PM10, PM1, CO₂, formaldehyde and VOC chips, each with a coloured dot for how good it is, and a range when there are several monitors.
+
+## 2.63.0
+
+- Air quality monitors: PM2.5, PM10, PM1, CO₂, formaldehyde and VOC readings, with an Air Quality Index worked out from the particle readings (US EPA bands) unless the monitor reports its own. A colour-coded Air chip sits beside Climate and Humidity on Home and the wall tablet. The monitor's page has a big AQI ring and a glass tile for each reading, each with a coloured dot for how good it is. CO₂-only monitors show a comfort level (Fresh, Fair, Stuffy, Poor).
+- Smart circuit breakers: their own icon. Live power, voltage and current are decoded from the breaker's coded reading, so the tile shows watts like a smart plug. The settings list total energy, leakage current, temperature and any alarms, and a tripped breaker shows 'Tripped: Overload' (or whichever alarm) on its tile.
+
 ## 2.62.1
 
 - TV remote rebuilt on the Tuya app's layout in iOS 26 glass. Power and Menu sit at the top. Volume and Channel rockers are either side of Back and Home. A large round direction pad has OK in the middle. Number and More buttons at the bottom open the number pad, and Mute, Input and any other buttons, in a glass panel below.

@@ -5,6 +5,80 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.70.0",
+      "items": [
+        "Faster launch: the app opens from its saved copy straight away instead of waiting on the network, and refreshes it in the background",
+        "Redraws leave device icons untouched, roughly halving layout work when you tap a tile. Nothing looks or works differently"
+      ]
+    },
+    {
+      "v": "2.69.1",
+      "items": [
+        "PIN screen laid out like the iPhone lock screen: a light title and thin hollow rings at the top, then bright glass keys with a crisp rim, thin digits and spaced-out letters, with 0 on its own row. Plain text buttons sit in the bottom corners: 'Use Password' (or Cancel when setting a PIN) on the left, and Delete on the right once you've typed. When choosing a PIN, Continue appears under the rings once it's long enough."
+      ]
+    },
+    {
+      "v": "2.69.0",
+      "items": [
+        "PIN screen in Liquid Glass, following Apple's design guidance. The keys are clear glass rounds, so your wallpaper shows through, with the iPhone's ABC letters under the digits. A key lights up and swells the moment you touch it, then settles back. The keypad comes into focus from a blur when the screen opens, and the dots are glass beads that fill with light. A wrong PIN shakes the dots, and the delete key only appears once you've typed something.",
+        "'Use password instead' (and Cancel) are glass capsules. With Reduce Transparency or Increase Contrast turned on, the keys are solid instead of glass."
+      ]
+    },
+    {
+      "v": "2.68.0",
+      "items": [
+        "Automations look like the Home app's Automation tab: one card with a row per automation. Each row shows a round trigger icon (a clock for times and sunrise/sunset, the device for device triggers), an arrow, and the devices it controls (in colour when it turns them on, grey when off). The trigger is the title ('Sunset, Daily', '7:00 PM, Daily'), with 'Disabled' or what it controls underneath. Tap a row to edit it; the Enable switch is now at the top of the editor, and + makes a new one.",
+        "README: new screenshots of the current design (room groups, full-screen light, AC, TV remote, air quality, blind, automations) and new GIFs for rooms and blinds; the other GIFs were re-recorded."
+      ]
+    },
+    {
+      "v": "2.67.0",
+      "items": [
+        "Inside a room, devices are grouped like the Home app under Climate, Lights, Shades, Security, Speakers & TVs, Switches & Outlets and Other, each with its own heading. Lamps plugged into a smart plug count as Lights (by their photo or a name like 'lamp' or 'light'). 'All' and Arrange stay one grid.",
+        "Opening a room slides its devices in from the side, and going back to All slides them back. The room you pick scrolls fully into view in the rooms row."
+      ]
+    },
+    {
+      "v": "2.66.0",
+      "items": [
+        "Rooms look like the Home app's buttons along the top: capsules in one row that scrolls sideways, matching the Climate chips. Each has a round icon, the room name and how many devices are on ('3 on', 'All off'). The room you're viewing is a bright, inverted capsule.",
+        "New filled room icons in the Home app's style: All, living room (sofa), bedroom (double bed), kitchen (pot), dining (fork and knife), bathroom (bathtub), laundry (washer), hallway (door), garden (leaf), office (monitor), garage (car) and home. Indonesian room names (tamu, tidur, dapur, makan, mandi, cuci) are recognised too. The wall tablet's room pills use the same icons."
+      ]
+    },
+    {
+      "v": "2.65.0",
+      "items": [
+        "Curtains and roller blinds: the full-screen control shows the blind itself. Fabric with slats comes down from the top with a bar at the bottom, the open window below, and you drag the bar to set the position. Open, Stop and Close buttons sit underneath (Stop halts it where it is).",
+        "While a blind moves, it says 'Opening to 80%…' or 'Closing…' on its page and tile, the active button pulses, and the app checks on it every couple of seconds so the pill follows the real position until it arrives.",
+        "Long-press a curtain or blind tile to open its quick control. The tablet panel's Open, Stop and Close buttons have icons and show the same moving status."
+      ]
+    },
+    {
+      "v": "2.64.0",
+      "items": [
+        "Hide devices from Home: tap the Arrange button and each tile gets an eye badge in its corner. Tap it to hide that device; hidden tiles stay faded in Arrange so you can bring them back. Hidden devices leave Home and the wall tablet but still work in scenes, automations and 'turn everything off'. A '2 hidden devices' link under the Devices heading takes you back to Arrange. Hidden devices sync between your devices like the tile order."
+      ]
+    },
+    {
+      "v": "2.63.2",
+      "items": [
+        "Home: the climate row shows just the Air (AQI) chip beside Climate and Humidity, still in one row that scrolls sideways. PM2.5, CO₂ and the other readings are on the monitor's full-screen page."
+      ]
+    },
+    {
+      "v": "2.63.1",
+      "items": [
+        "Home: Climate, Humidity and the air readings now sit in one row that scrolls sideways. After the Air (AQI) chip come PM2.5, PM10, PM1, CO₂, formaldehyde and VOC chips, each with a coloured dot for how good it is, and a range when there are several monitors."
+      ]
+    },
+    {
+      "v": "2.63.0",
+      "items": [
+        "Air quality monitors: PM2.5, PM10, PM1, CO₂, formaldehyde and VOC readings, with an Air Quality Index worked out from the particle readings (US EPA bands) unless the monitor reports its own. A colour-coded Air chip sits beside Climate and Humidity on Home and the wall tablet. The monitor's page has a big AQI ring and a glass tile for each reading, each with a coloured dot for how good it is. CO₂-only monitors show a comfort level (Fresh, Fair, Stuffy, Poor).",
+        "Smart circuit breakers: their own icon. Live power, voltage and current are decoded from the breaker's coded reading, so the tile shows watts like a smart plug. The settings list total energy, leakage current, temperature and any alarms, and a tripped breaker shows 'Tripped: Overload' (or whichever alarm) on its tile."
+      ]
+    },
+    {
       "v": "2.62.1",
       "items": [
         "TV remote rebuilt on the Tuya app's layout in iOS 26 glass. Power and Menu sit at the top. Volume and Channel rockers are either side of Back and Home. A large round direction pad has OK in the middle. Number and More buttons at the bottom open the number pad, and Mute, Input and any other buttons, in a glass panel below."
@@ -774,6 +848,7 @@
     energy: {},          // deviceId -> { at, available, today, week, days, total } | 'loading'       // { homeId, at, available, temp, code, isDay, unit } for the greeting
     tempUnit: store.get('tempUnit') || 'c',  // Celsius unless changed in Me         // deviceId -> time of the last local command (avoid flicker)          // remoteId + key -> true briefly after a button is sent   // deviceId whose icon picker is open
     order: (() => { try { return JSON.parse(store.get('order') || '{}') || {}; } catch (e) { return {}; } })(),  // homeId -> [deviceId]
+    hidden: (() => { try { return JSON.parse(store.get('hidden') || '{}') || {}; } catch (e) { return {}; } })(),  // homeId -> [deviceId] hidden from Home
     reorder: false,       // true while arranging device cards
     icons: readIcons(),  // deviceId -> icon key, saved on this device      // { id, code } while an outlet name is being edited
     installPrompt: null
@@ -932,6 +1007,9 @@
       if (data.settings && data.settings.order && data.homeId && Array.isArray(data.settings.order[data.homeId])) {
         S.order = Object.assign({}, S.order, { [data.homeId]: data.settings.order[data.homeId] }); store.set('order', JSON.stringify(S.order));
       }
+      if (data.settings && data.settings.hidden && data.homeId && Array.isArray(data.settings.hidden[data.homeId])) {
+        S.hidden = Object.assign({}, S.hidden, { [data.homeId]: data.settings.hidden[data.homeId] }); store.set('hidden', JSON.stringify(S.hidden));
+      }
       if (data.homeId) { S.homeId = data.homeId; store.set('homeId', data.homeId); }
       loadWeather();
       prefetchLightSpecs();
@@ -985,7 +1063,7 @@
     climate: ['kt', 'wk', 'qn', 'ktkzq', 'wkf', 'rs'],
     cover: ['cl', 'clkg', 'mc'],
     fan: ['fs', 'fskg'],
-    sensor: ['wsdcg', 'mcs', 'pir', 'ywbj', 'rqbj', 'sj', 'cobj', 'hps', 'ldcg', 'zd', 'co2bj', 'pm25', 'jqbj'],
+    sensor: ['wsdcg', 'mcs', 'pir', 'ywbj', 'rqbj', 'sj', 'cobj', 'hps', 'ldcg', 'zd', 'co2bj', 'pm25', 'pm2.5', 'jqbj', 'hjjcy', 'kqzljcy', 'voc', 'vocbj'],
     camera: ['sp']
   };
   function kindOf(d) {
@@ -1090,6 +1168,8 @@
     if ('gas_sensor_status' in st) return st.gas_sensor_status === 'alarm' ? 'Gas detected' : 'Clear';
     const t = scaled(d, 'va_temperature', true) ?? scaled(d, 'temp_current', true);
     const h = scaled(d, 'va_humidity', false) ?? scaled(d, 'humidity_value', false);
+    const aq = aqiInfo(d);
+    if (aq) return aq.aqi != null ? 'AQI ' + aq.aqi + ', ' + aq.label : aq.label;
     if (t != null && h != null) return fmtReading(t) + ' and ' + Math.round(h) + '%';
     if (t != null) return fmtReading(t);
     if (h != null) return Math.round(h) + '% humidity';
@@ -1099,19 +1179,83 @@
   // Devices that only report numbers (temperature, humidity, air quality) show as readings, not cards.
   const STATE_CODES = ['doorcontact_state', 'pir', 'watersensor_state', 'smoke_sensor_status', 'gas_sensor_status'];
   function readingsOf(d) {
+    const st = d.status, n = (...cs) => { for (const c of cs) if (typeof st[c] === 'number') return st[c]; return null; };
+    // Formaldehyde and VOC come scaled (mg/m³ with 2-3 decimals); the spec says how much.
+    const sc = (c, def) => typeof st[c] === 'number' ? st[c] / Math.pow(10, specReady(d) ? ((specOf(d, c) || {}).scale ?? def) : def) : null;
     return {
-      temp: scaled(d, 'va_temperature', true) ?? scaled(d, 'temp_current', true),
-      hum: scaled(d, 'va_humidity', false) ?? scaled(d, 'humidity_value', false),
-      co2: typeof d.status.co2_value === 'number' ? d.status.co2_value : null,
-      pm25: typeof d.status.pm25_value === 'number' ? d.status.pm25_value : null
+      temp: scaled(d, 'va_temperature', true) ?? scaled(d, 'temp_current', true) ?? scaled(d, 'temp_indoor', true),
+      hum: scaled(d, 'va_humidity', false) ?? scaled(d, 'humidity_value', false) ?? scaled(d, 'humidity_indoor', false),
+      co2: n('co2_value'),
+      pm25: n('pm25_value', 'pm25'),
+      pm10: n('pm10_value', 'pm10'),
+      pm1: n('pm1_value', 'pm1'),
+      ch2o: sc('ch2o_value', 3),
+      voc: sc('voc_value', 3)
     };
+  }
+  // Air Quality Index: the monitor's own figure when it gives one, otherwise worked out from PM2.5 and
+  // PM10 with the US EPA bands (2024). Monitors that only measure CO₂ get a comfort level instead.
+  const AQI_BANDS = [[50, 'Good', 'good'], [100, 'Moderate', 'moderate'], [150, 'Unhealthy for sensitive groups', 'usg'], [200, 'Unhealthy', 'unhealthy'], [300, 'Very unhealthy', 'very'], [Infinity, 'Hazardous', 'hazard']];
+  const PM25_BP = [[0, 9, 0, 50], [9.1, 35.4, 51, 100], [35.5, 55.4, 101, 150], [55.5, 125.4, 151, 200], [125.5, 225.4, 201, 300], [225.5, 500, 301, 500]];
+  const PM10_BP = [[0, 54, 0, 50], [55, 154, 51, 100], [155, 254, 101, 150], [255, 354, 151, 200], [355, 424, 201, 300], [425, 604, 301, 500]];
+  function aqiFrom(c, bp) {
+    if (c == null || !(c >= 0)) return null;
+    for (const [cl, ch, il, ih] of bp) if (c <= ch) return Math.round(((ih - il) / (ch - cl)) * (Math.max(c, cl) - cl) + il);
+    return 500;
+  }
+  function aqiInfo(d) {
+    if (!d || !d.online) return null;
+    const st = d.status, r = readingsOf(d);
+    let aqi = typeof st.air_quality_index === 'number' ? st.air_quality_index : typeof st.aqi === 'number' ? st.aqi : null;
+    if (aqi == null) { const a = aqiFrom(r.pm25, PM25_BP), b = aqiFrom(r.pm10, PM10_BP); aqi = a == null && b == null ? null : Math.max(a || 0, b || 0); }
+    if (aqi != null) { const band = AQI_BANDS.find(([max]) => aqi <= max); return { aqi, label: band[1], key: band[2], text: 'AQI ' + aqi }; }
+    const lv = typeof st.air_quality === 'string' ? st.air_quality.toLowerCase() : typeof st.air_quality_index === 'string' ? st.air_quality_index.toLowerCase() : null;
+    if (lv) {
+      const m = { great: ['Excellent', 'good'], excellent: ['Excellent', 'good'], good: ['Good', 'good'], level_1: ['Good', 'good'], mild: ['Moderate', 'moderate'], level_2: ['Moderate', 'moderate'],
+        medium: ['Unhealthy', 'unhealthy'], level_3: ['Unhealthy for sensitive groups', 'usg'], level_4: ['Unhealthy', 'unhealthy'], severe: ['Very unhealthy', 'very'], level_5: ['Very unhealthy', 'very'], level_6: ['Hazardous', 'hazard'] }[lv];
+      if (m) return { aqi: null, label: m[0], key: m[1], text: m[0] };
+    }
+    if (r.co2 != null) {
+      const [label, key] = r.co2 < 800 ? ['Fresh', 'good'] : r.co2 < 1000 ? ['Fair', 'moderate'] : r.co2 < 1500 ? ['Stuffy', 'usg'] : r.co2 < 2500 ? ['Poor', 'unhealthy'] : ['Very poor', 'very'];
+      return { aqi: null, label, key, text: 'CO₂ ' + r.co2 + ' ppm' };
+    }
+    return null;
+  }
+  const isAirDevice = (d) => { const r = readingsOf(d); return r.pm25 != null || r.pm10 != null || r.co2 != null || r.ch2o != null || r.voc != null || 'air_quality' in d.status || 'air_quality_index' in d.status; };
+  // The air reading tiles shown on the monitor's page.
+  function airReadings(d) {
+    const r = readingsOf(d), out = [];
+    const f2 = (v) => (Math.round(v * 1000) / 1000).toString();
+    if (r.pm25 != null) out.push(['PM2.5', r.pm25, 'µg/m³', aqiFrom(r.pm25, PM25_BP)]);
+    if (r.pm10 != null) out.push(['PM10', r.pm10, 'µg/m³', aqiFrom(r.pm10, PM10_BP)]);
+    if (r.pm1 != null) out.push(['PM1', r.pm1, 'µg/m³', null]);
+    if (r.co2 != null) out.push(['CO₂', r.co2, 'ppm', r.co2 < 800 ? 25 : r.co2 < 1000 ? 75 : r.co2 < 1500 ? 125 : r.co2 < 2500 ? 175 : 250]);
+    if (r.ch2o != null) out.push(['Formaldehyde', f2(r.ch2o), 'mg/m³', r.ch2o <= 0.08 ? 25 : r.ch2o <= 0.1 ? 75 : 175]);
+    if (r.voc != null) out.push(['VOC', f2(r.voc), 'mg/m³', r.voc <= 0.3 ? 25 : r.voc <= 0.6 ? 75 : 175]);
+    if (r.temp != null) out.push(['Temperature', fmtReading(r.temp), '', null]);
+    if (r.hum != null) out.push(['Humidity', Math.round(r.hum), '%', null]);
+    return out;
+  }
+  function airPanel(d) {
+    const a = aqiInfo(d), items = airReadings(d);
+    const bandOf = (v) => v == null ? '' : ' aq-' + AQI_BANDS.find(([max]) => v <= max)[2];
+    const frac = a && a.aqi != null ? Math.min(1, a.aqi / 300) : a ? ({ good: .12, moderate: .3, usg: .45, unhealthy: .62, very: .82, hazard: 1 }[a.key] || 0) : 0;
+    const R = 80, C = 2 * Math.PI * R, arc = C * 0.75;
+    return '<div class="air' + (a ? ' aq-' + a.key : '') + '">' +
+      '<div class="air-ring" role="img" aria-label="' + esc(a ? (a.aqi != null ? 'Air quality index ' + a.aqi + ', ' : '') + a.label : 'Air quality unknown') + '">' +
+        '<svg viewBox="0 0 200 200" aria-hidden="true"><circle cx="100" cy="100" r="' + R + '" class="air-track" stroke-dasharray="' + arc.toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(135 100 100)"/>' +
+        '<circle cx="100" cy="100" r="' + R + '" class="air-fill" stroke-dasharray="' + (arc * frac).toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(135 100 100)"/></svg>' +
+        '<div class="air-mid">' + (a && a.aqi != null ? '<span class="air-k">AQI</span><span class="air-num">' + a.aqi + '</span>' : '<span class="air-num air-word">' + esc(a ? a.label : '–') + '</span>') +
+        (a && a.aqi != null ? '<span class="air-label">' + esc(a.label) + '</span>' : '') + '</div></div>' +
+      '<div class="air-grid">' + items.map(([name, v, unit, band]) => '<div class="air-item' + bandOf(band) + '"><span class="air-name">' + name + '</span><span class="air-val">' + esc(String(v)) + (unit ? '<small>' + unit + '</small>' : '') + '</span></div>').join('') + '</div>' +
+      '</div>';
   }
   function isReadingDevice(d) {
     const k = kindOf(d);
     if (k !== 'sensor' && !(k === 'generic' && !powerCode(d))) return false;
     if (STATE_CODES.some((c) => c in d.status)) return false;
     const r = readingsOf(d);
-    return r.temp != null || r.hum != null || r.co2 != null || r.pm25 != null;
+    return r.temp != null || r.hum != null || isAirDevice(d);
   }
   // Round gauges for temperature and humidity: a 270° arc open at the bottom, with a dot at the value.
   const GAUGE_TEMP = [0, 40];   // °C shown across the arc
@@ -1161,14 +1305,24 @@
     const hint = one && !inKiosk ? ', show history' : '';
     if (t) html += btn('temp', 'temp', 'Climate', t, 'Temperature ' + t + hint);
     if (h) html += btn('hum', 'hum', 'Humidity', h, 'Humidity ' + h + hint);
-    if (!t && !h) html += btn('off', 'temp', 'Climate', 'Offline', 'Climate sensors offline');
+    const airs = live.map((x) => aqiInfo(x.d)).filter(Boolean);
+    if (airs.length) {
+      const rank = (a) => AQI_BANDS.findIndex((b) => b[2] === a.key) * 1000 + (a.aqi || 0);
+      const worst = airs.reduce((m, a) => (rank(a) > rank(m) ? a : m));
+      const airOne = readings.filter(isAirDevice);
+      const aAct = airOne.length === 1 && !inKiosk ? 'data-act="open-history" data-id="' + esc(airOne[0].id) + '"' : act;
+      html += '<' + tag + ' class="summary aq-' + worst.key + '" ' + aAct + (airOne.length === 1 ? '' : pressed) + ' data-key="sum-air" aria-label="' + esc('Air quality ' + (worst.aqi != null ? worst.aqi + ', ' : '') + worst.label) + '">' +
+        '<span class="sum-icon aqi">' + icon('air', 18) + '</span><span class="sum-text"><span class="sum-title">Air</span><span class="sum-value">' + esc(worst.aqi != null ? worst.aqi + ' · ' + worst.label : worst.label) + '</span></span></' + tag + '>';
+    }
+    if (!t && !h && !airs.length) html += btn('off', 'temp', 'Climate', 'Offline', 'Climate sensors offline');
     if (low) html += '<span class="sum-warn" role="status">' + icon('alert', 14) + 'Sensor battery low</span>';
     html += '</div>';
     // Expanded: one row per sensor (room, temperature, humidity), each opening its history.
     if (!one && S.climateOpen) {
       html += '<div class="list climate-list">' + readings.map((d) => {
         const r = readingsOf(d);
-        const vals = !d.online ? 'Offline' : [r.temp != null ? fmtReading(r.temp) : null, r.hum != null ? Math.round(r.hum) + '%' : null].filter(Boolean).join(' · ');
+        const aq = aqiInfo(d);
+        const vals = !d.online ? 'Offline' : [r.temp != null ? fmtReading(r.temp) : null, r.hum != null ? Math.round(r.hum) + '%' : null, aq ? (aq.aqi != null ? 'AQI ' + aq.aqi : aq.label) : null].filter(Boolean).join(' · ');
         const inner = '<span class="label">' + esc(d.name) + (d.room ? '<span class="clim-room">' + esc(d.room) + '</span>' : '') + '</span>' +
           '<span class="value icon-value">' + esc(vals) + (inKiosk ? '' : icon('chevron', 16)) + '</span>';
         return inKiosk ? '<div class="list-row">' + inner + '</div>'
@@ -1208,8 +1362,11 @@
       if (r.hum != null) main += gauge('hum', 'Humidity', Math.round(r.hum) + '%', r.hum / 100);
     }
     const extra = [];
+    const aq = aqiInfo(d);
+    if (aq && aq.aqi != null) extra.push('AQI ' + aq.aqi + ' ' + aq.label);
     if (d.online && r.co2 != null) extra.push('CO₂ ' + r.co2 + ' ppm');
     if (d.online && r.pm25 != null) extra.push('PM2.5 ' + r.pm25 + ' µg/m³');
+    if (d.online && r.pm10 != null) extra.push('PM10 ' + r.pm10 + ' µg/m³');
     return '<button class="reading' + (lowBattery ? ' low' : '') + '" data-act="open-history" data-id="' + esc(d.id) + '" data-key="reading-' + esc(d.id) + '" aria-label="' + esc(d.name + ', show history') + '"' + (lowBattery ? ' title="Battery low"' : '') + '>' +
       '<span class="reading-name">' + esc(d.name) + (showRoom && d.room ? '<span class="reading-room">' + esc(d.room) + '</span>' : '') + '</span>' +
       '<span class="reading-main gauges">' + main + '</span>' +
@@ -1294,7 +1451,7 @@
 
   // ---------- Sensor history ----------
   const HIST_CODES = [['va_temperature', 'Temperature', 'temp'], ['temp_current', 'Temperature', 'temp'], ['va_humidity', 'Humidity', 'hum'],
-    ['humidity_value', 'Humidity', 'hum'], ['co2_value', 'CO₂', 'co2'], ['pm25_value', 'PM2.5', 'pm25']];
+    ['humidity_value', 'Humidity', 'hum'], ['co2_value', 'CO₂', 'co2'], ['pm25_value', 'PM2.5', 'pm25'], ['pm10_value', 'PM10', 'pm10'], ['ch2o_value', 'Formaldehyde', 'ch2o'], ['voc_value', 'VOC', 'voc']];
   async function loadHistory(d) {
     const codes = HIST_CODES.filter(([c]) => typeof d.status[c] === 'number').map(([c]) => c).slice(0, 3);
     S.history = { id: d.id, hours: S.histHours, loading: true };
@@ -1366,9 +1523,47 @@
   }
 
   // ---------- Energy (plugs that measure power) ----------
-  function hasEnergy(d) { return typeof d.status.cur_power === 'number' || 'add_ele' in d.status; }
+  // Circuit breakers and meters often send voltage, current and power packed into phase_a (base64:
+  // 2 bytes volts ×10, 3 bytes amps ×1000, 3 bytes kW ×1000), or as a small object on Zigbee models.
+  function phaseOf(d) {
+    const raw = d.status.phase_a;
+    if (!raw) return null;
+    try {
+      if (typeof raw === 'object') {
+        const v = Number(raw.voltage ?? raw.V), a = Number(raw.electricCurrent ?? raw.current ?? raw.I), w = Number(raw.power ?? raw.P);
+        return { v: Number.isFinite(v) ? v : null, a: Number.isFinite(a) ? a / 1000 : null, w: Number.isFinite(w) ? w * 1000 : null };
+      }
+      const b = atob(String(raw));
+      if (b.length < 8) return null;
+      const by = (i) => b.charCodeAt(i);
+      return { v: ((by(0) << 8) | by(1)) / 10, a: ((by(2) << 16) | (by(3) << 8) | by(4)) / 1000, w: ((by(5) << 16) | (by(6) << 8) | by(7)) };
+    } catch (e) { return null; }
+  }
+  // Everything electrical a breaker or meter reports, in plain units.
+  function elecOf(d) {
+    const st = d.status, ph = phaseOf(d), sc = (c, def) => typeof st[c] === 'number' ? st[c] / Math.pow(10, specReady(d) ? ((specOf(d, c) || {}).scale ?? def) : def) : null;
+    const kwh = sc('total_forward_energy', 2) ?? null;
+    const leak = typeof st.leakage_current === 'number' ? st.leakage_current : null;
+    const temp = scaled(d, 'temp_current', true) ?? scaled(d, 'temp_value', true);
+    return { v: ph && ph.v != null ? ph.v : null, a: ph && ph.a != null ? ph.a : null, w: ph && ph.w != null ? ph.w : null, kwh, leak, temp };
+  }
+  // Breaker alarms: the fault bitmap, named from the device's spec.
+  function faultsOf(d) {
+    const f = d.status.fault;
+    if (typeof f !== 'number' || !f) return [];
+    const sp = specReady(d) ? specOf(d, 'fault') : null;
+    const labels = (sp && (sp.label || (sp.values && sp.values.label))) || [];
+    const nice = (x) => ({ ov_cr: 'Over current', ov_vol: 'Over voltage', leakagecurr_alarm: 'Leakage', temp_dif_fault: 'Temperature fault', short_circuit_alarm: 'Short circuit', self_test_alarm: 'Self-test' }[x] ||
+      String(x).replace(/_(alarm|fault)$/, '').replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()));
+    const out = [];
+    for (let i = 0; i < 31; i++) if (f & (1 << i)) out.push(labels[i] ? nice(labels[i]) : 'Fault ' + (i + 1));
+    return out;
+  }
+  const isBreaker = (d) => d.category === 'dlq' || 'phase_a' in d.status || 'leakage_current' in d.status;
+  function hasEnergy(d) { return typeof d.status.cur_power === 'number' || 'add_ele' in d.status || 'phase_a' in d.status || 'total_forward_energy' in d.status; }
   function liveWatts(d) {
-    if (typeof d.status.cur_power !== 'number' || !specReady(d)) return null;
+    if (typeof d.status.cur_power !== 'number') { const ph = phaseOf(d); return ph && ph.w != null ? ph.w : null; }
+    if (!specReady(d)) return null;
     const sp = specOf(d, 'cur_power');
     return d.status.cur_power / Math.pow(10, sp && typeof sp.scale === 'number' ? sp.scale : 1);
   }
@@ -1394,8 +1589,9 @@
     const e = S.energy[d.id];
     const w = liveWatts(d);
     const st = d.status;
-    const volts = typeof st.cur_voltage === 'number' && specReady(d) ? st.cur_voltage / Math.pow(10, (specOf(d, 'cur_voltage') || {}).scale ?? 1) : null;
-    const amps = typeof st.cur_current === 'number' && specReady(d) ? st.cur_current / Math.pow(10, (specOf(d, 'cur_current') || {}).scale ?? 0) / 1000 : null;
+    const el = elecOf(d);
+    const volts = typeof st.cur_voltage === 'number' && specReady(d) ? st.cur_voltage / Math.pow(10, (specOf(d, 'cur_voltage') || {}).scale ?? 1) : el.v;
+    const amps = typeof st.cur_current === 'number' && specReady(d) ? st.cur_current / Math.pow(10, (specOf(d, 'cur_current') || {}).scale ?? 0) / 1000 : el.a;
     let html = '<h2 class="section-title">Energy</h2><div class="list energy">';
     html += '<div class="energy-now"><span class="se-label">Using now</span><span class="energy-watts">' + (w == null ? '…' : fmtWatts(d.online && isOn(d) ? w : 0)) + '</span>' +
       ((volts != null || amps != null) ? '<span class="energy-meta">' + [volts != null ? Math.round(volts) + ' V' : '', amps != null ? (Math.round(amps * 100) / 100) + ' A' : ''].filter(Boolean).join(', ') + '</span>' : '') + '</div>';
@@ -1459,10 +1655,7 @@
       const set = scaled(d, 'temp_set', true);
       return set != null ? acStatus(st.mode ? modeLabel(st.mode) : '', fmtTemp(set)) : 'On';
     }
-    if (k === 'cover') {
-      const p = st.percent_state ?? st.percent_control;
-      return typeof p === 'number' ? p + '% open' : 'Ready';
-    }
+    if (k === 'cover') return coverStatus(d);
     if (k === 'irac') {
       const st2 = d.ir.state || {};
       return st2.power ? acStatus(IR_MODES[st2.mode] || '', st2.temp + '°') : 'Off';
@@ -1473,6 +1666,8 @@
       const w = n ? liveWatts(d) : null;
       return (n === 0 ? 'Off' : n === codes.length ? 'All on' : n + ' of ' + codes.length + ' on') + (w != null && w > 0 ? ', ' + fmtWatts(w) : '');
     }
+    const faults = isBreaker(d) ? faultsOf(d) : [];
+    if (faults.length) return 'Tripped: ' + faults[0];
     if (hasEnergy(d) && powerCode(d) && on) {
       const w = liveWatts(d);
       if (w != null) return 'On, ' + fmtWatts(w);
@@ -1581,6 +1776,8 @@
     nightlight: '<path d="M15 4a7 7 0 1 0 5 12A8 8 0 0 1 15 4z"/><path d="M19 3v2M18 4h2"/>',
     spotlight: '<path d="M4 21h7M7.5 21v-4M5 13l7-7 4 4-7 7z"/><path d="M17 12l3 2M15 15l2 3.5M14 8l1-4"/>',
     tree: '<path d="M12 2l5 7h-3l4 6h-4l3 5H7l3-5H6l4-6H7z"/><path d="M12 20v2"/>',
+    breaker: '<rect x="6" y="2.5" width="12" height="19" rx="2.5"/><rect x="9.5" y="7" width="5" height="9" rx="1.2"/><path d="M12 8.5v3"/>',
+    air: '<path d="M3 8h10.5a2.5 2.5 0 1 0-2.5-2.5M3 12h15a3 3 0 1 1-3 3M3 16h7"/>',
     purifier: '<rect x="6" y="3" width="12" height="18" rx="3"/><path d="M9 7h6M9 10h6"/><circle cx="12" cy="15" r="2"/>',
     humidifier: '<path d="M12 3s-3 4-3 6a3 3 0 0 0 6 0c0-2-3-6-3-6z"/><rect x="6" y="13" width="12" height="8" rx="3"/>',
     coffee: '<path d="M5 8h11v6a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5zM16 10h2a2 2 0 0 1 0 4h-2M8 3v2M11 3v2M5 21h12"/>',
@@ -1632,7 +1829,7 @@
   const ICON_CHOICES = [
     ['light', 'Bulb'], ['lamp', 'Floor lamp'], ['column', 'Column lamp'], ['desklamp', 'Desk lamp'], ['tablelamp', 'Table lamp'],
     ['ceiling', 'Ceiling light'], ['pendant', 'Pendant'], ['walllight', 'Wall light'], ['spotlight', 'Spotlight'], ['ring', 'Ring lamp'],
-    ['strip', 'Light strip'], ['fairy', 'Fairy lights'], ['lantern', 'Lantern'], ['starlight', 'Star light'], ['nightlight', 'Night light'], ['tree', 'Christmas tree'], ['plug', 'Plug'], ['multi', 'Power strip'], ['switch', 'Wall switch'],
+    ['strip', 'Light strip'], ['fairy', 'Fairy lights'], ['lantern', 'Lantern'], ['starlight', 'Star light'], ['nightlight', 'Night light'], ['tree', 'Christmas tree'], ['plug', 'Plug'], ['multi', 'Power strip'], ['breaker', 'Circuit breaker'], ['air', 'Air monitor'], ['switch', 'Wall switch'],
     ['fan', 'Fan'], ['climate', 'Air conditioner'], ['heater', 'Heater'], ['thermo', 'Thermometer'],
     ['cover', 'Curtains'], ['sensor', 'Door sensor'], ['motion', 'Motion sensor'], ['camera', 'Camera'],
     ['purifier', 'Air purifier'], ['humidifier', 'Humidifier'], ['boiler', 'Water heater'],
@@ -1674,6 +1871,8 @@
       const map = { infrared_tv: 'tv', infrared_stb: 'tv', infrared_box: 'tv', infrared_fan: 'fan', infrared_light: 'light', infrared_amplifier: 'speaker', infrared_speaker: 'speaker' };
       return map[d.category] || 'remote';
     }
+    if (d.category === 'dlq' || (isBreaker(d) && powerCode(d))) return 'breaker';
+    if (k === 'sensor' && isAirDevice(d)) return 'air';
     if (k === 'sensor' && !('doorcontact_state' in d.status)) {
       if ('pir' in d.status) return 'motion';
       if ('va_temperature' in d.status || 'temp_current' in d.status) return 'thermo';
@@ -1686,6 +1885,8 @@
   const PF = {
     column: { b: '<rect x="8" y="2" width="8" height="15" rx="1.5"/>', c: '<path d="M8 6h8M8 10h8M8 14h8"/>', s: '<path d="M9.5 17l-1 4M14.5 17l1 4M8 21h8"/>' },
     multi: { b: '<rect x="2" y="8" width="20" height="8" rx="3"/>', c: '<path d="M7 11v2M12 11v2M17 11v2"/>' },
+    breaker: { b: '<rect x="6" y="2.5" width="12" height="19" rx="2.5"/>', c: '<rect x="9.5" y="7" width="5" height="9" rx="1.2"/>', s: '' },
+    air: { s: '<path d="M3 8h10.5a2.5 2.5 0 1 0-2.5-2.5M3 12h15a3 3 0 1 1-3 3M3 16h7" stroke-width="2.2"/>' },
     switch: { b: '<rect x="6" y="3" width="12" height="18" rx="3"/>', c: '<path d="M12 7v4"/>' },
     washer: { b: '<rect x="4" y="3" width="16" height="18" rx="3"/>', c: '<circle cx="12" cy="13" r="4.5"/><path d="M7 6.5h2M15 6.5h.01"/>' },
     fridge: { b: '<rect x="6" y="2" width="12" height="20" rx="2"/>', c: '<path d="M6 10h12M9 5v2M9 13v3"/>' },
@@ -1708,7 +1909,26 @@
     fairy: { b: '<circle cx="6" cy="13" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="13" r="2"/>', s: '<path d="M2 6c4 4 8 4 10 2s6-2 10 2M6 9.5v2M12 8v2.5M18 9.5v2"/>' },
     heater: { b: '<path d="M4 15h16v5H4z"/>', s: '<path d="M8 3c-2 3 2 5 0 8M12 3c-2 3 2 5 0 8M16 3c-2 3 2 5 0 8"/>' }
   };
-  let glyphN = 0;
+  // Cut-out masks live once in a hidden sprite, with fixed ids, instead of a fresh numbered copy
+  // inside every icon: redraws then leave icons untouched, and the page carries fewer nodes.
+  const glyphMasks = new Set();
+  function glyphMask(key) {
+    const id = 'gm-' + key;
+    if (!glyphMasks.has(key)) {
+      glyphMasks.add(key);
+      let sp = document.getElementById('glyph-sprite');
+      if (!sp) {
+        sp = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        sp.id = 'glyph-sprite'; sp.setAttribute('aria-hidden', 'true'); sp.setAttribute('width', '0'); sp.setAttribute('height', '0');
+        sp.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;pointer-events:none';
+        sp.innerHTML = '<defs></defs>';
+        document.body.appendChild(sp);
+      }
+      sp.firstChild.insertAdjacentHTML('beforeend', '<mask id="' + id + '" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect width="24" height="24" fill="#fff"/>' +
+        '<g fill="none" stroke="#000" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + PF[key].c + '</g></mask>');
+    }
+    return id;
+  }
   function glyph(key, size) {
     const z = size || 22, f = PF[key], open = '<svg class="glyph" width="' + z + '" height="' + z + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
     if (!P[key]) return icon(key, size);
@@ -1716,9 +1936,7 @@
     let body = '';
     if (f.b) {
       if (f.c) {
-        const id = 'gm' + (++glyphN);
-        body = '<mask id="' + id + '" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect width="24" height="24" fill="#fff"/>' +
-          '<g fill="none" stroke="#000" stroke-width="1.7">' + f.c + '</g></mask><g mask="url(#' + id + ')" fill="currentColor">' + f.b + '</g>';
+        body = '<g mask="url(#' + glyphMask(key) + ')" fill="currentColor">' + f.b + '</g>';
       } else body = '<g fill="currentColor">' + f.b + '</g>';
     }
     return open + body + (f.s || '') + '</svg>';
@@ -1727,7 +1945,7 @@
   const HUES = {
     light: 'yellow', lamp: 'yellow', column: 'yellow', desklamp: 'yellow', tablelamp: 'yellow', ceiling: 'yellow', pendant: 'yellow', walllight: 'yellow',
     spotlight: 'yellow', ring: 'yellow', strip: 'yellow', fairy: 'yellow', lantern: 'yellow', starlight: 'yellow', nightlight: 'yellow', tree: 'yellow',
-    plug: 'amber', multi: 'amber', switch: 'amber', appliance: 'amber', coffee: 'amber', washer: 'amber', fridge: 'amber', boiler: 'amber', robovac: 'amber', petbowl: 'amber',
+    plug: 'amber', breaker: 'amber', air: 'teal', multi: 'amber', switch: 'amber', appliance: 'amber', coffee: 'amber', washer: 'amber', fridge: 'amber', boiler: 'amber', robovac: 'amber', petbowl: 'amber',
     fan: 'blue', climate: 'blue', purifier: 'blue', humidifier: 'blue', thermo: 'blue', cover: 'blue',
     heater: 'orange',
     lock: 'teal', doorbell: 'teal', garage: 'teal', sensor: 'teal', motion: 'teal', camera: 'teal',
@@ -1735,6 +1953,25 @@
     tv: 'purple', speaker: 'purple', remote: 'purple', router: 'grey', generic: 'grey'
   };
   const hueOf = (d) => HUES[iconKeyOf(d)] || 'grey';
+  // The Home app's accessory categories, from each device's kind and icon.
+  const CATS = ['Climate', 'Lights', 'Shades', 'Security', 'Speakers & TVs', 'Switches & Outlets', 'Other'];
+  function catOf(d) {
+    const k = kindOf(d), ic = iconKeyOf(d), h = HUES[ic];
+    if (k === 'cover') return 'Shades';
+    if (k === 'irac' || k === 'climate' || h === 'blue' || h === 'orange') return 'Climate';
+    if (k === 'light' || h === 'yellow') return 'Lights';
+    // A lamp on a smart plug is a light to you: lamp photos, or a name that says so.
+    if ((k === 'plug' || k === 'multi' || k === 'generic') && (/^photo/.test(ic) || (/lamp|light|bulb|\bled\b|lampu/i.test(d.name) && !/power|socket|outlet|stopkontak/i.test(d.name)))) return 'Lights';
+    if (h === 'purple' || k === 'irremote') return 'Speakers & TVs';
+    if (h === 'teal' || k === 'camera') return 'Security';
+    if (h === 'amber' || k === 'plug' || k === 'multi') return 'Switches & Outlets';
+    return 'Other';
+  }
+  function catGroups(list) {
+    const by = new Map();
+    list.forEach((d) => { const c = catOf(d); if (!by.has(c)) by.set(c, []); by.get(c).push(d); });
+    return CATS.filter((c) => by.has(c)).map((c) => [c, by.get(c)]);
+  }
   function deviceIcon(d, size) { const ph = photoOf(d); return ph ? photoImg(ph) : glyph(iconKeyOf(d), size); }
 
   // ---------- Views ----------
@@ -1751,7 +1988,7 @@
   let qc = null;
   const X_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
   const GEAR = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
-  const qcCanOpen = (d) => d && d.online && (hasToggle(d) || channelCodes(d).length > 1) && !isKioskAc(d) && kindOf(d) !== 'cover';
+  const qcCanOpen = (d) => d && d.online && (hasToggle(d) || channelCodes(d).length > 1 || (kindOf(d) === 'cover' && 'percent_control' in d.status)) && !isKioskAc(d) && (kindOf(d) !== 'cover' || 'percent_control' in d.status);
   const qcDimmable = (d) => kindOf(d) === 'light' && !!brightCode(d) && !!powerCode(d);
   const qcMotion = () => !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
   function qcTileOf(id) {
@@ -1761,6 +1998,7 @@
   function qcKind(d) {
     if (isKioskAc(d)) return 'ac';
     if (kindOf(d) === 'irremote') return 'remote';
+    if (kindOf(d) === 'sensor' && isAirDevice(d)) return 'air';
     if (kindOf(d) === 'cover' && 'percent_control' in d.status) return 'cover';
     if (channelCodes(d).length > 1) return 'multi';
     if (qcDimmable(d)) return 'dim';
@@ -1772,9 +2010,9 @@
     if (qcKind(d) === 'cover') return {
       pct: (x) => clamp(Number(x.status.percent_control ?? x.status.percent_state) || 0, 0, 100),
       on: (pct) => pct > 0,
-      text: (pct) => (pct > 0 ? pct + '% open' : 'Closed'),
-      commit: (x, pct) => { qcHold(pct); send(x, [{ code: 'percent_control', value: pct }], { percent_control: pct }); },
-      tap: (x, pct) => { const v = pct > 0 ? 0 : 100; qcHold(v); send(x, [{ code: 'percent_control', value: v }], { percent_control: v }); },
+      text: (pct) => (pct >= 100 ? 'Open' : pct > 0 ? pct + '% open' : 'Closed'),
+      commit: (x, pct) => { qcHold(pct); send(x, [{ code: 'percent_control', value: pct }], { percent_control: pct }); coverGo(x, pct, 'pos'); },
+      tap: (x, pct) => coverCmd(x, pct > 0 ? 'close' : 'open'),
       label: 'position'
     };
     return {
@@ -1792,7 +2030,55 @@
       label: 'brightness'
     };
   }
+  // Curtains and blinds take a while to get where they're going: while one moves, its status says
+  // "Opening to 80%…" and the app checks on it every couple of seconds until it arrives (up to a minute).
+  const coverMove = {};
+  function coverGo(d, target, ctl) {
+    coverMove[d.id] = { target, from: Number(d.status.percent_state ?? d.status.percent_control ?? 0), until: Date.now() + 60000, ctl };
+    clearTimeout(coverGo.t);
+    const tick = () => {
+      const m = Object.values(coverMove).some((x) => Date.now() < x.until);
+      if (!m) return;
+      pollStatus();
+      coverGo.t = setTimeout(tick, 2200);
+    };
+    coverGo.t = setTimeout(tick, 1500);
+  }
+  function coverMotion(d) {
+    const m = coverMove[d.id];
+    if (!m) return null;
+    const st = d.status, now = Number(st.percent_state ?? st.percent_control);
+    if (Date.now() > m.until || (m.target != null && Number.isFinite(now) && Math.abs(now - m.target) <= 1)) { delete coverMove[d.id]; return null; }
+    if (m.ctl === 'stop') { delete coverMove[d.id]; return null; }
+    const opening = m.target != null ? m.target > m.from : m.ctl === 'open';
+    return { opening, target: m.target };
+  }
+  function coverStatus(d) {
+    const st = d.status, p = st.percent_state ?? st.percent_control;
+    const mv = coverMotion(d);
+    if (mv) return (mv.opening ? 'Opening' : 'Closing') + (mv.target != null && mv.target > 0 && mv.target < 100 ? ' to ' + mv.target + '%' : '') + '…';
+    return typeof p === 'number' ? (p >= 100 ? 'Open' : p <= 0 ? 'Closed' : p + '% open') : 'Ready';
+  }
+  function coverCmd(d, ctl) {
+    const target = ctl === 'open' ? 100 : ctl === 'close' ? 0 : null;
+    if ('control' in d.status) send(d, [{ code: 'control', value: ctl }], Object.assign({ control: ctl }, target != null && 'percent_control' in d.status ? { percent_control: target } : {}));
+    else if (target != null) send(d, [{ code: 'percent_control', value: target }], { percent_control: target });
+    if (ctl === 'stop') delete coverMove[d.id]; else coverGo(d, target, ctl);
+    if (qc && qc.id === d.id && target != null) qcHold(target);
+  }
   // Curtains report their new position only once the motor moves: show the one you picked meanwhile.
+  const COVER_SVG = {
+    open: '<g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3.5h16M6 3.5v5h12v-5"/><path d="M12 20.5v-8M8.5 16 12 12.5l3.5 3.5"/></g>',
+    stop: '<rect x="7" y="7" width="10" height="10" rx="2.2" fill="currentColor"/>',
+    close: '<g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3.5h16M6 3.5v12h12v-12"/><path d="M6 7.5h12M6 11.5h12" stroke-width="1.5"/><path d="M8.5 18.5 12 21.5l3.5-3"/></g>'
+  };
+  function coverButtons(d, sfx) {
+    const mv = coverMotion(d), p = Number(d.status.percent_state ?? d.status.percent_control);
+    return [['open', 'Open'], ['stop', 'Stop'], ['close', 'Close']].filter(([v]) => v !== 'stop' || 'control' in d.status).map(([v, n]) =>
+      '<button class="cov-btn cov-' + v + ((v === 'open' && mv && mv.opening) || (v === 'close' && mv && !mv.opening) ? ' going' : '') + '" data-act="cover" data-id="' + esc(d.id) + '" data-val="' + v + '" data-key="cov-' + v + sfx + '"' +
+      ' aria-label="' + n + '"' + (d.online ? '' : ' disabled') + ((v === 'open' && p >= 100 && !mv) || (v === 'close' && p <= 0 && !mv) ? ' aria-disabled="true"' : '') + '>' +
+      '<svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">' + COVER_SVG[v] + '</svg><span>' + n + '</span></button>').join('');
+  }
   function qcHold(pct) { if (qc) { qc.hold = { pct, until: Date.now() + 4000 }; qcSync(); } }
   // White and colour circles under a light's pill.
   function qcSwatches(d) {
@@ -1818,7 +2104,7 @@
     const dim = kind === 'dim' || kind === 'cover';
     const swatches = kind === 'dim' && (warmCode(d) || colourCode(d));
     const el = document.createElement('div');
-    el.className = 'qc hue-' + hueOf(d) + (dim ? ' qc-dim' : '') + (multi ? ' qc-multi-on' : '') + (page ? ' qc-page' : '') + (kind === 'ac' ? ' qc-ac-on' : '') + (!kind ? ' qc-none' : '');
+    el.className = 'qc hue-' + hueOf(d) + (dim ? ' qc-dim' : '') + (kind === 'cover' ? ' qc-cover' : '') + (multi ? ' qc-multi-on' : '') + (page ? ' qc-page' : '') + (kind === 'ac' ? ' qc-ac-on' : '') + (!kind ? ' qc-none' : '');
     el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', d.name);
     el.innerHTML = '<div class="qc-bg"></div>' +
       (page ? '<button class="qc-x" aria-label="Close">' + X_ICON + '</button>' : '') +
@@ -1826,20 +2112,22 @@
       (!kind ? '<div class="qc-body qc-empty"></div>'
         : kind === 'ac' ? '<div class="qc-body qc-ac"></div>'
         : kind === 'remote' ? '<div class="qc-body qc-remote"></div>'
+        : kind === 'air' ? '<div class="qc-body qc-air"></div>'
         : multi
         ? '<div class="qc-multi qc-body" style="--n:' + codes.length + '">' + codes.map((c) =>
             '<div class="qc-unit"><button class="qc-pill qc-switch qc-ch" role="switch" aria-label="' + esc(channelName(d, c)) + '" data-act="toggle" data-id="' + esc(d.id) + '" data-code="' + esc(c) + '">' +
             '<span class="qc-knob">' + glyph(iconKeyOf(d), 30) + '</span></button><span class="qc-ch-name">' + esc(channelName(d, c)) + '</span></div>').join('') + '</div>'
         : dim
         ? '<div class="qc-pill qc-slider" role="slider" tabindex="0" aria-label="' + esc(d.name) + ' ' + qcSliderFor(d).label + '" aria-valuemin="0" aria-valuemax="100"><span class="qc-fill"></span><span class="qc-ico">' + glyph(iconKeyOf(d), 34) + '</span></div>' +
-          (swatches ? '<div class="qc-swatches" role="group" aria-label="Colors"></div>' : '')
+          (swatches ? '<div class="qc-swatches" role="group" aria-label="Colors"></div>' : '') +
+          (kind === 'cover' ? '<div class="qc-cover-btns" role="group" aria-label="Move">' + coverButtons(d, '-qc') + '</div>' : '')
         : '<button class="qc-pill qc-switch" role="switch" aria-label="' + esc(d.name) + '" data-act="toggle" data-id="' + esc(d.id) + '"><span class="qc-knob">' + glyph(iconKeyOf(d), 34) + '</span></button>') +
       '<button class="qc-gear" aria-label="All controls for ' + esc(d.name) + '">' + GEAR + '</button>';
     shell.app.appendChild(el);
     qc = { id: d.id, el, last: null, lastCh: {}, drag: null, focusBack: document.activeElement, page, back: !!(opts && opts.back), kind, sl: dim ? qcSliderFor(d) : null };
     qcSync(true);
     if (!page) { try { history.pushState({ qc: 1 }, '', location.href); qc.pushed = true; } catch (e) { /* fine without */ } }
-    const pill = el.querySelector(multi ? '.qc-multi' : kind === 'ac' ? '.qc-ac' : kind === 'remote' ? '.qc-remote' : !kind ? '.qc-empty' : '.qc-pill');
+    const pill = el.querySelector(multi ? '.qc-multi' : kind === 'ac' ? '.qc-ac' : kind === 'remote' ? '.qc-remote' : kind === 'air' ? '.qc-air' : !kind ? '.qc-empty' : '.qc-pill');
     el.querySelector('.qc-bg').addEventListener('click', () => qcExit());
     if (page) el.querySelector('.qc-x').addEventListener('click', () => qcExit());
     el.querySelector('.qc-gear').addEventListener('click', () => qcSheetOpen());
@@ -1854,7 +2142,7 @@
         ], { duration: 520, easing: 'cubic-bezier(.3, 1.18, .4, 1)' });
       }
       el.querySelector('.qc-bg').animate([{ opacity: 0 }, { opacity: 1 }], { duration: 320, easing: 'ease-out' });
-      [el.querySelector('.qc-head'), el.querySelector('.qc-gear'), el.querySelector('.qc-x'), el.querySelector('.qc-swatches')].forEach((n) => n && n.animate([{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 360, delay: 120, easing: 'ease-out', fill: 'backwards' }));
+      [el.querySelector('.qc-head'), el.querySelector('.qc-gear'), el.querySelector('.qc-x'), el.querySelector('.qc-swatches'), el.querySelector('.qc-cover-btns')].forEach((n) => n && n.animate([{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 360, delay: 120, easing: 'ease-out', fill: 'backwards' }));
     }
     // Move focus in only for keyboard users (on touch it showed as a white ring round the control).
     if (qcKeys) setTimeout(() => { if (qc && qc.el === el) { const f = el.querySelector('.qc-pill, .ka-dial'); if (f) f.focus({ preventScroll: true }); } }, 60);
@@ -1912,7 +2200,7 @@
     qc = null;
     if (pushed && history.state && history.state.qc) { qcSkipPop = true; history.back(); }
     const done = () => el.remove();
-    const pill = el.querySelector('.qc-multi') || el.querySelector('.qc-ac') || el.querySelector('.qc-remote') || el.querySelector('.qc-pill') || el.querySelector('.qc-body'), tile = qcTileOf(id);
+    const pill = el.querySelector('.qc-multi') || el.querySelector('.qc-ac') || el.querySelector('.qc-remote') || el.querySelector('.qc-air') || el.querySelector('.qc-pill') || el.querySelector('.qc-body'), tile = qcTileOf(id);
     const sheet = el.querySelector('.qc-sheet');
     if (instant || !qcMotion() || !pill.animate) { done(); }
     else {
@@ -1953,22 +2241,27 @@
       if (d.online) statusTxt = n === 0 ? 'All Off' : n === chs.length ? 'All On' : n + ' On';
     }
     const slPct = () => {
-      const real = qc.sl.pct(d);
+      let real = qc.sl.pct(d);
+      if (qc.kind === 'cover' && coverMotion(d) && typeof d.status.percent_state === 'number') { qc.hold = null; return d.status.percent_state; }   // watch it move
       if (qc.hold && Date.now() < qc.hold.until && real !== qc.hold.pct) return qc.hold.pct;
       qc.hold = null; return real;
     };
     if (qc.sl && !qc.drag) {
       const pct = slPct();
-      if (d.online) statusTxt = qc.kind === 'cover' ? qc.sl.text(pct) : statusTxt;
+      if (d.online) statusTxt = qc.kind === 'cover' ? (coverMotion(d) ? coverStatus(d) : qc.sl.text(pct)) : statusTxt;
       el.classList.toggle('on', qc.sl.on(pct) && d.online);
     } else el.classList.toggle('on', on && !chs.length);
     el.querySelector('.qc-status').textContent = statusTxt;
     const rmBody = el.querySelector('.qc-remote');
     if (rmBody) patchHtml(rmBody, irRemotePad(d, '-qr'));
+    const airBody = el.querySelector('.qc-air');
+    if (airBody) patchHtml(airBody, airPanel(d));
     const acBody = el.querySelector('.qc-ac');
     if (acBody && !S.dragging) patchHtml(acBody, acPage(d, '-qa'));
     const sws = el.querySelector('.qc-swatches');
     if (sws) patchHtml(sws, qcSwatches(d));
+    const cbs = el.querySelector('.qc-cover-btns');
+    if (cbs) { patchHtml(cbs, coverButtons(d, '-qc')); el.classList.toggle('moving', !!coverMotion(d)); }
     // A colour light fills its pill with the colour it's showing.
     if (qc.kind === 'dim' && colourCode(d) && inColour(d)) {
       const c = currentColour(d), m = colourMax(colourCode(d));
@@ -2122,7 +2415,7 @@
     const on = isOn(d), theme = acTheme(d), room = acRoomTemp(d), r = S.reorder;
     // When the big number is already the set temperature, the line below just says what it's doing.
     const status = room == null && on ? ({ cool: 'Cooling', heat: 'Heating', auto: 'Auto' })[theme] || statusText(d) : statusText(d);
-    const cls = ['card', 'compact', 'ac-tile', 'ac-big', 'ac-' + theme, on ? 'active' : '', d.id === selectedId ? 'selected' : '', isPending(d.id) ? 'pending' : ''].join(' ');
+    const cls = ['card', 'compact', 'ac-tile', 'ac-big', 'ac-' + theme, r && isHidden(d) ? 'is-hidden' : '', on ? 'active' : '', d.id === selectedId ? 'selected' : '', isPending(d.id) ? 'pending' : ''].join(' ');
     // The room temperature when the AC (or its IR blaster) measures it; otherwise what it's set to.
     const setTo = kindOf(d) === 'irac' ? (d.ir.state || {}).temp : scaled(d, 'temp_set', true);
     const big = room != null ? room : setTo;
@@ -2133,13 +2426,13 @@
       '<button class="card-open"' + (r ? ' inert' : '') + ' data-act="open" data-id="' + esc(d.id) + '" data-key="open-' + esc(d.id) + '" aria-label="' +
       esc(d.name + ', ' + (room != null ? Math.round(room) + '° in the room, ' : big != null ? 'set to ' + Math.round(big) + '°, ' : '') + status + ', show controls') + '">' + top +
       '<span class="card-text"><span class="card-name">' + esc(d.name) + '</span><span class="card-status">' + esc(status) + '</span></span></button>' +
-      (r ? '<button class="card-grip" data-key="grip-' + esc(d.id) + '" aria-label="Move ' + esc(d.name) + '. Use the arrow keys.">' + icon('grip', 18) + '</button>' : '') +
+      (r ? hideBtn(d) + '<button class="card-grip" data-key="grip-' + esc(d.id) + '" aria-label="Move ' + esc(d.name) + '. Use the arrow keys.">' + icon('grip', 18) + '</button>' : '') +
       '</div>';
   }
   function deviceCard(d, selectedId) {
     const on = isOn(d), toggle = hasToggle(d), lit = toggle && on && d.online;
     if (d.online && isKioskAc(d)) return acCard(d, selectedId);
-    const cls = ['card', 'compact', 'hue-' + hueOf(d), photoOf(d) ? 'has-photo' : '', lit ? 'active' : '', d.online ? '' : 'offline', d.id === selectedId ? 'selected' : '', isPending(d.id) ? 'pending' : ''].join(' ');
+    const cls = ['card', 'compact', 'hue-' + hueOf(d), S.reorder && isHidden(d) ? 'is-hidden' : '', photoOf(d) ? 'has-photo' : '', lit ? 'active' : '', d.online ? '' : 'offline', d.id === selectedId ? 'selected' : '', isPending(d.id) ? 'pending' : ''].join(' ');
     const r = S.reorder, busy = isPending(d.id);
     const colour = lit && kindOf(d) === 'light' && inColour(d) ? ' style="background:' + colourCss(d) + ';color:#141414"' : '';
     const glyph = photoOf(d)
@@ -2154,7 +2447,7 @@
       (d.online ? '' : '<span class="off-badge" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 2.5 23 21.5H1z" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9v5.5M12 18v.01" stroke="#000" stroke-width="2.6" stroke-linecap="round"/></svg></span>') +
       '<button class="card-open"' + (r ? ' inert' : '') + ' data-act="open" data-id="' + esc(d.id) + '" data-key="open-' + esc(d.id) + '" aria-label="' + esc(d.name) + ', ' + esc(status) + ', show controls">' +
       '<span class="card-text"><span class="card-name">' + esc(d.name) + '</span><span class="card-status">' + esc(status) + '</span></span></button>' +
-      (r ? '<button class="card-grip" data-key="grip-' + esc(d.id) + '" aria-label="Move ' + esc(d.name) + '. Use the arrow keys.">' + icon('grip', 18) + '</button>' : '') +
+      (r ? hideBtn(d) + '<button class="card-grip" data-key="grip-' + esc(d.id) + '" aria-label="Move ' + esc(d.name) + '. Use the arrow keys.">' + icon('grip', 18) + '</button>' : '') +
       '</div>';
   }
 
@@ -2183,6 +2476,28 @@
       }, 600);
     }
   }
+  // ---------- Hidden devices (Arrange → eye) ----------
+  // Hidden tiles leave Home and the wall tablet; they stay in Arrange (faded) so they can come back,
+  // and in scenes, automations and "turn everything off".
+  const isHidden = (d) => { const h = S.hidden && S.data && S.hidden[S.data.homeId]; return !!(h && h.includes(d.id)); };
+  function setHidden(id, hide) {
+    const homeId = S.data && S.data.homeId;
+    if (!homeId) return;
+    const cur = new Set((S.hidden && S.hidden[homeId]) || []);
+    if (hide) cur.add(id); else cur.delete(id);
+    S.hidden = Object.assign({}, S.hidden, { [homeId]: Array.from(cur) });
+    store.set('hidden', JSON.stringify(S.hidden));
+    if (S.sync && S.mode === 'live') {
+      clearTimeout(setHidden.t);
+      setHidden.t = setTimeout(() => {
+        api('settings', { method: 'POST', body: { hidden: { homeId, ids: S.hidden[homeId] } } })
+          .catch(() => toast('Hidden devices are saved on this device but couldn\'t sync.'));
+      }, 600);
+    }
+  }
+  const EYE = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const EYE_OFF = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.6 5.6A10 10 0 0 1 12 5.5c6.4 0 10 6.5 10 6.5a17 17 0 0 1-2.6 3.4M6.3 6.9C3.6 8.6 2 12 2 12s3.6 6.5 10 6.5a9.6 9.6 0 0 0 4.2-.9M9.9 9.9a3 3 0 0 0 4.2 4.2M3 3l18 18"/></svg>';
+  const hideBtn = (d) => '<button class="card-hide" data-act="hide-toggle" data-id="' + esc(d.id) + '" data-key="hide-' + esc(d.id) + '" aria-pressed="' + isHidden(d) + '" aria-label="' + esc((isHidden(d) ? 'Show ' : 'Hide ') + d.name) + '" title="' + (isHidden(d) ? 'Hidden. Tap to show' : 'Hide from Home') + '">' + (isHidden(d) ? EYE_OFF : EYE) + '</button>';
   const gridIds = (grid) => Array.from(grid.querySelectorAll('.card')).map((c) => c.dataset.cardId);
   let cardDrag = null;
   document.addEventListener('pointerdown', (e) => {
@@ -2240,13 +2555,31 @@
     saveOrder(ids); render();
   });
 
+  // Filled room glyphs in the Home app's (SF Symbols) style: solid shapes, details cut out.
+  const ROOM_G = {
+    grid: '<rect x="3" y="3" width="8" height="8" rx="2.4"/><rect x="13" y="3" width="8" height="8" rx="2.4"/><rect x="3" y="13" width="8" height="8" rx="2.4"/><rect x="13" y="13" width="8" height="8" rx="2.4"/>',
+    home: '<path d="M11.3 2.9a1.1 1.1 0 0 1 1.4 0l8.6 7.3c.7.6.3 1.8-.7 1.8H19v7.6a1.4 1.4 0 0 1-1.4 1.4H14.5v-5.6a1 1 0 0 0-1-1h-3a1 1 0 0 0-1 1V21H6.4A1.4 1.4 0 0 1 5 19.6V12H3.4c-1 0-1.4-1.2-.7-1.8Z"/>',
+    sofa: '<path d="M5 9.4V8a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v1.4a2.6 2.6 0 0 0-2 2.5V13H7v-1.1a2.6 2.6 0 0 0-2-2.5Z"/><path d="M2 12a2 2 0 0 1 4 0v2.6h12V12a2 2 0 1 1 4 0v5.2a1.6 1.6 0 0 1-1.6 1.6H20v.9a1 1 0 0 1-2 0v-.9H6v.9a1 1 0 0 1-2 0v-.9h-.4A1.6 1.6 0 0 1 2 17.2Z"/>',
+    bed: '<path d="M3.5 4.6A1.6 1.6 0 0 1 5.1 3h13.8a1.6 1.6 0 0 1 1.6 1.6V10h-1.3V8.6A1.6 1.6 0 0 0 17.6 7h-3.3a1.6 1.6 0 0 0-1.6 1.6V10h-1.4V8.6A1.6 1.6 0 0 0 9.7 7H6.4a1.6 1.6 0 0 0-1.6 1.6V10H3.5Z"/><path d="M2 13.6A2.6 2.6 0 0 1 4.6 11h14.8a2.6 2.6 0 0 1 2.6 2.6v5.5a1 1 0 0 1-2 0v-1.4H4v1.4a1 1 0 0 1-2 0Z"/>',
+    pot: '<path d="M10.2 4a1.8 1.8 0 0 1 3.6 0v1.6h5.7a1 1 0 0 1 0 2h-15a1 1 0 0 1 0-2h5.7Z"/><path d="M4 9.2h16v7.6a4.2 4.2 0 0 1-4.2 4.2H8.2A4.2 4.2 0 0 1 4 16.8Z"/><path d="M2.4 10.6H4v2.6H2.4a1.3 1.3 0 0 1 0-2.6ZM21.6 10.6H20v2.6h1.6a1.3 1.3 0 0 0 0-2.6Z"/>',
+    dining: '<path d="M5.6 2.9a.8.8 0 0 1 1.6 0v4.3h.9V2.9a.8.8 0 0 1 1.6 0v4.3h.9V2.9a.8.8 0 0 1 1.6 0V8a3 3 0 0 1-2.4 2.9v9.6a1.2 1.2 0 0 1-2.4 0v-9.6A3 3 0 0 1 5 8V2.9Z"/><path d="M16.9 2.6c2 1 3.6 3.5 3.6 7.4 0 1.4-.9 2.4-2.1 2.7v7.8a1.2 1.2 0 0 1-2.4 0V3.3c0-.6.4-.9.9-.7Z"/>',
+    bath: '<path d="M5 9.6V5.4a2.8 2.8 0 0 1 5.3-1.2l.3.6-1.5.8-.3-.6A1.1 1.1 0 0 0 6.7 5.4v4.2Z"/><path d="M2 11.6a1 1 0 0 1 1-1h18a1 1 0 0 1 1 1V14a5.2 5.2 0 0 1-3.1 4.8l.6 1.3a.8.8 0 0 1-1.5.7l-.7-1.6H6.7L6 20.8a.8.8 0 0 1-1.5-.7l.6-1.3A5.2 5.2 0 0 1 2 14Z"/>',
+    door: '<path fill-rule="evenodd" d="M5 20.4V4.6A1.6 1.6 0 0 1 6.6 3h10.8A1.6 1.6 0 0 1 19 4.6v15.8h1.2a.8.8 0 0 1 0 1.6H3.8a.8.8 0 0 1 0-1.6Zm10-9.6a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6Z"/>',
+    tree: '<path d="M20.7 3.3C12.2 3.3 5.5 7 5.5 13.8c0 1.6.5 3 1.3 4.1l-2.6 2.6a.9.9 0 0 0 1.3 1.3l2.6-2.6c1.1.8 2.5 1.3 4.1 1.3 6.8 0 9.4-7.6 8.5-17.2Z"/>',
+    desk: '<path d="M3 5.6A2.6 2.6 0 0 1 5.6 3h12.8A2.6 2.6 0 0 1 21 5.6v7.8a2.6 2.6 0 0 1-2.6 2.6H14l.5 3h1.6a.8.8 0 0 1 0 1.6H7.9a.8.8 0 0 1 0-1.6h1.6l.5-3H5.6A2.6 2.6 0 0 1 3 13.4Z"/>',
+    car: '<path fill-rule="evenodd" d="M5.7 6.4A2.6 2.6 0 0 1 8.2 4.5h7.6a2.6 2.6 0 0 1 2.5 1.9l1.2 4.1a2.6 2.6 0 0 1 2 2.6v4.5a1 1 0 0 1-1 1H20v1a1.5 1.5 0 0 1-3 0v-1H7v1a1.5 1.5 0 0 1-3 0v-1h-.5a1 1 0 0 1-1-1v-4.5a2.6 2.6 0 0 1 2-2.6Zm1.9.4-1 3.7h10.8l-1-3.7a1 1 0 0 0-1-.7H8.6a1 1 0 0 0-1 .7ZM6.2 12.8a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm11.6 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"/>',
+    laundry: '<path fill-rule="evenodd" d="M5 2.5h14a1.6 1.6 0 0 1 1.6 1.6v16.3A1.6 1.6 0 0 1 19 22H5a1.6 1.6 0 0 1-1.6-1.6V4.1A1.6 1.6 0 0 1 5 2.5Zm7 6.6a5 5 0 1 0 0 10 5 5 0 0 0 0-10ZM6.8 4.8a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm3 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z"/>'
+  };
+  const roomGlyph = (k, z) => '<svg width="' + (z || 18) + '" height="' + (z || 18) + '" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' + (ROOM_G[k] || ROOM_G.home) + '</svg>';
   function roomIcon(name) {
     const n = String(name).toLowerCase();
     if (n === 'all') return 'grid';
-    if (/living|lounge|family|sala/.test(n)) return 'sofa';
-    if (/bed|master|guest|kid|nursery/.test(n)) return 'bed';
-    if (/kitchen|dining|pantry/.test(n)) return 'pot';
-    if (/bath|toilet|wc|shower|laundry/.test(n)) return 'bath';
+    if (/living|lounge|family|sala|tamu/.test(n)) return 'sofa';
+    if (/bed|master|guest|kid|nursery|tidur/.test(n)) return 'bed';
+    if (/dining|makan/.test(n)) return 'dining';
+    if (/kitchen|pantry|dapur/.test(n)) return 'pot';
+    if (/laundry|cuci/.test(n)) return 'laundry';
+    if (/bath|toilet|wc|shower|mandi/.test(n)) return 'bath';
     if (/hall|entr|foyer|corridor|stair/.test(n)) return 'door';
     if (/garden|patio|yard|balcon|terrace|outdoor|pool/.test(n)) return 'tree';
     if (/office|study|work/.test(n)) return 'desk';
@@ -2406,23 +2739,39 @@
       '<button class="avatar" data-act="tab" data-tab="me" data-key="avatar" aria-label="Me">' + (S.me && !S.me.owner ? esc(initial) : icon('me', 22)) + '</button></div></div>';
     if (S.mode === 'demo') html += '<p class="banner">You are viewing sample devices. Connect your server in Me to control your own.</p>';
     if (rooms.length > 1) {
-      html += '<div class="room-tiles" role="group" aria-label="Rooms">' + rooms.map((r) =>
-        '<button class="room-tile" data-act="room" data-room="' + esc(r) + '" data-key="room-' + esc(r) + '" aria-pressed="' + (r === S.room) + '">' +
-        '<span class="room-box">' + icon(roomIcon(r), 22) + '</span><span class="room-name">' + esc(r) + '</span></button>').join('') + '</div>';
+      // Like the Home app's buttons along the top: a capsule with a filled icon, the room and what's on.
+      const inR = (r, d) => r === 'All' || d.room === r || (r === 'Other' && !d.room);
+      const roomLine = (r) => {
+        const devs = data.devices.filter((d) => inR(r, d) && !isReadingDevice(d) && !isHidden(d));
+        const n = devs.filter((d) => d.online && hasToggle(d) && isOn(d)).length;
+        return n ? n + ' on' : devs.length ? 'All off' : 'No devices';
+      };
+      html += '<div class="room-pills" role="group" aria-label="Rooms">' + rooms.map((r) =>
+        '<button class="room-pill" data-act="room" data-room="' + esc(r) + '" data-key="room-' + esc(r) + '" aria-pressed="' + (r === S.room) + '" aria-label="' + esc(r + ', ' + roomLine(r)) + '">' +
+        '<span class="room-ico">' + roomGlyph(roomIcon(r), 18) + '</span><span class="room-txt"><span class="room-name">' + esc(r) + '</span><span class="room-sub">' + esc(roomLine(r)) + '</span></span></button>').join('') + '</div>';
     }
     if (!data.devices.length) {
       return html + '</div><div class="dv-scroll"><div class="empty"><strong>No devices found</strong><p>Link your Tuya app account to your cloud project (see the README), then tap Refresh in Me.</p></div></div>';
     }
     const readings = shown.filter(isReadingDevice);
-    const cards = sortByOrder(shown.filter((d) => !isReadingDevice(d)), data.homeId);
+    const allCards = sortByOrder(shown.filter((d) => !isReadingDevice(d)), data.homeId);
+    const hiddenN = allCards.filter(isHidden).length;
+    const cards = S.reorder ? allCards : allCards.filter((d) => !isHidden(d));
     if (readings.length) html += climateSummaries(readings);
     if (cards.length) {
-      const arrange = cards.length > 1
+      const arrange = allCards.length > 0
         ? '<button class="icon-btn arrange-btn' + (S.reorder ? ' on' : '') + '" data-act="reorder" data-key="reorder" aria-pressed="' + S.reorder + '"' +
           ' aria-label="' + (S.reorder ? 'Done arranging' : 'Arrange devices') + '" title="' + (S.reorder ? 'Done' : 'Arrange devices') + '">' + icon(S.reorder ? 'check' : 'arrange', 20) + '</button>' : '';
       html += '<div class="section-head"><h2>Devices</h2><span class="section-count">' + cards.length + '</span>' + arrange + (S.reorder ? '' : allOffButton()) + '</div>';
-      if (S.reorder) html += '<p class="reorder-hint">Drag the handles to move devices, then tap ✓. With a keyboard, focus a handle and use the arrow keys.</p>';
-      html += '</div><div class="dv-scroll" data-scroll="devices"><div class="grid' + (S.reorder ? ' reordering' : '') + '">' + cards.map((d) => deviceCard(d, selectedId)).join('') + '</div></div>';
+      if (S.reorder) html += '<p class="reorder-hint">Drag the handles to move devices. Tap the eye to hide a device from Home' + (hiddenN ? ' (' + hiddenN + ' hidden)' : '') + '. Tap ✓ when you\'re done.</p>';
+      else if (hiddenN) html += '<p class="hidden-hint"><button class="link-btn" data-act="reorder" data-key="hidden-hint">' + hiddenN + ' hidden ' + (hiddenN === 1 ? 'device' : 'devices') + '</button></p>';
+      // Inside a room, devices are grouped like the Home app: Climate, Lights, Shades, Security,
+      // Speakers & TVs, Switches & Outlets. "All" (and Arrange, which drags across the whole list) stays one grid.
+      const grouped = S.room && S.room !== 'All' && !S.reorder;
+      const gridHtml = grouped
+        ? catGroups(cards).map(([name, list]) => '<section class="cat" data-key="cat-' + esc(name) + '" aria-label="' + esc(name) + '"><h3 class="cat-head">' + esc(name) + '</h3><div class="grid">' + list.map((d) => deviceCard(d, selectedId)).join('') + '</div></section>').join('')
+        : '<div class="grid' + (S.reorder ? ' reordering' : '') + '">' + cards.map((d) => deviceCard(d, selectedId)).join('') + '</div>';
+      html += '</div><div class="dv-scroll' + (grouped ? ' grouped' : '') + '" data-scroll="devices">' + gridHtml + '</div>';
       return html;
     }
     html += '</div><div class="dv-scroll">' + (readings.length ? '' : '<div class="empty"><strong>Nothing in this room</strong><p>Assign devices to rooms in the Tuya app.</p></div>') + '</div>';
@@ -3211,15 +3560,16 @@
       hero += acPage(d, sfx);
     } else if (k === 'cover') {
       const p = st.percent_control ?? st.percent_state;
-      hero += '<div class="stack-center"><span class="big" data-live="cover-' + esc(d.id) + '">' + (typeof p === 'number' ? p + '%' : '–') + '</span><span class="big-label">Open</span></div>';
+      hero += '<div class="stack-center"><span class="big" data-live="cover-' + esc(d.id) + '">' + (typeof p === 'number' ? p + '%' : '–') + '</span><span class="big-label">' + esc(coverMotion(d) ? coverStatus(d) : 'Open') + '</span></div>';
       if ('percent_control' in st) hero += rangeControl('cover-' + d.id + sfx, 'Position', p || 0, 0, 100, 'Closed', 'Open', 'coverpos', d.id);
-      if ('control' in st) {
-        hero += '<div class="seg" style="--n:3" role="group" aria-label="Move">' + [['open', 'Open'], ['stop', 'Stop'], ['close', 'Close']].map(([v, n]) =>
-          '<button class="chip soft" data-act="cover" data-id="' + esc(d.id) + '" data-val="' + v + '" data-key="cov-' + v + sfx + '">' + n + '</button>').join('') + '</div>';
+      if ('control' in st || 'percent_control' in st) {
+        hero += '<div class="cov-row" role="group" aria-label="Move">' + coverButtons(d, sfx) + '</div>';
       }
     } else if (k === 'fan' && typeof st.fan_speed_percent === 'number') {
       hero += '<div class="stack-center"><span class="big" data-live="fan-' + esc(d.id) + '">' + st.fan_speed_percent + '%</span><span class="big-label">Fan speed</span></div>' +
         rangeControl('fan-' + d.id + sfx, 'Fan speed', st.fan_speed_percent, 1, 100, 'Slow', 'Fast', 'fanspeed', d.id);
+    } else if (k === 'sensor' && isAirDevice(d) && d.online) {
+      hero += airPanel(d);
     } else if (k === 'sensor') {
       hero += '<div class="stack-center"><span class="big mid">' + esc(sensorReading(d)) + '</span><span class="big-label">Current reading</span></div>';
     } else if (k === 'camera') {
@@ -3248,10 +3598,17 @@
     if (hasToggle(d) && !heroHasPower && !qk) {
       rows.push('<div class="list-row"><span class="label">Power</span>' + switchBtn(d, sfx) + '</div>');
     }
-    if (k === 'sensor') {
+    if (k === 'sensor' && qk !== 'air') {
       const tt = scaled(d, 'va_temperature', true), hh = scaled(d, 'va_humidity', false);
       if (tt != null) rows.push('<div class="list-row"><span class="label">Temperature</span><span class="value">' + fmtReading(tt) + '</span></div>');
       if (hh != null) rows.push('<div class="list-row"><span class="label">Humidity</span><span class="value">' + Math.round(hh) + '%</span></div>');
+    }
+    if (isBreaker(d) && d.online) {
+      const el = elecOf(d), faults = faultsOf(d);
+      rows.push('<div class="list-row"><span class="label">Alarms</span><span class="value' + (faults.length ? ' batt-low' : '') + '">' + (faults.length ? esc(faults.join(', ')) : 'None') + '</span></div>');
+      if (el.kwh != null) rows.push('<div class="list-row"><span class="label">Energy used (total)</span><span class="value">' + fmtKwh(el.kwh) + '</span></div>');
+      if (el.leak != null) rows.push('<div class="list-row"><span class="label">Leakage current</span><span class="value">' + el.leak + ' mA</span></div>');
+      if (el.temp != null) rows.push('<div class="list-row"><span class="label">Temperature</span><span class="value">' + fmtReading(el.temp) + '</span></div>');
     }
     const batt = batteryInfo(d);
     if (batt) rows.push('<div class="list-row"><span class="label">Battery</span><span class="value' + (batt.low ? ' batt-low' : '') + '">' + batteryGlyph(batt) + batt.text + '</span></div>');
@@ -3487,7 +3844,8 @@
           (!canEdit() ? '' : '<button class="scene-edit edit-btn" data-act="scene-open" data-id="' + esc(s.id) + '" data-key="scene-edit-' + esc(s.id) + '" aria-label="Edit ' + esc(s.name) + '">' + icon('pencil', 16) + '</button>') + '</div>';
       }).join('') + '</div>';
     }
-    if (withAutomations) html += '<div class="section-head" style="margin-top:28px"><h2>Automations</h2>' + newAutoButton() + '</div>' + automationsList();
+    if (withAutomations) html += '<div class="auto-head"><h2 class="auto-h">Automation</h2>' + (canEdit() ? '<button class="round-add" data-act="auto-new" data-key="auto-new" aria-label="New automation">' + icon('plus', 22) + '</button>' : '') + '</div>' +
+      '<p class="auto-lede">Have your accessories react to changes at home.</p>' + automationsList();
     return html;
   }
 
@@ -3726,6 +4084,9 @@
       '<div><p class="sub">' + (auto ? 'Automation' : 'Tap-to-run scene') + '</p><h1 class="detail-title">' + (E.id ? 'Edit ' + noun : 'New ' + noun) + '</h1></div></div>';
     html += '<div class="field"><label for="se-name">' + (auto ? 'Automation name' : 'Scene name') + '</label><input id="se-name" maxlength="40" autocomplete="off" placeholder="' +
       (auto ? 'For example, Hall light when the door opens' : 'For example, Movie night') + '" value="' + esc(E.name) + '" data-act="se-name" data-key="se-name"></div>';
+    const live = auto && E.id && S.data && S.data.automations.find((x) => x.id === E.id);
+    if (live) html = html.replace('<div class="field"><label for="se-name">', '<div class="list se-enable"><div class="list-row"><span class="label">Enable this automation</span>' +
+      '<button class="switch" role="switch" aria-checked="' + live.enabled + '" aria-label="Enable this automation" data-act="auto" data-id="' + esc(live.id) + '" data-key="auto-en-' + esc(live.id) + '"><span class="knob"></span></button></div></div><div class="field"><label for="se-name">');
     if (auto) html += conditionsSection(E);
     html += '<h2 class="section-title">' + (auto ? 'Then' : 'Actions') + '</h2>';
     if (!E.items.length && !E.picking) html += '<div class="empty"><strong>No actions yet</strong><p>Add the devices this ' + noun + ' should control.</p></div>';
@@ -4081,15 +4442,66 @@
     }
   }
 
+  // Like the Home app's Automation tab: one grouped card, a row per automation. A round trigger icon,
+  // an arrow, the icons of the devices it controls (in colour when it turns them on, grey when off),
+  // the trigger as the title, and "Disabled" or what it controls underneath. Tap a row to edit it.
+  const AUTO_TRIG = {
+    clock: '<circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M12 6.5V12H8" fill="none" stroke="#1c1c1e" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
+    sun: '<circle cx="12" cy="12" r="10" fill="currentColor"/><circle cx="12" cy="12" r="3.4" fill="#1c1c1e"/><path d="M12 5.2v1.6M12 17.2v1.6M5.2 12h1.6M17.2 12h1.6M7.2 7.2l1.1 1.1M15.7 15.7l1.1 1.1M7.2 16.8l1.1-1.1M15.7 8.3l1.1-1.1" stroke="#1c1c1e" stroke-width="1.8" stroke-linecap="round"/>',
+    cloud: '<circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M8.6 15.6h7a2.6 2.6 0 0 0 .3-5.2 3.6 3.6 0 0 0-6.9-.8 2.9 2.9 0 0 0-.4 6Z" fill="#1c1c1e"/>',
+    bolt: '<circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M13 5.5 7.8 13h3.6l-.6 5.5L16.2 11h-3.6Z" fill="#1c1c1e"/>'
+  };
+  function autoTitle(x) {
+    const c = (x.conditions || [])[0];
+    if (!c) return x.name;
+    const t = Number(c.entity_type), disp = c.display || {};
+    const many = (x.conditions || []).length > 1 ? ' + ' + ((x.conditions || []).length - 1) + ' more' : '';
+    if (t === 6) {
+      const days = isOnceTimer(disp) ? datePhrase(disp.date) : daysPhrase(disp.loops).replace(/^Every day$/i, 'Daily');
+      return clockPhrase(disp.time) + ', ' + days + many;
+    }
+    if (t === 3 && /sun/.test(String(disp.code || ''))) {
+      const ph = weatherPhrase(disp);
+      return (/rise/i.test(ph) ? 'Sunrise' : 'Sunset') + (/before|after/i.test(ph) ? ' (' + ph.replace(/^.*?(\d+\s*min\w*\s*(before|after)).*$/i, '$1') + ')' : '') + ', Daily' + many;
+    }
+    const ph = conditionPhrase(c);
+    return (ph.charAt(0).toUpperCase() + ph.slice(1)) + many;
+  }
+  function autoTrigIcon(x) {
+    const c = (x.conditions || [])[0], t = c ? Number(c.entity_type) : 0, disp = (c && c.display) || {};
+    if (t === 6) return '<span class="at-trig">' + '<svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true">' + AUTO_TRIG.clock + '</svg></span>';
+    if (t === 3) return '<span class="at-trig">' + '<svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true">' + (/sun/.test(String(disp.code || '')) ? AUTO_TRIG.clock : AUTO_TRIG.cloud) + '</svg></span>';
+    const d = c && findDevice(c.entity_id);
+    if (d) return '<span class="at-trig at-dev hue-' + hueOf(d) + '">' + (photoOf(d) ? '<span class="at-photo">' + photoImg(photoOf(d)) + '</span>' : glyph(iconKeyOf(d), 30)) + '</span>';
+    return '<span class="at-trig"><svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true">' + AUTO_TRIG.bolt + '</svg></span>';
+  }
+  function autoTargets(x) {
+    const out = [];
+    (x.actions || []).forEach((a) => {
+      const d = a.entity_id ? findDevice(a.entity_id) : null;
+      if (!d || out.some((o) => o.d === d)) return;
+      const vals = Object.values(a.executor_property || {});
+      const off = vals.length > 0 && vals.every((v) => v === false || v === 'close' || v === 'off') || 'PowerOff' in (a.executor_property || {});
+      out.push({ d, on: !off });
+    });
+    return out;
+  }
   function automationsList() {
     const a = S.data ? S.data.automations : [];
-    if (!a.length) return '<div class="empty"><strong>No automations yet</strong><p>' + (canEdit() ? 'Tap New automation to make one, like turning on a light when a door opens. ' : '') + 'Automations from the Tuya app show up here too.</p></div>';
-    return '<div class="list">' + a.map((x) =>
-      '<div class="list-row auto-row' + (x.enabled ? '' : ' auto-off') + '"><span class="auto-text"><span class="label">' + esc(x.name) + '</span>' +
-      (automationPhrase(x) ? '<span class="auto-sum">' + esc(automationPhrase(x)) + '</span>' : '') + '</span><span class="user-actions">' +
-      (canEdit() ? '<button class="edit-btn" data-act="auto-open" data-id="' + esc(x.id) + '" data-key="auto-edit-' + esc(x.id) + '" aria-label="Edit ' + esc(x.name) + '">' + icon('pencil', 16) + '</button>' : '') +
-      '<button class="switch" role="switch" aria-checked="' + x.enabled + '" aria-label="' + esc(x.name) + '" data-act="auto" data-id="' + esc(x.id) + '" data-key="auto-' + esc(x.id) + '"><span class="knob"></span></button></span></div>'
-    ).join('') + '</div>';
+    if (!a.length) return '<div class="empty"><strong>No automations yet</strong><p>' + (canEdit() ? 'Tap + to make one, like turning on a light when a door opens. ' : '') + 'Automations from the Tuya app show up here too.</p></div>';
+    return '<div class="auto-card">' + a.map((x) => {
+      const tg = autoTargets(x), shown = tg.slice(0, 5);
+      const sub = !x.enabled ? 'Disabled' : tg.length === 1 ? tg[0].d.name : tg.length ? tg.length + ' accessories' : (x.actions || []).length + ' actions';
+      const title = autoTitle(x);
+      const inner = '<span class="at-icons" aria-hidden="true">' + autoTrigIcon(x) + '<span class="at-arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13.5 6.5 19 12l-5.5 5.5"/></svg></span>' +
+          shown.map((o) => '<span class="at-dev-ico' + (o.on ? ' on hue-' + hueOf(o.d) : '') + '">' + (photoOf(o.d) ? '<span class="at-photo">' + photoImg(photoOf(o.d)) + '</span>' : glyph(iconKeyOf(o.d), 26)) + '</span>').join('') +
+          (tg.length > shown.length ? '<span class="at-more">+' + (tg.length - shown.length) + '</span>' : '') + '</span>' +
+        '<span class="at-title">' + esc(title) + '</span><span class="at-sub">' + esc(sub) + '</span>';
+      const label = esc(x.name + ': ' + title + ', ' + sub);
+      return canEdit()
+        ? '<button class="at-row' + (x.enabled ? '' : ' off') + '" data-act="auto-open" data-id="' + esc(x.id) + '" data-key="auto-row-' + esc(x.id) + '" aria-label="' + label + '">' + inner + '<span class="at-chev">' + icon('chevron', 18) + '</span></button>'
+        : '<div class="at-row' + (x.enabled ? '' : ' off') + '" role="group" aria-label="' + label + '">' + inner + '</div>';
+    }).join('') + '</div>';
   }
 
   function newAutoButton() {
@@ -4346,8 +4758,8 @@
     if (!kRoomList.includes(S.kRoom)) S.kRoom = 'All';
     const inRoom = (d) => S.kRoom === 'All' || (S.kRoom === 'Other' ? !d.room : d.room === S.kRoom);
     const readings = data.devices.filter((d) => isReadingDevice(d) && inRoom(d));
-    const acs = sortByOrder(data.devices.filter((d) => isKioskAc(d) && inRoom(d)), data.homeId);
-    const devices = sortByOrder(data.devices.filter((d) => !isReadingDevice(d) && !isKioskAc(d) && hasToggle(d) && !d.ir && inRoom(d)), data.homeId).slice(0, 12);
+    const acs = sortByOrder(data.devices.filter((d) => isKioskAc(d) && inRoom(d) && !isHidden(d)), data.homeId);
+    const devices = sortByOrder(data.devices.filter((d) => !isReadingDevice(d) && !isKioskAc(d) && hasToggle(d) && !d.ir && inRoom(d) && !isHidden(d)), data.homeId).slice(0, 12);
     const scenes = data.scenes || [];
     const w = S.weather;
     const wx = w && w.available && w.homeId === data.homeId && w.unit === S.tempUnit
@@ -4371,7 +4783,7 @@
     }
     if (kRoomList.length > 2) {
       html += '<div class="k-rooms" role="group" aria-label="Rooms">' + kRoomList.map((r) =>
-        '<button class="k-room" data-act="kroom" data-room="' + esc(r) + '" data-key="kr-' + esc(r) + '" aria-pressed="' + (r === S.kRoom) + '">' + esc(r === 'All' ? 'All rooms' : r) + '</button>').join('') + '</div>';
+        '<button class="k-room" data-act="kroom" data-room="' + esc(r) + '" data-key="kr-' + esc(r) + '" aria-pressed="' + (r === S.kRoom) + '">' + roomGlyph(roomIcon(r), 14) + '<span>' + esc(r === 'All' ? 'All rooms' : r) + '</span></button>').join('') + '</div>';
     }
     // Widgets: sensors (small), air conditioners (large) and device controls (small), packed tightly.
     html += '<div class="k-grid" role="group" aria-label="' + esc(S.kRoom === 'All' ? 'Home' : S.kRoom) + '">' +
@@ -4594,11 +5006,13 @@
   }
 
   function keypad() {
-    const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'];
+    const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', ''];   // like the iPhone: 0 alone; Delete is text below
+    const ABC = { 2: 'ABC', 3: 'DEF', 4: 'GHI', 5: 'JKL', 6: 'MNO', 7: 'PQRS', 8: 'TUV', 9: 'WXYZ' };
     return '<div class="keypad" role="group" aria-label="PIN keypad">' + keys.map((k) => {
       if (!k) return '<span></span>';
-      if (k === 'del') return '<button type="button" class="key key-del" data-act="pin-del" data-key="pin-del" aria-label="Delete last digit"' + (S.pinBusy ? ' disabled' : '') + '>' + icon('back', 24) + '</button>';
-      return '<button type="button" class="key" data-act="pin-digit" data-d="' + k + '" data-key="pin-' + k + '"' + (S.pinBusy ? ' disabled' : '') + '>' + k + '</button>';
+      if (k === 'del') return '<button type="button" class="key key-del" data-act="pin-del" data-key="pin-del" aria-label="Delete last digit"' + (S.pinBusy || !S.pinEntry.length ? ' disabled' : '') + '>' +
+        '<svg width="30" height="24" viewBox="0 0 30 24" aria-hidden="true"><path d="M10 3.5h15a3 3 0 0 1 3 3v11a3 3 0 0 1-3 3H10a2 2 0 0 1-1.5-.7L2.6 13.3a2 2 0 0 1 0-2.6l5.9-6.5A2 2 0 0 1 10 3.5Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14 9l6 6m0-6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>';
+      return '<button type="button" class="key" data-act="pin-digit" data-d="' + k + '" data-key="pin-' + k + '" aria-label="' + k + '"' + (S.pinBusy ? ' disabled' : '') + '><span class="key-n">' + k + '</span><span class="key-abc" aria-hidden="true">' + (ABC[k] || '') + '</span></button>';
     }).join('') + '</div>';
   }
 
@@ -4611,19 +5025,23 @@
     const sub = unlocking ? (S.pinBusy ? 'Checking…' : 'Unlock Home')
       : S.pinStage === 'confirm' ? 'Enter the same PIN again.' : PIN_MIN + ' to ' + PIN_MAX + ' digits. You\'ll use it instead of your password on this device.';
     const canContinue = !unlocking && S.pinStage === 'enter' && S.pinEntry.length >= PIN_MIN;
-    return '<div class="gate"><div class="gate-box pin-box">' +
-      '<span class="gate-mark"><img src="/icons/logo.webp" alt="" width="64" height="64" draggable="false"></span>' +
-      '<h1 class="title">' + title + '</h1><p>' + esc(sub) + '</p>' +
-      '<div class="pin-dots" aria-hidden="true">' + dots + '</div>' +
+    // Laid out like the iPhone lock screen: title and rings up top, the glass keypad lower down,
+    // and plain text buttons in the bottom corners.
+    const left = unlocking
+      ? '<button class="pin-text" type="button" data-act="pin-forgot" data-key="pin-forgot">Use Password</button>'
+      : '<button class="pin-text" type="button" data-act="pin-cancel" data-key="pin-cancel">Cancel</button>';
+    const right = S.pinEntry.length && !S.pinBusy
+      ? '<button class="pin-text" type="button" data-act="pin-del" data-key="pin-del">Delete</button>'
+      : '<span class="pin-text"></span>';
+    return '<div class="gate gate-pin"><div class="gate-box pin-box ios-pin">' +
+      '<div class="pin-top"><h1 class="pin-title">' + title + '</h1>' +
+      (unlocking ? '<p class="sr-only">' + esc(sub) + '</p>' : '<p class="pin-sub">' + esc(sub) + '</p>') +
+      '<div class="pin-dots' + (S.pinError ? ' shake' : '') + '" aria-hidden="true">' + dots + '</div>' +
       '<p class="sr-only" aria-live="polite">' + S.pinEntry.length + ' digits entered</p>' +
-      (S.pinError ? '<p class="error" role="alert">' + esc(S.pinError) + '</p>' : '') +
+      (S.pinError ? '<p class="pin-err" role="alert">' + esc(S.pinError) + '</p>' : '') +
+      (canContinue ? '<button class="pin-continue" type="button" data-act="pin-next" data-key="pin-next">Continue</button>' : '') + '</div>' +
       keypad() +
-      (unlocking
-        ? '<button class="btn ghost" type="button" data-act="pin-forgot" data-key="pin-forgot">Use password instead</button>'
-        : '<div class="pin-actions">' +
-          '<button class="btn ghost" type="button" data-act="pin-cancel" data-key="pin-cancel">Cancel</button>' +
-          (S.pinStage === 'enter' ? '<button class="btn" type="button" data-act="pin-next" data-key="pin-next"' + (canContinue ? '' : ' disabled') + '>Continue</button>' : '') +
-          '</div>') +
+      '<div class="pin-bottom">' + left + right + '</div>' +
       '</div></div>';
   }
 
@@ -4734,10 +5152,15 @@
     const rowScroll = {};   // sideways rows (AC modes) keep their position across redraws
     document.querySelectorAll('.ka-icons[data-key]').forEach((n) => { rowScroll[n.dataset.key] = n.scrollLeft; });
 
+    // Demo only: /?demo&pinpreview shows the PIN screen (for screenshots; nothing is saved).
+    if (!S.pinPreviewed && S.mode === 'demo' && S.data && /[?&]pinpreview\b/.test(location.search)) { S.pinPreviewed = true; S.gate = 'pin-new'; S.pinStage = 'enter'; S.pinEntry = ''; S.pinError = ''; }
     if (S.gate) {
+      // The same lock screen is patched in place (the keypad stays put between presses, so a key's glow
+      // finishes and the entrance plays once); a different screen is built fresh.
+      const fresh = shell || app._gate !== S.gate;
       shell = null;
       app.className = '';
-      app.innerHTML = gateView();
+      if (fresh) { app._gate = S.gate; setHtml(app, gateView()); } else patchHtml(app, gateView());
       const pw = $('#pw');
       if (pw && (!focusKey || focusKey === 'pw')) pw.focus();
       else if (focusKey) {
@@ -4813,7 +5236,8 @@
     if (render.lastView !== r.view + (r.id || '')) { document.documentElement.classList.remove('tab-min'); render.lastView = r.view + (r.id || ''); }
     if (r.view !== 'kiosk' && kiosk.on) kioskStop();
     document.documentElement.classList.toggle('in-editor', r.view === 'scene-edit' || r.view === 'auto-edit');
-    shell.app.className = 'app' + (panelHtml == null ? ' no-panel' : '');
+    const appCls = 'app' + (panelHtml == null ? ' no-panel' : '');
+    if (shell.app.className !== appCls) shell.app.className = appCls;
     patchHtml(shell.rail, '<span class="mark" aria-hidden="true"><img src="/icons/logo.webp" alt="" width="48" height="48" draggable="false"></span>' + tabs(activeTab), true);
     const tabHtml = tabs(activeTab);
     if (shell.tabbar._html !== tabHtml) {
@@ -4867,11 +5291,14 @@
     if (roomFade) {
       const n = document.querySelector(roomFade); roomFade = null;
       if (n && n.animate && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        n.animate([{ opacity: 0, transform: 'translateY(8px) scale(.985)' }, { opacity: 1, transform: 'none' }], { duration: 280, easing: 'cubic-bezier(.25, .9, .35, 1)' });
+        // Into a room the list slides in from the side (back to All it comes from the other side), like opening a room in Home.
+        const from = roomDir ? 'translateX(' + (roomDir * 28) + 'px)' : 'translateY(8px) scale(.985)';
+        n.animate([{ opacity: 0, transform: from }, { opacity: 1, transform: 'none' }], { duration: 340, easing: 'cubic-bezier(.22, 1, .36, 1)' });
+        roomDir = 0;
       }
     }
   }
-  let roomFade = null;
+  let roomFade = null, roomDir = 0;
   function restoreRows(saved) {
     document.querySelectorAll('.ka-icons[data-key]').forEach((n) => {
       if (n.scrollWidth <= n.clientWidth + 1) return;
@@ -4924,11 +5351,12 @@
 
     switch (act) {
       case 'tab': if (inEditor() && editorDirty()) leaveEditor(el.dataset.tab); else go(el.dataset.tab); break;
-      case 'room': if (S.room !== el.dataset.room) roomFade = '.dv-scroll'; S.room = el.dataset.room; S.allOffArmed = 0; render(); break;
+      case 'room': if (S.room !== el.dataset.room) { roomFade = '.dv-scroll'; roomDir = el.dataset.room === 'All' ? -1 : 1; } S.room = el.dataset.room; S.allOffArmed = 0; render(); { const pl = document.querySelector('.room-pill[aria-pressed="true"]'); if (pl) pl.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' }); } break;
       case 'kroom': if (S.kRoom !== el.dataset.room) roomFade = '.k-grid'; S.kRoom = el.dataset.room; store.set('kRoom', S.kRoom); render(); break;
       case 'open': go('device/' + encodeURIComponent(id)); break;
       case 'back': go('devices'); break;
       case 'reorder': S.reorder = !S.reorder; render(); break;
+      case 'hide-toggle': { const hd = findDevice(id); if (hd) { const h = !isHidden(hd); setHidden(id, h); render(); toast(h ? hd.name + ' hidden from Home' : hd.name + ' is back on Home'); } break; }
       case 'kiosk-enter': kioskStart(); break;
       case 'kiosk-wake': kiosk.wokeUntil = Date.now() + 60000; kioskTick(); break;
       case 'toggle': {
@@ -5018,7 +5446,7 @@
         send(d, cmds, patch);
         break;
       }
-      case 'cover': if (d) send(d, [{ code: 'control', value: el.dataset.val }], { control: el.dataset.val }); break;
+      case 'cover': if (d) coverCmd(d, el.dataset.val); break;
       case 'rename':
         S.renaming = { id, code: el.dataset.code };
         render();
@@ -5296,6 +5724,7 @@
       send(d, cmds, Object.fromEntries(cmds.map((c) => [c.code, c.value])));
     } else if (act === 'coverpos' && d) {
       send(d, [{ code: 'percent_control', value: Number(el.value) }], { percent_control: Number(el.value) });
+      coverGo(d, Number(el.value), 'pos');
     } else if (act === 'irwindr' && d && d.ir) {
       S.dragging = false;
       sendIrAc(d, { power: true, wind: clamp(Number(el.value), 1, 3) });
@@ -5810,6 +6239,8 @@
         { id: 'dev8', name: 'Bedside lamp', category: 'dj', product: 'Smart bulb', online: true, room: 'Bedroom', status: { switch_led: false, work_mode: 'white', bright_value_v2: 300, temp_value_v2: 0 } },
         { id: 'dev11', name: 'Donut Lamp', category: 'kg', product: '2-gang switch', online: true, room: 'Living room', status: { switch_1: true, switch_2: false } },
         { id: 'dev12', name: 'Desk power strip', category: 'pc', product: 'Power strip with USB', online: true, room: 'Bedroom', status: { switch_1: true, switch_2: true, switch_3: false, switch_usb1: true, cur_power: 865, cur_voltage: 2298, cur_current: 380, add_ele: 0 } },
+        { id: 'dev20', name: 'Air monitor', category: 'hjjcy', product: 'Air quality monitor', online: true, room: 'Living room', status: { pm25_value: 18, pm10_value: 31, co2_value: 712, ch2o_value: 12, voc_value: 85, va_temperature: 263, va_humidity: 58, battery_percentage: 76 } },
+        { id: 'dev21', name: 'Main breaker', category: 'dlq', product: 'Smart circuit breaker', online: true, room: 'Other', status: { switch: true, phase_a: 'CPEABfAAAWg=', total_forward_energy: 128473, leakage_current: 2, temp_current: 34, fault: 0 } },
         { id: 'dev4', name: 'Kettle plug', category: 'cz', product: 'Smart plug with energy monitoring', online: true, room: 'Kitchen', status: { switch_1: false, cur_power: 0, cur_voltage: 2301, cur_current: 0, add_ele: 0 } },
         { id: 'dev5', name: 'Front door', category: 'mcs', product: 'Door sensor', online: true, room: 'Hallway', status: { doorcontact_state: false, battery_percentage: 86 } },
         { id: 'dev6', name: 'Porch camera', category: 'sp', product: 'Outdoor camera', online: true, room: 'Hallway', status: {} },
@@ -5857,6 +6288,8 @@
       wsdcg: { va_temperature: { scale: 1 }, va_humidity: { scale: 0 } },
       cl: { percent_control: { min: 0, max: 100, scale: 0, step: 1 } },
       cz: { cur_power: { scale: 1 }, cur_voltage: { scale: 1 }, cur_current: { scale: 0 } },
+      hjjcy: { va_temperature: { scale: 1 }, va_humidity: { scale: 0 }, ch2o_value: { scale: 3 }, voc_value: { scale: 3 } },
+      dlq: { total_forward_energy: { scale: 2 }, temp_current: { scale: 0 }, fault: { label: ['short_circuit_alarm', 'surge_alarm', 'overload_alarm', 'leakagecurr_alarm', 'temp_dif_fault', 'fire_alarm', 'high_power_alarm', 'self_test_alarm', 'ov_cr', 'unbalance_alarm', 'ov_vol', 'undervoltage_alarm'] } },
       pc: { cur_power: { scale: 1 }, cur_voltage: { scale: 1 }, cur_current: { scale: 0 } }
     };
     const names = { dev12: { switch_1: 'Monitor', switch_2: 'Laptop charger' } };
@@ -5903,7 +6336,16 @@
         if ('cur_power' in dev.status) dev.status.cur_power = dev.id === 'dev4' ? (dev.status.switch_1 ? 21540 : 0) : dev.status.cur_power;
         if (dev.status.control === 'open') dev.status.percent_control = 100;
         if (dev.status.control === 'close') dev.status.percent_control = 0;
-        if ('percent_control' in dev.status) dev.status.percent_state = dev.status.percent_control;
+        if ('percent_control' in dev.status && 'percent_state' in dev.status) {
+          // A sample motor: moves 10% a second towards the target; Stop halts it where it is.
+          clearInterval(dev._mv);
+          if (dev.status.control === 'stop' && b.commands.some((c) => c.code === 'control')) dev.status.percent_control = dev.status.percent_state;
+          else dev._mv = setInterval(() => {
+            const t = dev.status.percent_control, c = dev.status.percent_state;
+            if (c === t) { clearInterval(dev._mv); return; }
+            dev.status.percent_state = c + Math.sign(t - c) * Math.min(10, Math.abs(t - c));
+          }, 1000);
+        } else if ('percent_control' in dev.status) dev.status.percent_state = dev.status.percent_control;
         return { ok: true };
       }
       if (path.startsWith('ir?')) {

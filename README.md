@@ -19,11 +19,18 @@
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/phone-home.webp" width="19%" alt="Devices on a phone, light mode">
-  <img src="docs/screenshots/phone-home-dark.webp" width="19%" alt="Devices on a phone, dark mode">
-  <img src="docs/screenshots/phone-color.webp" width="19%" alt="Colour wheel for a light strip">
-  <img src="docs/screenshots/phone-ac.webp" width="19%" alt="Air conditioner controls">
-  <img src="docs/screenshots/phone-scenes.webp" width="19%" alt="Scenes and automations">
+  <img src="docs/screenshots/phone-home.webp" width="19%" alt="Home on a phone, light mode: room capsules, climate and air quality chips, device tiles">
+  <img src="docs/screenshots/phone-home-dark.webp" width="19%" alt="Home on a phone, dark mode">
+  <img src="docs/screenshots/phone-room.webp" width="19%" alt="A room's devices grouped into Climate, Lights, Shades and Switches & Outlets">
+  <img src="docs/screenshots/phone-light.webp" width="19%" alt="Full-screen light control: a brightness pill filled with the light's colour, with colour circles below">
+  <img src="docs/screenshots/phone-ac.webp" width="19%" alt="Air conditioner thermostat dial with mode buttons">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/phone-remote.webp" width="19%" alt="TV remote with power, menu, volume and channel rockers, a direction pad, and Number and More buttons">
+  <img src="docs/screenshots/phone-air.webp" width="19%" alt="Air quality monitor with an AQI ring and a tile for each reading">
+  <img src="docs/screenshots/phone-blind.webp" width="19%" alt="Roller blind control with slatted fabric and Open, Stop and Close buttons">
+  <img src="docs/screenshots/phone-scenes.webp" width="19%" alt="Scenes and the automation list with trigger and device icons">
 </p>
 
 <p align="center">
@@ -40,12 +47,16 @@
 
 <table>
   <tr>
-    <td align="center" width="50%"><img src="docs/gifs/quick.gif" width="270" alt="Long-pressing a plug opens a tall switch whose knob slides up and fills orange; long-pressing a light opens a brightness pill that fills as you drag"><br><sub><b>Long-press a tile</b> for a quick control: a sliding switch, or a brightness pill for dimmable lights</sub></td>
+    <td align="center" width="50%"><img src="docs/gifs/quick.gif" width="260" alt="Long-pressing a plug opens a tall switch whose knob slides up; long-pressing a light opens a brightness pill that fills as you drag"><br><sub><b>Long-press a tile</b> for a quick control: a sliding switch, or a brightness pill for dimmable lights</sub></td>
     <td align="center" width="50%"><img src="docs/gifs/thermo.gif" width="320" alt="Dragging the thermostat arc from 24 to 27 degrees, then switching between heat, auto and cool"><br><sub><b>Thermostat</b>: drag the arc; the colour follows the mode</sub></td>
   </tr>
   <tr>
+    <td align="center"><img src="docs/gifs/rooms.gif" width="300" alt="Tapping room capsules: each room's devices slide in, grouped under Climate, Lights and other headings"><br><sub><b>Rooms</b>: tap a room to see its devices grouped like the Home app</sub></td>
+    <td align="center"><img src="docs/gifs/blind.gif" width="280" alt="A roller blind closing, stopping halfway, then opening, with the slatted fabric following its real position"><br><sub><b>Blinds</b>: the fabric follows the motor; Open, Stop and Close below</sub></td>
+  </tr>
+  <tr>
     <td align="center"><img src="docs/gifs/tiles.gif" width="340" alt="Tiles lighting up and dimming as devices are switched on and off"><br><sub><b>Switching</b> lights up the tile and fills the icon with colour</sub></td>
-    <td align="center"><img src="docs/gifs/tabs.gif" width="340" alt="The glass capsule of the tab bar gliding between tabs"><br><sub><b>Tab bar</b>: the glass capsule glides between tabs</sub></td>
+    <td align="center"><img src="docs/gifs/tabs.gif" width="340" alt="The tab bar's capsule lifting into a clear glass lens and gliding between tabs"><br><sub><b>Tab bar</b>: the capsule lifts into a glass lens and glides between tabs</sub></td>
   </tr>
 </table>
 
@@ -83,9 +94,16 @@
 - Custom device icons in Me → Device icons (synced when the database is set up)
 - Arrange device cards: tap the **arrows** button above the cards, drag the handles, tap **✓** (saved per home, synced when the database is set up)
 - Home app-style tiles: solid icons coloured by kind of device, thermostat tiles with the temperature in large numbers, and a long press for a quick control.
+- Rooms as Home app-style capsules with filled room icons and live "3 on" counts; inside a room, devices are grouped under Climate, Lights, Shades, Security, Speakers & TVs and Switches & Outlets
+- Full-screen device controls on phones, like the Home app: brightness pills, outlet pills, a thermostat dial, a TV remote, an air quality ring and a roller blind you drag; the gear opens the device's settings
+- Air quality monitors: an AQI chip on Home (worked out from PM2.5/PM10 when the monitor doesn't give one) and every reading on the monitor's page
+- Smart circuit breakers: live power, voltage and current, total energy, leakage current and trip alarms
+- Hide devices from Home in Arrange (they keep working in scenes and automations)
+- Automation list like the Home app's: trigger icon → the devices it controls, the trigger as the title, and an Enable switch in the editor
 - Wall tablet mode (Me → Wall tablet mode): a full-screen clock, weather, climate readings, scenes, room pills, thermostat-style AC controls (drag the arc, pick a mode by symbol) and device buttons. It keeps the screen awake (where the browser allows), shows only a dim red clock from 22:00 to 06:00, like StandBy (tap to wake), and you press and hold the ✕ for a second to leave. Bookmark `/#kiosk` to open straight into it.
 - Optional PIN unlock per device instead of typing the password (Me → Settings → Security)
-- Light and dark mode, offline app shell, installable from Chrome or Safari
+- Light and dark mode, installable from Chrome or Safari
+- Opens instantly from its saved copy, even on a slow connection or offline, and only redraws what changed when you tap a device
 - Demo mode with sample devices: open `/?demo`
 
 Not included: pairing new devices (keep using the Tuya app for that) and camera live view.
@@ -223,12 +241,19 @@ In Vercel: **Project → Settings → Functions → Function Region**, pick the 
 If you use the Neon database, create it in (or move it to) the same region, because every request
 checks your session there. **Me → Settings** shows how long the last full update took.
 
+The app itself doesn't wait on the network to open: the installed app starts from the copy saved
+on the device, shows your last known device states (not when PIN unlock is on, so nothing is
+readable before you unlock), then fetches fresh ones. Polling pauses while
+the app is in the background.
+
 ## Updates
 
 See `CHANGELOG.md` (also in the app under Me → About → Version) for what changed in each release.
 
 After you deploy a new version, the installed app downloads it in the background and reloads itself
-once, at a quiet moment (never while you're typing, dragging a slider or editing a scene).
+once, at a quiet moment (never while you're typing, dragging a slider or editing a scene). Because
+the app opens from its saved copy, the first launch right after a deploy can still show the previous
+version for a moment, until that reload.
 
 ## Checking what's deployed
 
