@@ -2025,6 +2025,9 @@ button.clim-item:active { transform: scale(.96); }
 .clim-other { font-size: 12.5px; font-weight: 600; color: var(--a-sub); }
 .clim .air-num { font-size: 52px; }
 .clim-range { margin: -8px 0 0; font-size: 14px; font-weight: 600; color: var(--a-sub); font-variant-numeric: tabular-nums; }
+.air-hist { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 20px; border: 0; border-radius: 999px; font: inherit; font-size: 15px; font-weight: 600;
+  background: var(--g-fill); box-shadow: var(--g-rim); color: var(--a-ink); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform .3s var(--spring, ease); }
+.air-hist:active { transform: scale(.95); }
 .air-note { margin: 18px auto 0; max-width: 340px; padding: 0 8px; font-size: 12.5px; line-height: 1.4; text-align: center; color: var(--muted); }
 .clim-room { display: block; font-size: 12px; font-weight: 600; color: var(--muted); }
 

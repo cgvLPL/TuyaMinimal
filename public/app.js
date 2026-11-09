@@ -5,6 +5,15 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.74.0",
+      "items": [
+        "Tablets and laptops: the AC, IR remotes and air quality monitors open full-screen like on a phone, zooming out of the tile over the blurred background",
+        "The Air (AQI) chip opens the monitor's full-screen page, like Climate and Humidity, instead of jumping to the history list",
+        "Other devices still open in the side panel on big screens",
+        "Air quality monitor page: a Show history button for its charts"
+      ]
+    },
+    {
       "v": "2.73.0",
       "items": [
         "Climate and Humidity open like a device: they zoom out of the chip into a full-screen page over the blurred background",
@@ -1303,6 +1312,7 @@
         '<div class="air-mid">' + (a && a.aqi != null ? '<span class="air-k">AQI</span><span class="air-num">' + a.aqi + '</span>' : '<span class="air-num air-word">' + esc(a ? a.label : '–') + '</span>') +
         (a && a.aqi != null ? '<span class="air-label">' + esc(a.label) + '</span>' : '') + '</div></div>' +
       '<div class="air-grid">' + items.map(([name, v, unit, band]) => '<div class="air-item' + bandOf(band) + '"><span class="air-name">' + name + '</span><span class="air-val">' + esc(String(v)) + (unit ? '<small>' + unit + '</small>' : '') + '</span></div>').join('') + '</div>' +
+      (!d.outdoor && route().view !== 'kiosk' ? '<button class="air-hist" data-act="open-history" data-id="' + esc(d.id) + '" data-key="air-hist">' + icon('chart', 16) + '<span>Show history</span></button>' : '') +
       (d.outdoor ? '<p class="air-note">Outdoor, for your home\'s area. No air quality sensor is reporting, so this comes from the internet (Copernicus via Open-Meteo), checked ' +
         esc(new Date(d.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })) + '.</p>' : '') +
       '</div>';
@@ -1375,14 +1385,14 @@
       '<span class="sum-text"><span class="sum-title">' + title + '</span><span class="sum-value">' + esc(value) + '</span></span></button>';
     if (t) html += cbtn('temp', 'Climate', t, 'Temperature ' + t);
     if (h) html += cbtn('hum', 'Humidity', h, 'Humidity ' + h);
-    const airs = live.map((x) => aqiInfo(x.d)).filter(Boolean);
+    const airDevs = live.map((x) => ({ d: x.d, a: aqiInfo(x.d) })).filter((x) => x.a);
+    const airs = airDevs.map((x) => x.a);
     if (airs.length) {
+      // The chip opens the (worst) monitor's full-screen page, like Climate and Outdoor air.
       const rank = (a) => AQI_BANDS.findIndex((b) => b[2] === a.key) * 1000 + (a.aqi || 0);
-      const worst = airs.reduce((m, a) => (rank(a) > rank(m) ? a : m));
-      const airOne = readings.filter(isAirDevice);
-      const aAct = airOne.length === 1 && !inKiosk ? 'data-act="open-history" data-id="' + esc(airOne[0].id) + '"' : act;
-      html += '<' + tag + ' class="summary aq-' + worst.key + '" ' + aAct + (airOne.length === 1 ? '' : pressed) + ' data-key="sum-air" aria-label="' + esc('Air quality ' + (worst.aqi != null ? worst.aqi + ', ' : '') + worst.label) + '">' +
-        '<span class="sum-icon aqi">' + icon('air', 16) + '</span><span class="sum-text"><span class="sum-title">Air</span><span class="sum-value">' + esc(worst.aqi != null ? worst.aqi + ' · ' + worst.label : worst.label) + '</span></span></' + tag + '>';
+      const w = airDevs.reduce((m, x) => (rank(x.a) > rank(m.a) ? x : m)), worst = w.a;
+      html += '<button class="summary aq-' + worst.key + '" data-act="air-open" data-id="' + esc(w.d.id) + '" data-key="sum-air" aria-label="' + esc('Air quality ' + (worst.aqi != null ? worst.aqi + ', ' : '') + worst.label + ', show details') + '">' +
+        '<span class="sum-icon aqi">' + icon('air', 16) + '</span><span class="sum-text"><span class="sum-title">Air</span><span class="sum-value">' + esc(worst.aqi != null ? worst.aqi + ' · ' + worst.label : worst.label) + '</span></span></button>';
     }
     // No air quality sensor reporting: show outdoor air quality for the home's location instead.
     const out = !airs.length ? outdoorAirInfo() : null;
@@ -2032,6 +2042,7 @@
     grip: '<circle cx="9" cy="6" r="1.3"/><circle cx="15" cy="6" r="1.3"/><circle cx="9" cy="12" r="1.3"/><circle cx="15" cy="12" r="1.3"/><circle cx="9" cy="18" r="1.3"/><circle cx="15" cy="18" r="1.3"/>',
     close: '<path d="M6 6l12 12M18 6L6 18"/>',
     arrange: '<path d="M7 4v16M4 7l3-3 3 3M17 20V4M14 17l3 3 3-3"/>',
+    chart: '<path d="M4 4v16h16"/><path d="m8 15 3.5-4 3 2.5L20 7"/>',
     alert: '<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17h.01"/>',
     tablet: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M10 16h4"/>',
     plug: '<path d="M9 2v6M15 2v6M6 8h12v3a6 6 0 0 1-12 0V8zM12 17v5"/>',
@@ -2226,6 +2237,7 @@
   function qcTileOf(id) {
     if (id === OUT_AIR_ID) return document.querySelector('[data-key="sum-outair"]');
     if (/^clim-(temp|hum)/.test(id)) return document.querySelector('[data-key="sum-' + (id.indexOf('clim-hum') === 0 ? 'hum' : 'temp') + '"]');
+    if (qc && qc.fromChip && qc.id === id) { const chip = document.querySelector('[data-key="sum-air"]'); if (chip) return chip; }
     return document.querySelector('.grid > .card[data-card-id="' + CSS.escape(id) + '"]') || document.querySelector('.k26 .k-ctl[data-id="' + CSS.escape(id) + '"]');
   }
   // What the big control is for a device: the Home app's full-screen layout.
@@ -5528,8 +5540,10 @@
     }
     replayMotion();
     restoreRows(rowScroll);
-    // Phones: a device opens as the Home app's full-screen control over the home screen.
-    if (r.view === 'device' && !isWide && S.data) {
+    // Phones: a device opens as the Home app's full-screen control over the home screen. On tablets
+    // and laptops the AC, IR remotes and air quality monitors do the same; other devices use the side panel.
+    const bigQc = (d) => d && ['ac', 'remote', 'air'].includes(qcKind(d));
+    if (r.view === 'device' && S.data && (!isWide || bigQc(findDevice(r.id)))) {
       const d = findDevice(r.id);
       if (d && !(qc && qc.page && qc.id === d.id)) qcOpen(d, qcTileOf(d.id), { page: true, back: hadRoute });
       else if (!d) location.replace('#devices');
@@ -5844,6 +5858,7 @@
       case 'alloff': allOff(); break;
       case 'act-more': loadActivity(true); break;
       case 'climate-toggle': S.climateOpen = !S.climateOpen; render(); break;
+      case 'air-open': { const ad = findDevice(id); if (ad) { qcOpen(ad, el); if (qc) qc.fromChip = true; } break; }
       case 'outdoor-air': { const od = outdoorDevice(); if (od) qcOpen(od, el); break; }
       case 'clim-open': { const cd = climDevice('clim-' + el.dataset.kind + (el.closest('.k26') ? '-k' : '')); if (cd) qcOpen(cd, el); break; }
       case 'open-history': {

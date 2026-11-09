@@ -2,6 +2,12 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.74.0
+- **Tablets and laptops:** the air conditioner, IR remotes (TV etc.) and air quality monitors now open the same full-screen control as on a phone (zoom out of the tile, blurred background, gear for settings) instead of the side panel. Back, Esc or tapping outside closes it. Other devices keep the side panel.
+- **Air chip:** tapping the AQI chip now opens the monitor's full-screen page (the one with the most worrying reading, when there are several) on every screen size, like Climate and Humidity, instead of jumping to the history list.
+- The air quality monitor's page has a new **Show history** button for its charts (not on the wall tablet, where nothing navigates away).
+- Climate and Humidity already opened full-screen on big screens.
+
 ## 2.73.0
 - **Climate** and **Humidity** chips now open like a device, the same as Outdoor air: the zoom-out-of-the-chip animation, the blurred background, and a full-screen page.
 - The page has a big ring with the reading (or the average of several sensors plus their range), coloured and labelled by how it feels: Cold / Cool / Comfortable / Warm / Hot for temperature, Dry / Comfortable / Humid / Very humid for humidity.
