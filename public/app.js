@@ -5,6 +5,33 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.81.7",
+      "items": [
+        "Wall tablet Weather and All controls faces: a smaller top bar like HomeView's, with the condition and today's high/low at the top left and just the time at the top right; the date is gone"
+      ]
+    },
+    {
+      "v": "2.81.6",
+      "items": [
+        "Wall tablet All controls face: the date and weather sit small at the top left and the time at the top right, like the Weather face; the ✕ moved to the bottom corner like on the other faces",
+        "Fixed: the ✕ on the wall tablet faces was drawn too small"
+      ]
+    },
+    {
+      "v": "2.81.5",
+      "items": [
+        "Wall tablet All controls face: the big clock at the top is gone (the Clock face has it); a slim line with the date and weather remains, so the controls move up"
+      ]
+    },
+    {
+      "v": "2.81.4",
+      "items": [
+        "Weather appears instantly: the app shows the last weather it saw, then updates it in the background",
+        "Weather refreshes every 3 minutes while the app is open (was 10), right away when you come back to the app, and when the wall tablet's Weather face is shown",
+        "If an update fails, the last weather stays on screen and it tries again shortly"
+      ]
+    },
+    {
       "v": "2.81.3",
       "items": [
         "Wall tablet Home face: the + tile is hidden; press and hold the face to choose favourites. It only shows when there are no favourites yet"
@@ -3057,10 +3084,27 @@
     return '<div class="weather" aria-label="' + esc(desc + ', ' + w.temp + w.unitLabel) + '"><span class="wx-icon">' + icon(ic, 26) + '</span>' +
       '<span class="wx-text"><span class="wx-temp">' + w.temp + w.unitLabel + '</span><span class="wx-desc">' + desc + '</span></span></div>';
   }
+  // Weather: shown instantly from the last copy kept on this device (no location saved), then
+  // refreshed in the background: every 3 minutes while the app is in use, on coming back to it,
+  // and when the wall tablet's Weather face is shown.
+  const WX_FRESH_MS = 3 * 60 * 1000;
+  function weatherFromCache(homeId) {
+    try {
+      const c = JSON.parse(store.get('wx') || 'null');
+      if (readVault()) return null;
+      if (c && c.homeId === homeId && c.unit === S.tempUnit && Date.now() - c.at < 6 * 3600 * 1000) return Object.assign({}, c, { cached: true });
+    } catch (e) { /* ignore */ }
+    return null;
+  }
   async function loadWeather(force) {
     if (!S.data || !S.data.homeId) return;
-    const homeId = S.data.homeId, w = S.weather;
-    if (!force && w && w.homeId === homeId && w.unit === S.tempUnit && Date.now() - w.at < 10 * 60 * 1000) return;
+    const homeId = S.data.homeId;
+    if (!S.weather || S.weather.homeId !== homeId || S.weather.unit !== S.tempUnit) {
+      const c = weatherFromCache(homeId);
+      if (c) { S.weather = c; if (!S.dragging && !S.gate) setTimeout(render, 0); }
+    }
+    const w = S.weather;
+    if (!force && w && !w.cached && w.homeId === homeId && w.unit === S.tempUnit && Date.now() - w.at < WX_FRESH_MS) return;
     if (loadWeather.busy) return;
     loadWeather.busy = true;
     try {
@@ -3070,8 +3114,16 @@
         air: r.air && typeof r.air.aqi === 'number' ? r.air : null, place: r.place || '', reason: r.reason || '',
         hi: r.hi, lo: r.lo, humidity: r.humidity, wind: r.wind, windUnit: r.windUnit, sun: Array.isArray(r.sun) ? r.sun : [] };
       updatePosition();
+      if (S.weather.available && !readVault()) {  // like the device snapshot: nothing kept when PIN unlock is on
+        try {
+          const keep = Object.assign({}, S.weather); delete keep.lat; delete keep.lon; delete keep.place;
+          store.set('wx', JSON.stringify(keep));
+        } catch (e) { /* storage full: skip */ }
+      }
     } catch (e) {
-      S.weather = { homeId, unit: S.tempUnit, at: Date.now(), error: true };
+      // Keep showing the last weather if there is one; only fall back to an error without it.
+      if (!(S.weather && S.weather.homeId === homeId && S.weather.available)) S.weather = { homeId, unit: S.tempUnit, at: Date.now(), error: true };
+      else S.weather.at = Date.now() - WX_FRESH_MS + 30000;  // try again in about 30 s
     } finally {
       loadWeather.busy = false;
     }
@@ -3079,6 +3131,8 @@
     if (!S.dragging && !typing && !S.gate) render();
   }
 
+  setInterval(() => { if (document.visibilityState === 'visible') loadWeather(); }, 60 * 1000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') loadWeather(); });
   function devicesView(selectedId) {
     const data = S.data;
     if (!data) return loadingView();
@@ -5265,6 +5319,18 @@
       : (code >= 71 && code <= 77) || code === 85 || code === 86 ? 'snow' : code >= 95 ? 'storm' : code >= 51 ? 'rain' : 'partly';
     return 'sky-' + sky + (isDay ? '' : ' sky-night');
   }
+  // Top bar shared by the Weather and All controls faces, like HomeView: the condition with today's
+  // high/low at the top left, the time at the top right, both small.
+  function kTopBar(data, now) {
+    const w = S.weather, ok = w && w.available && w.homeId === data.homeId && w.unit === S.tempUnit;
+    let left = '';
+    if (ok) {
+      const [ic, desc] = weatherInfo(w.code, w.isDay);
+      left = '<div class="kw-cond">' + icon(ic, 20) + '<span>' + esc(desc) + '</span></div>' +
+        (w.hi != null && w.lo != null ? '<div class="kw-hl">H:' + w.hi + '° L:' + w.lo + '°</div>' : '');
+    }
+    return '<header class="kw-top"><div>' + left + '</div><div class="kw-time" data-kclock="time">' + kTime(now) + '</div></header>';
+  }
   function kWeatherFace(data, now) {
     const w = S.weather;
     const t = (ms) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -5281,10 +5347,7 @@
     }
     const stat = (icn, v, l) => '<div class="kw-stat">' + icon(icn, 26) + '<span class="kw-v">' + esc(v) + '</span><span class="kw-l">' + esc(l) + '</span></div>';
     const stats = (ev ? stat(ev[0], ev[1], ev[2]) : '') + (w.wind != null ? stat('air', w.wind + ' ' + (w.windUnit || 'km/h'), 'Wind') : '') + (w.humidity != null ? stat('drop', w.humidity + '%', 'Humidity') : '');
-    return '<section class="k-wxface ' + kSky(w.code, w.isDay) + '" aria-label="Weather">' +
-      '<header class="kw-top"><div><div class="kw-cond">' + icon(ic, 28) + '<span>' + esc(desc) + '</span></div>' +
-      (w.hi != null && w.lo != null ? '<div class="kw-hl">H:' + w.hi + '° L:' + w.lo + '°</div>' : '') + '</div>' +
-      '<div class="kw-time" data-kclock="time">' + kTime(now) + '</div></header>' +
+    return '<section class="k-wxface ' + kSky(w.code, w.isDay) + '" aria-label="Weather">' + kTopBar(data, now) +
       '<div class="kw-big" role="img" aria-label="' + esc(w.temp + ' degrees, ' + desc) + '"><span>' + esc(String(w.temp)) + '</span><span class="kw-deg">°</span></div>' +
       (stats ? '<div class="kw-stats">' + stats + '</div>' : '') + '</section>';
   }
@@ -5328,6 +5391,7 @@
     if (!K_FACES.includes(f) || f === S.kFace) return;
     const dir = K_FACES.indexOf(f) > K_FACES.indexOf(S.kFace) ? 'l' : 'r';
     S.kFace = f; store.set('kFace', f);
+    if (f === 'weather') loadWeather();
     render();
     const k = document.querySelector('.k26');
     if (k && qcMotion()) { k.classList.remove('k-swap-l', 'k-swap-r'); void k.offsetWidth; k.classList.add('k-swap-' + dir); setTimeout(() => k.classList.remove('k-swap-' + dir), 500); }
@@ -5393,12 +5457,12 @@
         kGlanceHtml(kGlance(data), 'kc-info') + '</section>' + kDots() + kNightFace(data, now) +
         '<button class="k-dim" data-act="kiosk-wake" data-key="k-dim" aria-label="Wake the screen" tabindex="-1"></button></div>';
     }
-    // Like the Lock Screen: date (with the weather) above a large clock.
+    // Like the Weather face: the date (with the weather) small at the top left, the time at the top
+    // right; the ✕ sits in the bottom corner like on the other faces.
     let html = '<div class="kiosk-wrap k26">' +
-      '<header class="k-lock"><div class="k-dateline"><span data-kclock="date">' + kDate(now) + '</span>' + wx + '</div>' +
-      '<div class="k-time" data-kclock="time">' + kTime(now) + '</div>' +
-      '<button class="k-exit" data-key="k-exit" aria-label="Leave wall tablet mode (press and hold)" title="Press and hold to leave">' +
-      '<svg class="k-exit-ring" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="20"/></svg>' + icon('close', 18) + '</button></header>';
+      kTopBar(data, now) +
+      '<button class="k-exit km-exit" data-key="k-exit" aria-label="Leave wall tablet mode (press and hold)" title="Press and hold to leave">' +
+      '<svg class="k-exit-ring" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="20"/></svg>' + icon('close', 18) + '</button>';
     // Temperature and humidity as Home app summaries.
     if (readings.length || outdoorAirInfo()) html += '<div class="k-climate">' + climateSummaries(readings, true) + '</div>';
     // Scenes as a row of capsules, like the Home app.
@@ -7140,7 +7204,10 @@
   else if (S.mode === 'live' && !S.key) S.gate = 'login';
   if (!S.gate && S.mode === 'live') {
     const snap = loadSnapshot();
-    if (snap) { S.data = snap; if (snap.me) S.me = snap.me; S.sync = !!snap.sync; }
+    if (snap) {
+      S.data = snap; if (snap.me) S.me = snap.me; S.sync = !!snap.sync;
+      const wc = snap.homeId && weatherFromCache(snap.homeId); if (wc) S.weather = wc;  // weather shows instantly too
+    }
   }
   render();
   if (!S.gate) refresh();

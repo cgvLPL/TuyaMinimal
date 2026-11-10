@@ -2,6 +2,21 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.81.7
+- Wall tablet **Weather** and **All controls** faces share a smaller top bar, like HomeView's: the weather symbol and condition with today's high/low under it at the top left, and just the time (no AM/PM) at the top right. The date is no longer shown there.
+
+## 2.81.6
+- Wall tablet **All controls** face: laid out like the Weather face, with the date and weather small at the top left and the time small at the top right; both scale with the screen. The ✕ (hold to leave) moved to the bottom-right corner, as on the other faces.
+- Fixed: since 2.81.0 the ✕ on the Weather and Home faces was drawn too small.
+
+## 2.81.5
+- Wall tablet **All controls** face: removed the big clock at the top, which repeated the Clock face. A slim line with the date and weather (and the ✕) stays, so the climate chips, scenes, rooms and controls move up and fit on one screen.
+
+## 2.81.4
+- **Weather appears instantly:** the last weather is kept on the device (without the home's location) and shown straight away when the app opens, then refreshed in the background. Nothing is kept when PIN unlock is on, the same as the device snapshot.
+- **Weather updates more often:** every 3 minutes while the app is open (was 10), immediately when you return to the app, and whenever the wall tablet switches to the Weather face. The server now caches weather for 5 minutes (was 10); Open-Meteo itself updates current conditions about every 15 minutes.
+- If an update fails, the last weather stays on screen and it tries again in about 30 seconds, instead of the weather disappearing.
+
 ## 2.81.3
 - Wall tablet Home face: the empty **+** tile no longer shows next to your favourites; press and hold the face to choose them. It only appears when no favourites are chosen, so there's still a way to start.
 

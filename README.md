@@ -141,7 +141,7 @@ api/_routes/       the endpoints (folders starting with _ aren't deployed as sep
   timer.js         one-off device timers ("turn off in 30 min") via Tuya cloud schedules
   history.js       sensor history charts from the device's report log
   activity.js      the activity log: who did what (needs the database)
-  weather.js       current weather, today's high/low, sunrise/sunset, wind and humidity, and outdoor air quality at the home's location (Open-Meteo, cached 10 / 30 minutes)
+  weather.js       current weather, today's high/low, sunrise/sunset, wind and humidity, and outdoor air quality at the home's location (Open-Meteo, cached 5 / 30 minutes)
 api/_lib/          report-log paging, Tuya client and signing, sign-in, home access checks, scene/automation validation, Neon helpers
 ```
 

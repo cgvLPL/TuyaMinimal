@@ -1,13 +1,13 @@
 // GET /api/weather?homeId=..&unit=c|f → current weather and outdoor air quality at the home's location
 // The location comes from the home's address in the Tuya app. Weather and air quality come from
-// Open-Meteo (free, no API key). Weather is cached for 10 minutes, air quality for 30.
+// Open-Meteo (free, no API key). Weather is cached for 5 minutes, air quality for 30.
 const { TuyaError } = require('../_lib/tuya');
 const { getJson, homeLocation } = require('../_lib/location');
 const { handler, requireId } = require('../_lib/http');
 const { cached } = require('../_lib/cache');
 const access = require('../_lib/access');
 
-const TEN_MIN = 10 * 60 * 1000;
+const FIVE_MIN = 5 * 60 * 1000;  // Open-Meteo's current conditions update about every 15 minutes
 
 function todayExtras(w, unit) {
   const d = w.daily || {}, c = w.current || {}, off = (w.utc_offset_seconds || 0) * 1000;
@@ -67,7 +67,7 @@ module.exports = handler(['GET'], async (req) => {
 
   const key = 'wx3:' + lat.toFixed(2) + ',' + lon.toFixed(2) + ':' + unit;
   const airP = outdoorAir(lat, lon);
-  const w = await cached(key, TEN_MIN, () => getJson(
+  const w = await cached(key, FIVE_MIN, () => getJson(
     'https://api.open-meteo.com/v1/forecast?latitude=' + lat.toFixed(4) + '&longitude=' + lon.toFixed(4) +
     '&current=temperature_2m,weather_code,is_day,precipitation,rain,showers,cloud_cover,relative_humidity_2m,wind_speed_10m' +
     '&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&forecast_days=2&timezone=auto' +

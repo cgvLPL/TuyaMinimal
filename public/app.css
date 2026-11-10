@@ -2072,7 +2072,8 @@ html.kiosk, html.kiosk body { overscroll-behavior-x: none; }
 .k26 .km-mh { stroke-width: 5; }
 .k26 .km-pin { fill: #fff; }
 .k26 .km-exit { position: fixed; top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); right: 12px; width: max(38px, 4.6vmin); height: max(38px, 4.6vmin); border-radius: 50%; z-index: 21; }
-.k26 .km-exit svg { width: 40%; height: 40%; }
+.k26 .km-exit svg:not(.k-exit-ring) { width: 42%; height: 42%; }
+.k26 .km-exit .k-exit-ring { width: 100%; height: 100%; }
 
 /* Weather face, after HomeView's: a sky for the conditions, the temperature huge in frosted glass */
 .k26.k-face-weather { min-height: calc(100dvh - 60px); }
@@ -2090,12 +2091,12 @@ html.kiosk, html.kiosk body { overscroll-behavior-x: none; }
 .k26 .k-wxface.sky-snow { --sky1: #8ea6bf; --sky2: #e1e9f2; }
 .k26 .k-wxface.sky-night { --sky1: #0b1733; --sky2: #2b4170; }
 .k26 .k-wxface.sky-night::before { background: radial-gradient(60% 40% at 30% 20%, rgba(255, 255, 255, 0.08), transparent 70%), linear-gradient(180deg, var(--sky1), var(--sky2)); }
-.k26 .kw-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 2vmin; padding: .6vmin 1vmin 0; }
-.k26 .kw-cond { display: flex; align-items: center; gap: .4em; font-size: 4vmin; font-weight: 600; text-shadow: 0 1px 8px rgba(0, 30, 80, 0.2); }
-.k26 .kw-cond svg { width: 1.2em; height: 1.2em; }
-.k26 .kw-hl { margin-top: .2em; font-size: 3.3vmin; font-weight: 500; opacity: .9; font-variant-numeric: tabular-nums; }
-.k26 .kw-time { font-size: 4vmin; font-weight: 500; opacity: .9; font-variant-numeric: tabular-nums; }
-.k26 .kw-time .k-ampm { font-size: .6em; margin-left: .15em; -webkit-text-fill-color: currentColor; }
+.k26 .kw-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 2vmin; padding: .4vmin .8vmin 0; color: #fff; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.2); }
+.k26 .kw-cond { display: flex; align-items: center; gap: .35em; font-size: 2.7vmin; font-weight: 600; line-height: 1.2; }
+.k26 .kw-cond svg { width: 1.15em; height: 1.15em; }
+.k26 .kw-hl { margin-top: .1em; font-size: 2.3vmin; font-weight: 500; opacity: .9; font-variant-numeric: tabular-nums; }
+.k26 .kw-time { font-size: 2.7vmin; font-weight: 500; line-height: 1.2; opacity: .92; font-variant-numeric: tabular-nums; }
+.k26 .kw-time .k-ampm { display: none; }  /* like HomeView: just 6:35 */
 .k26 .kw-big { display: flex; align-items: flex-start; justify-content: center; line-height: .82; margin: 1vh 0;
   font-size: min(58vh, 46vw); -webkit-text-stroke-width: max(1px, .2vmin); font-weight: 400; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
   color: rgba(255, 255, 255, 0.26); -webkit-text-stroke-color: rgba(255, 255, 255, 0.55);
