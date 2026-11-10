@@ -2191,7 +2191,9 @@ html.kiosk, html.kiosk body { overscroll-behavior-x: none; }
 
 /* Face dots: tap (or swipe sideways) to change face */
 .k26 .k-dots { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 10px); z-index: 20; transform: translateX(-50%);
-  display: flex; gap: 4px; padding: 6px 8px; border-radius: 999px; background: rgba(0, 0, 0, 0.22); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+  display: flex; gap: 4px; padding: 6px 8px; border-radius: 999px; background: rgba(0, 0, 0, 0.22); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); transition: opacity .4s ease; }
+/* The dots fade out after 3 seconds without a touch, and come back on the next touch */
+html.k-dots-hidden .k26 .k-dots { opacity: 0; pointer-events: none; }
 .k26 .k-dot { width: max(22px, calc(2.8 * var(--vu))); height: max(22px, calc(2.8 * var(--vu))); padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: center; -webkit-tap-highlight-color: transparent; }
 .k26 .k-dot::before { content: ''; width: max(8px, calc(1 * var(--vu))); height: max(8px, calc(1 * var(--vu))); border-radius: 50%; background: rgba(255, 255, 255, 0.4); transition: background .25s ease, width .25s ease; }
 .k26 .k-dot[aria-pressed="true"]::before { background: #fff; width: max(18px, calc(2.2 * var(--vu))); border-radius: 99px; }

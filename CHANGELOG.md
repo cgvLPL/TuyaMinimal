@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.1
+
+- Wall tablet: the face dots at the bottom fade out after 3 seconds without a touch, and come back on the next touch.
+
 ## 2.91.0
 
 - Floors: in Me → Floors, add your home's floors (rename, reorder or remove them) and put each room on a floor.

@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.1", "items": ["Wall tablet: the face dots at the bottom fade out after 3 seconds without a touch, and come back on the next touch."]},
   {"v": "2.91.0", "items": ["Floors: in Me → Floors, add your home's floors (rename, reorder or remove them) and put each room on a floor.", "Home shows a floor switch above the rooms: pick a floor to see only its rooms and devices. All floors shows everything.", "Wall tablet: floors are listed before the rooms in the top bar; pick one to show every device on that floor.", "Floors sync across your devices when sync is on; otherwise they're saved on each device."]},
   {"v": "2.90.0", "items": ["Wall tablet mode now scales to any screen, from an iPhone 7 to a 13-inch iPad, in 16:9, 16:10, 4:3, 18:9 and other shapes, portrait or landscape. Text, readings, chips and the top bar grow and shrink with the screen instead of staying a fixed size.", "Portrait: the room picker gets its own row under the weather and time, and Home tiles grow taller so they fill the screen."]},
   {"v": "2.89.0", "items": ["Wall tablet: choose its own wallpaper. Press and hold a Home page, then tap the picture button next to +. Pick Same as app, Night sky, any of the app's photos, or a photo of your own from the tablet.", "The wallpaper only applies in wall tablet mode on that device; the rest of the app keeps its own background. The numerals clock's Wallpaper option uses it too."]},
@@ -5100,6 +5101,7 @@
   const KIOSK_NIGHT = [22, 6];   // dim from 22:00 until 06:00
   function kioskStart() {
     kiosk.on = true;
+    kDotsWake();
     const el = document.documentElement;
     if (el.requestFullscreen && !document.fullscreenElement) el.requestFullscreen().catch(() => {});
     kioskWake();
@@ -5112,6 +5114,8 @@
     if (kiosk.lock) { kiosk.lock.release().catch(() => {}); kiosk.lock = null; }
     if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
     document.documentElement.classList.remove('k-night');
+    document.documentElement.classList.remove('k-dots-hidden');
+    if (kDotsTimer) { clearTimeout(kDotsTimer); kDotsTimer = null; }
   }
   async function kioskWake() {
     try {
@@ -5138,7 +5142,17 @@
   const kDate = (now) => now.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
   const K_IDLE_MS = 2 * 60 * 1000;
   let kioskTouchedAt = Date.now();
-  ['pointerdown', 'keydown'].forEach((n) => document.addEventListener(n, () => { kioskTouchedAt = Date.now(); }, true));
+  ['pointerdown', 'keydown'].forEach((n) => document.addEventListener(n, () => { kioskTouchedAt = Date.now(); kDotsWake(); }, true));
+  // Face dots: fade out after 3 seconds without a touch, back on the next touch.
+  // The hidden class lives on <html> (like k-night) so a re-render can't wipe it.
+  const K_DOTS_MS = 3000;
+  let kDotsTimer = null;
+  function kDotsWake() {
+    document.documentElement.classList.remove('k-dots-hidden');
+    if (kDotsTimer) clearTimeout(kDotsTimer);
+    if (!kiosk.on) return;
+    kDotsTimer = setTimeout(() => { document.documentElement.classList.add('k-dots-hidden'); }, K_DOTS_MS);
+  }
   function kioskTick() {
     if (!kiosk.on) return;
     // Like HomeView showing a simple face when nobody is close: after 2 minutes without a touch,
@@ -5963,7 +5977,7 @@ function kClockPicker() {
   function kioskView() {
     const data = S.data;
     if (!data) return '<div class="kiosk-wrap k26"><div class="k-lock"><div class="k-time">…</div></div></div>';
-    if (!kiosk.on) { kiosk.on = true; kioskWake(); clearInterval(kiosk.timer); kiosk.timer = setInterval(kioskTick, 10000); }
+    if (!kiosk.on) { kiosk.on = true; kioskWake(); kDotsWake(); clearInterval(kiosk.timer); kiosk.timer = setInterval(kioskTick, 10000); }
     loadWeather();
     const now = new Date();
     document.documentElement.classList.toggle('k-night', kioskIsNight(now));
