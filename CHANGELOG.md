@@ -2,6 +2,13 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.0
+
+- Floors: in Me → Floors, add your home's floors (rename, reorder or remove them) and put each room on a floor.
+- Home shows a floor switch above the rooms: pick a floor to see only its rooms and devices. All floors shows everything.
+- Wall tablet: floors are listed before the rooms in the top bar; pick one to show every device on that floor.
+- Floors sync across your devices when sync is on; otherwise they're saved on each device.
+
 ## 2.90.0
 
 - Wall tablet mode now scales to any screen, from an iPhone 7 to a 13-inch iPad, in 16:9, 16:10, 4:3, 18:9 and other shapes, portrait or landscape. Text, readings, chips and the top bar grow and shrink with the screen instead of staying a fixed size.

@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.0", "items": ["Floors: in Me → Floors, add your home's floors (rename, reorder or remove them) and put each room on a floor.", "Home shows a floor switch above the rooms: pick a floor to see only its rooms and devices. All floors shows everything.", "Wall tablet: floors are listed before the rooms in the top bar; pick one to show every device on that floor.", "Floors sync across your devices when sync is on; otherwise they're saved on each device."]},
   {"v": "2.90.0", "items": ["Wall tablet mode now scales to any screen, from an iPhone 7 to a 13-inch iPad, in 16:9, 16:10, 4:3, 18:9 and other shapes, portrait or landscape. Text, readings, chips and the top bar grow and shrink with the screen instead of staying a fixed size.", "Portrait: the room picker gets its own row under the weather and time, and Home tiles grow taller so they fill the screen."]},
   {"v": "2.89.0", "items": ["Wall tablet: choose its own wallpaper. Press and hold a Home page, then tap the picture button next to +. Pick Same as app, Night sky, any of the app's photos, or a photo of your own from the tablet.", "The wallpaper only applies in wall tablet mode on that device; the rest of the app keeps its own background. The numerals clock's Wallpaper option uses it too."]},
   {"v": "2.88.0", "items": ["Wall tablet: the Weather face now looks like HomeView's: a huge temperature with sunrise or sunset, wind and humidity floating underneath (symbol, value, label), without the hourly card. Tap the weather in the top bar for the Weather page with the hourly forecast.", "The Weather face stays on at night: no night clock over it, just its own night sky.", "After 2 minutes without a touch the wall tablet now returns to whichever of Clock or Weather you left it on."]},
@@ -1059,7 +1060,8 @@
     kWxBack: null,  // face to return to after opening the weather from a widget
     kClockStyle: store.get('kClock') === 'numerals' ? 'numerals' : 'digital',
     kClockBg: store.get('kClockBg') || 'sky', kClockPick: false,
-    kBg: store.get('kBg') || 'app', kWall: false,  // wall tablet mode's room (separate from the Home tab)
+    kBg: store.get('kBg') || 'app', kWall: false,
+    floor: store.get('floor') || 'all',  // floor shown on Home ('all' or a floor id)  // wall tablet mode's room (separate from the Home tab)
     data: null,
     loading: false,
     gate: null,          // null | 'login' | 'setup'
@@ -1177,7 +1179,7 @@
     if (h === 'scenes' || h === 'me') return { view: h };
     return { view: 'devices' };
   }
-  const ME_PAGES = ['people', 'appearance', 'settings', 'about', 'attention'];
+  const ME_PAGES = ['people', 'appearance', 'settings', 'about', 'attention', 'floors'];
   function inEditor() { const v = route().view; return v === 'scene-edit' || v === 'auto-edit'; }
   function go(hash) {
     if (location.hash === '#' + hash) render(); else location.hash = hash;
@@ -1235,6 +1237,32 @@
     } catch (e) { return null; }
   }
 
+  // ---------- Floors ----------
+  // A home can be split into floors; each room belongs to one floor. Per home:
+  // { list: [{ id, name }], room: { roomName: floorId } }. Saved on this device, and synced
+  // through the server like icons when sync is on.
+  let FLOORS = (() => { try { return JSON.parse(store.get('floors') || '{}') || {}; } catch (e) { return {}; } })();
+  const floorCfg = (homeId) => { const c = FLOORS[homeId] || {}; return { list: Array.isArray(c.list) ? c.list : [], room: c.room && typeof c.room === 'object' ? c.room : {} }; };
+  const floorsOn = () => !!(S.data && floorCfg(S.data.homeId).list.length >= 2);
+  // The floor a room (or a device's room) is on; '' when none.
+  function floorOfRoom(homeId, room) {
+    const c = floorCfg(homeId), id = room ? c.room[room] : '';
+    return id && c.list.some((f) => f.id === id) ? id : '';
+  }
+  const floorName = (homeId, id) => { const f = floorCfg(homeId).list.find((x) => x.id === id); return f ? f.name : ''; };
+  // Whether a device shows under the chosen floor (All shows everything).
+  const inFloor = (d, floor) => { const f = floor || S.floor; return !floorsOn() || !f || f === 'all' || floorOfRoom(S.data.homeId, d.room) === f; };
+  // Rooms in floor order (rooms without a floor last), keeping Tuya's order within a floor.
+  function roomsByFloor(homeId, rooms) {
+    const c = floorCfg(homeId), at = (r) => { const i = c.list.findIndex((f) => f.id === floorOfRoom(homeId, r)); return i < 0 ? 999 : i; };
+    return rooms.map((r, i) => [r, i]).sort((a, b) => at(a[0]) - at(b[0]) || a[1] - b[1]).map((x) => x[0]);
+  }
+  function saveFloors(homeId) {
+    store.set('floors', JSON.stringify(FLOORS));
+    if (S.sync && S.mode === 'live') api('settings', { method: 'POST', body: { floors: { homeId, list: floorCfg(homeId).list, room: floorCfg(homeId).room } } }).catch(() => toast('Couldn\'t sync floors. They\'re saved on this device.'));
+  }
+  const newFloorId = () => 'f' + Date.now().toString(36).slice(-6) + Math.floor(Math.random() * 36).toString(36);
+
   async function refresh(opts) {
     opts = opts || {};
     if (S.mode === 'live' && !S.key) { S.gate = 'login'; render(); return; }
@@ -1257,6 +1285,9 @@
       if (data.settings && data.settings.icons) { S.icons = Object.assign({}, data.settings.icons); saveIcons(); }
       if (data.settings && data.settings.order && data.homeId && Array.isArray(data.settings.order[data.homeId])) {
         S.order = Object.assign({}, S.order, { [data.homeId]: data.settings.order[data.homeId] }); store.set('order', JSON.stringify(S.order));
+      }
+      if (data.settings && data.settings.floors && data.homeId && data.settings.floors[data.homeId]) {
+        FLOORS = Object.assign({}, FLOORS, { [data.homeId]: data.settings.floors[data.homeId] }); store.set('floors', JSON.stringify(FLOORS));
       }
       if (data.settings && data.settings.hidden && data.homeId && Array.isArray(data.settings.hidden[data.homeId])) {
         S.hidden = Object.assign({}, S.hidden, { [data.homeId]: data.settings.hidden[data.homeId] }); store.set('hidden', JSON.stringify(S.hidden));
@@ -3242,11 +3273,14 @@
     if (!data) return loadingView();
     const home = (data.homes || []).find((h) => h.id === data.homeId);
     const onCount = data.devices.filter((d) => hasToggle(d) && isOn(d) && d.online).length;
-    const roomsWithDevices = (data.rooms || []).filter((r) => data.devices.some((d) => d.room === r));
-    const hasOther = roomsWithDevices.length > 0 && data.devices.some((d) => !d.room);
+    const floors = floorsOn() ? floorCfg(data.homeId).list : [];
+    if (S.floor !== 'all' && !floors.some((f) => f.id === S.floor)) S.floor = 'all';
+    const fDevs = data.devices.filter((d) => inFloor(d));
+    const roomsWithDevices = roomsByFloor(data.homeId, (data.rooms || []).filter((r) => fDevs.some((d) => d.room === r)));
+    const hasOther = roomsWithDevices.length > 0 && fDevs.some((d) => !d.room);
     const rooms = ['All'].concat(roomsWithDevices, hasOther ? ['Other'] : []);
     if (!rooms.includes(S.room)) S.room = 'All';
-    const shown = data.devices.filter((d) => S.room === 'All' || (S.room === 'Other' ? !d.room : d.room === S.room));
+    const shown = fDevs.filter((d) => S.room === 'All' || (S.room === 'Other' ? !d.room : d.room === S.room));
 
     const homes = data.homes || [];
     const homeName = home ? home.name : 'My Home';
@@ -3263,11 +3297,16 @@
       '<div class="hello-side">' + weatherLine(data.homeId) +
       '<button class="avatar" data-act="tab" data-tab="me" data-key="avatar" aria-label="Me">' + (S.me && !S.me.owner ? esc(initial) : icon('me', 22)) + '</button></div></div>';
     if (S.mode === 'demo') html += '<p class="banner">You are viewing sample devices. Connect your server in Me to control your own.</p>';
+    if (floors.length) {
+      // Floors: a small segmented switch above the rooms. Only rooms (and devices) on that floor show.
+      html += '<div class="floor-seg" role="group" aria-label="Floors">' + [{ id: 'all', name: 'All floors' }].concat(floors).map((f) =>
+        '<button class="floor-btn" data-act="floor" data-floor="' + esc(f.id) + '" data-key="floor-' + esc(f.id) + '" aria-pressed="' + (S.floor === f.id) + '">' + esc(f.name) + '</button>').join('') + '</div>';
+    }
     if (rooms.length > 1) {
       // Like the Home app's buttons along the top: a capsule with a filled icon, the room and what's on.
       const inR = (r, d) => r === 'All' || d.room === r || (r === 'Other' && !d.room);
       const roomLine = (r) => {
-        const devs = data.devices.filter((d) => inR(r, d) && !isReadingDevice(d) && !isHidden(d));
+        const devs = fDevs.filter((d) => inR(r, d) && !isReadingDevice(d) && !isHidden(d));
         const n = devs.filter((d) => d.online && hasToggle(d) && isOn(d)).length;
         return n ? n + ' on' : devs.length ? 'All off' : 'No devices';
       };
@@ -3340,7 +3379,7 @@
 
   function allOffTargets() {
     if (!S.data) return [];
-    return S.data.devices.filter((d) => (S.room === 'All' || (S.room === 'Other' ? !d.room : d.room === S.room)) &&
+    return S.data.devices.filter((d) => inFloor(d) && (S.room === 'All' || (S.room === 'Other' ? !d.room : d.room === S.room)) &&
       d.online && hasToggle(d) && isOn(d) && !isReadingDevice(d));
   }
   function allOffButton() {
@@ -5318,6 +5357,10 @@
   function kHomeItems(data) {
     const room = S.kHomeRoom;
     if (!room || room === 'All') return kModPicks(data);
+    if (room.indexOf('floor:') === 0) {  // a floor: every device on it, ACs first
+      const fl = room.slice(6), ds = kModCandidates(data).devs.filter((d) => floorOfRoom(data.homeId, d.room) === fl);
+      return ds.filter(isKioskAc).concat(ds.filter((d) => !isKioskAc(d))).map((d) => 'dev:' + d.id);
+    }
     // A room: every device in it, ACs first.
     const ds = kModCandidates(data).devs.filter((d) => (d.room || 'Other') === room);
     return ds.filter(isKioskAc).concat(ds.filter((d) => !isKioskAc(d))).map((d) => 'dev:' + d.id);
@@ -5458,12 +5501,20 @@
   // Room picker for the Home pages: just the room names in small, dim text in the top bar; the
   // chosen one is white. All = your favourites.
   function kRoomPicker(data) {
-    const devs = kModCandidates(data).devs, rooms = [];
+    const devs = kModCandidates(data).devs;
+    let rooms = [];
     devs.forEach((d) => { const r = d.room || 'Other'; if (!rooms.includes(r)) rooms.push(r); });
-    if (rooms.length < 2) return '';
-    const cur = rooms.includes(S.kHomeRoom) ? S.kHomeRoom : 'All';
-    return '<nav class="k-hrooms" aria-label="Rooms">' + ['All'].concat(rooms).map((r) =>
-      '<button class="k-hroom" data-act="khroom" data-room="' + esc(r) + '" data-key="khr-' + esc(r) + '" aria-pressed="' + (r === cur) + '">' + esc(r) + '</button>').join('') + '</nav>';
+    // Floors come first (when the home has two or more); picking a floor, or a room on it, narrows
+    // the room list to that floor.
+    const floors = floorsOn() ? floorCfg(data.homeId).list.filter((f) => devs.some((d) => floorOfRoom(data.homeId, d.room) === f.id)) : [];
+    const keys = floors.map((f) => 'floor:' + f.id);
+    if (rooms.length < 2 && !floors.length) return '';
+    const cur = rooms.includes(S.kHomeRoom) || keys.includes(S.kHomeRoom) ? S.kHomeRoom : 'All';
+    const curFloor = cur.indexOf('floor:') === 0 ? cur.slice(6) : floorOfRoom(data.homeId, cur);
+    if (floors.length) rooms = roomsByFloor(data.homeId, rooms).filter((r) => !curFloor || floorOfRoom(data.homeId, r) === curFloor);
+    const btn = (k, label, cls) => '<button class="k-hroom' + (cls || '') + '" data-act="khroom" data-room="' + esc(k) + '" data-key="khr-' + esc(k) + '" aria-pressed="' + (k === cur) + '">' + esc(label) + '</button>';
+    return '<nav class="k-hrooms" aria-label="Floors and rooms">' + btn('All', 'All') + floors.map((f) => btn('floor:' + f.id, f.name, ' k-hfloor' + (curFloor === f.id && cur !== 'floor:' + f.id ? ' k-hfloor-in' : ''))).join('') +
+      (floors.length && rooms.length ? '<span class="k-hsep" aria-hidden="true"></span>' : '') + rooms.map((r) => btn(r, r)).join('') + '</nav>';
   }
   function kTopBar(data, now, mid, wxLink) {
     const w = S.weather, ok = w && w.available && w.homeId === data.homeId && w.unit === S.tempUnit;
@@ -6040,6 +6091,7 @@ function kClockPicker() {
       html += chevRow('tab', 'people', 'people-open', 'People', n ? n + (n === 1 ? ' person' : ' people') : '');
     }
     html += chevRow('tab', 'icons', 'icons-open', 'Device icons', '');
+    if (data && (data.rooms || []).length) { const fl = floorCfg(data.homeId).list.length; html += chevRow('tab', 'floors', 'floors-open', 'Floors', fl ? fl + (fl === 1 ? ' floor' : ' floors') : 'Off'); }
     html += chevRow('kiosk-enter', null, 'kiosk-open', 'Wall tablet mode', 'Clock, scenes, devices');
     html += '</div>';
 
@@ -6107,6 +6159,30 @@ function kClockPicker() {
         (S.installPrompt ? '<button class="list-row" data-act="install" data-key="install"><span class="label">Install app</span>' + icon('chevron', 16) + '</button>' : '') +
         (!live ? '<button class="list-row" data-act="live" data-key="live2"><span class="label">Connect my server</span>' + icon('chevron', 16) + '</button>' : '') + '</div>';
       if (!S.sync) html += noteBelow('Connect a free Neon database in Vercel to sync icons and add people. See "Sync and users" in the README.');
+    }
+    return html;
+  }
+
+  // Floors: name the floors of this home, then put each room on one.
+  function floorsView() {
+    const data = S.data;
+    let html = subHead('Me', 'Floors', 'me', 'floors-back');
+    if (!data) return html + loadingView();
+    const c = floorCfg(data.homeId), rooms = data.rooms || [];
+    html += '<h2 class="section-title">Floors</h2><div class="list">' + c.list.map((f, i) =>
+      '<div class="list-row floor-row" data-key="fl-' + esc(f.id) + '"><input class="floor-name" type="text" maxlength="30" value="' + esc(f.name) + '" data-act="floor-name" data-id="' + esc(f.id) + '" aria-label="Name of floor ' + (i + 1) + '" enterkeyhint="done">' +
+      '<button class="icon-btn floor-up" data-act="floor-move" data-id="' + esc(f.id) + '" data-dir="-1" aria-label="Move ' + esc(f.name) + ' up"' + (i ? '' : ' disabled') + '>' + icon('down', 16) + '</button>' +
+      '<button class="icon-btn floor-del" data-act="floor-del" data-id="' + esc(f.id) + '" aria-label="Remove ' + esc(f.name) + '">' + icon('minus', 16) + '</button></div>').join('') +
+      '<button class="list-row" data-act="floor-add" data-key="fl-add"><span class="label accent-label">Add floor</span>' + icon('plus', 16) + '</button></div>';
+    html += noteBelow(c.list.length < 2 ? 'Add two or more floors to sort your rooms by floor. Home then shows a floor switch above the rooms.' : 'Home shows a floor switch above the rooms, and the wall tablet lists floors before rooms.');
+    if (c.list.length && rooms.length) {
+      html += '<h2 class="section-title">Rooms</h2><div class="list">' + rooms.map((r) => {
+        const cur = floorOfRoom(data.homeId, r), n = data.devices.filter((d) => d.room === r).length;
+        return '<div class="list-row" data-key="flr-' + esc(r) + '"><span class="label">' + esc(r) + '<span class="floor-count">' + n + (n === 1 ? ' device' : ' devices') + '</span></span>' +
+          '<select data-act="floor-room" data-room="' + esc(r) + '" aria-label="' + esc('Floor for ' + r) + '"><option value=""' + (cur ? '' : ' selected') + '>No floor</option>' +
+          c.list.map((f) => '<option value="' + esc(f.id) + '"' + (cur === f.id ? ' selected' : '') + '>' + esc(f.name) + '</option>').join('') + '</select></div>';
+      }).join('') + '</div>';
+      html += noteBelow('Rooms come from the Tuya app. Floors are saved ' + (S.sync ? 'and synced across your devices.' : 'on this device.'));
     }
     return html;
   }
@@ -6421,6 +6497,8 @@ function kClockPicker() {
       mainHtml = appearanceView();
     } else if (r.view === 'settings') {
       mainHtml = settingsView();
+    } else if (r.view === 'floors') {
+      mainHtml = floorsView();
     } else if (r.view === 'about') {
       mainHtml = aboutView();
     } else if (r.view === 'attention') {
@@ -6592,6 +6670,30 @@ function kClockPicker() {
       case 'kedit-done': S.kEdit = false; S.kEditSel = null; render(); break;
       case 'kedit-add': S.kModEdit = true; render(); break;
       case 'kwall-open': S.kWall = true; render(); break;
+      case 'floor': S.floor = el.dataset.floor || 'all'; store.set('floor', S.floor); S.room = 'All'; render(); break;
+      case 'floor-add': {
+        if (!S.data) break;
+        const h = S.data.homeId, c = floorCfg(h);
+        if (c.list.length >= 12) { toast('That\'s the most floors a home can have here.'); break; }
+        const n = c.list.length, names = ['Ground floor', 'First floor', 'Second floor', 'Third floor', 'Fourth floor'];
+        c.list.push({ id: newFloorId(), name: names.find((x) => !c.list.some((f) => f.name === x)) || 'Floor ' + (n + 1) });
+        FLOORS[h] = c; saveFloors(h); render();
+        requestAnimationFrame(() => { const all = document.querySelectorAll('.floor-name'); const last = all[all.length - 1]; if (last) { last.focus(); last.select(); } });
+        break;
+      }
+      case 'floor-del': {
+        if (!S.data) break;
+        const h = S.data.homeId, c = floorCfg(h), id = el.dataset.id;
+        c.list = c.list.filter((f) => f.id !== id);
+        Object.keys(c.room).forEach((r) => { if (c.room[r] === id) delete c.room[r]; });
+        FLOORS[h] = c; saveFloors(h); render(); break;
+      }
+      case 'floor-move': {
+        if (!S.data) break;
+        const h = S.data.homeId, c = floorCfg(h), i = c.list.findIndex((f) => f.id === el.dataset.id);
+        if (i > 0) { const t = c.list[i - 1]; c.list[i - 1] = c.list[i]; c.list[i] = t; FLOORS[h] = c; saveFloors(h); render(); }
+        break;
+      }
       case 'kwall-close': S.kWall = false; render(); break;
       case 'kwall-set':
         if (!KBGS.some(([v]) => v === el.dataset.v)) break;
@@ -6974,6 +7076,16 @@ function kClockPicker() {
     if (!el.dataset) return;
     const act = el.dataset.act;
     if (act === 'kwall-file') { kWallFromFile(el.files && el.files[0]); el.value = ''; return; }
+    if (act === 'floor-room' && S.data) {
+      const h = S.data.homeId, c = floorCfg(h);
+      if (el.value && c.list.some((f) => f.id === el.value)) c.room[el.dataset.room] = el.value; else delete c.room[el.dataset.room];
+      FLOORS[h] = c; saveFloors(h); render(); return;
+    }
+    if (act === 'floor-name' && S.data) {
+      const h = S.data.homeId, c = floorCfg(h), f = c.list.find((x) => x.id === el.dataset.id), v = el.value.trim().slice(0, 30);
+      if (f && v && v !== f.name) { f.name = v; FLOORS[h] = c; saveFloors(h); render(); } else if (f) el.value = f.name;
+      return;
+    }
     const d = el.dataset.id ? findDevice(el.dataset.id) : null;
     if (LIVE_PREFIX[act]) S.dragging = false;
     if (['hue', 'sat', 'cbright'].includes(act)) {

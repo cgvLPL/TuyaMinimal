@@ -3431,3 +3431,26 @@ html[data-bg="custom"] { --dim: 0.3; }
   .k26 .kw-top .k-hrooms { order: 3; flex: 1 0 100%; max-width: 100%; justify-content: flex-start; font-size: max(14px, calc(2.3 * var(--vu))); }
 }
 .k26 .kw-cond, .k26 .kw-hl { white-space: nowrap; }
+
+/* Floors: a small segmented switch above the room capsules (like iOS segmented controls) */
+.floor-seg { display: inline-flex; gap: 2px; max-width: 100%; overflow-x: auto; scrollbar-width: none; margin: 2px 0 10px; padding: 3px; border-radius: 999px;
+  background: var(--content, var(--surface)); -webkit-backdrop-filter: var(--content-blur, none); backdrop-filter: var(--content-blur, none);
+  box-shadow: inset 0 0 0 1px var(--content-edge, transparent); }
+.floor-seg::-webkit-scrollbar { display: none; }
+.floor-btn { flex: none; height: 30px; padding: 0 14px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: background .2s ease, color .2s ease; }
+.floor-btn[aria-pressed="true"] { background: var(--text); color: var(--bg, #000); }
+html[data-bg] .floor-btn[aria-pressed="true"], .k26 .floor-btn[aria-pressed="true"] { background: #fff; color: #000; }
+/* Floors page */
+.floor-row { gap: 6px; }
+.floor-name { flex: 1; min-width: 0; border: 0; background: none; color: var(--text); font: inherit; font-size: 16px; padding: 6px 0; }
+.floor-name:focus { outline: none; box-shadow: 0 1px 0 var(--accent, #0a84ff); }
+.floor-up svg { transform: rotate(180deg); }
+.floor-up:disabled { opacity: .3; }
+.floor-del { color: var(--danger, #ff453a); }
+.floor-count { display: block; font-size: 13px; color: var(--muted); font-weight: 400; margin-top: 2px; }
+.accent-label { color: var(--accent, #0a84ff); }
+/* Wall tablet: floors in the room picker are a touch brighter, with a thin divider before the rooms */
+.k26 .k-hfloor { color: rgba(255, 255, 255, 0.72); }
+.k26 .k-hfloor-in { color: #fff; }
+.k26 .k-hsep { flex: none; align-self: center; width: 1px; height: 1em; margin: 0 .3em; background: rgba(255, 255, 255, 0.25); }

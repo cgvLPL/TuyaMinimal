@@ -96,6 +96,7 @@
 - Arrange device cards: tap the **arrows** button above the cards, drag the handles, tap **✓** (saved per home, synced when the database is set up)
 - Home app-style tiles: solid icons coloured by kind of device, thermostat tiles with the temperature in large numbers, and a long press for a quick control.
 - Rooms as Home app-style capsules with filled room icons and live "3 on" counts; inside a room, devices are grouped under Climate, Lights, Shades, Security, Speakers & TVs and Switches & Outlets
+- Floors: in Me → Floors, name your home's floors and put each room on one; Home then shows a floor switch above the rooms, and the wall tablet lists floors before rooms
 - Full-screen device controls on phones, like the Home app: brightness pills, outlet pills, a thermostat dial, a TV remote, an air quality ring and a roller blind you drag; the gear opens the device's settings
 - Air quality monitors: an AQI chip on Home (worked out from PM2.5/PM10 when the monitor doesn't give one) and every reading on the monitor's page
 - On tablets, laptops and the wall tablet the AC, IR remotes and air quality monitors open full-screen like on a phone (other devices keep the side panel); the AQI chip opens the monitor's page
