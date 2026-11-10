@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.2", "items": ["Weather symbols are now filled silhouettes like Apple's Weather app: a solid sun and moon, a plump cloud, and the sun or moon peeking from behind the cloud when it's partly cloudy.", "Partly cloudy nights now show the moon behind the cloud instead of the sun."]},
   {"v": "2.91.1", "items": ["Wall tablet: the face dots at the bottom fade out after 3 seconds without a touch, and come back on the next touch."]},
   {"v": "2.91.0", "items": ["Floors: in Me → Floors, add your home's floors (rename, reorder or remove them) and put each room on a floor.", "Home shows a floor switch above the rooms: pick a floor to see only its rooms and devices. All floors shows everything.", "Wall tablet: floors are listed before the rooms in the top bar; pick one to show every device on that floor.", "Floors sync across your devices when sync is on; otherwise they're saved on each device."]},
   {"v": "2.90.0", "items": ["Wall tablet mode now scales to any screen, from an iPhone 7 to a 13-inch iPad, in 16:9, 16:10, 4:3, 18:9 and other shapes, portrait or landscape. Text, readings, chips and the top bar grow and shrink with the screen instead of staying a fixed size.", "Portrait: the room picker gets its own row under the weather and time, and Home tiles grow taller so they fill the screen."]},
@@ -2257,16 +2258,19 @@
     tree: '<path d="M12 21v-5M6 16h12L12 3z"/>',
     desk: '<path d="M3 8h18M5 8v12M19 8v12M13 8v6h6"/>',
     car: '<path d="M5 17h14v-4l-2-5H7l-2 5zM5 17v2M19 17v2M8 13.5v.01M16 13.5v.01"/>',
-    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
-    moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+    // Weather symbols are filled silhouettes, like Apple's Weather app (the svg sets
+    // fill="none", so each filled shape carries its own fill).
+    sun: '<circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    moon: '<path fill="currentColor" stroke="none" d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
     sunrise: '<path d="M3 19h18M7 19a5 5 0 0 1 10 0M12 3v6M9 6l3-3 3 3M4.6 12.6l1.4 1.4M19.4 12.6 18 14"/>',
     sunset: '<path d="M3 19h18M7 19a5 5 0 0 1 10 0M12 3v6M9 6l3 3 3-3M4.6 12.6l1.4 1.4M19.4 12.6 18 14"/>',
-    cloudsun: '<path d="M8 2.5V4M2.5 8H4M4.1 4.1l1.1 1.1M12.6 6.4A4 4 0 0 0 5.1 9"/><path d="M8.5 20h8.5a4 4 0 0 0 .5-8 5.5 5.5 0 0 0-10.4 1.8A3.2 3.2 0 0 0 8.5 20z"/>',
-    cloud: '<path d="M7 19h10a4.5 4.5 0 0 0 .6-9 6 6 0 0 0-11.5 1.8A3.6 3.6 0 0 0 7 19z"/>',
-    fog: '<path d="M4 8h16M3 12h18M5 16h14M8 20h8"/>',
-    rain: '<path d="M7 15h10a4.5 4.5 0 0 0 .6-9 6 6 0 0 0-11.5 1.8A3.6 3.6 0 0 0 7 15z"/><path d="M8 21l1-3M12 21l1-3M16 21l1-3"/>',
-    snow: '<path d="M7 15h10a4.5 4.5 0 0 0 .6-9 6 6 0 0 0-11.5 1.8A3.6 3.6 0 0 0 7 15z"/><path d="M8 19v.01M12 21v.01M16 19v.01"/>',
-    storm: '<path d="M7 15h10a4.5 4.5 0 0 0 .6-9 6 6 0 0 0-11.5 1.8A3.6 3.6 0 0 0 7 15z"/><path d="M12.5 15l-2 3.5h3l-2 3.5"/>',
+    cloudsun: '<g transform="translate(0.5,2) scale(0.58)"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></g><path fill="currentColor" stroke="none" d="M7 19h10a4.5 4.5 0 0 0 .6-9 6 6 0 0 0-11.5 1.8A3.6 3.6 0 0 0 7 19z"/>',
+    cloudmoon: '<g transform="translate(12.6,0.6) scale(0.46)"><path fill="currentColor" stroke="none" d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></g><path fill="currentColor" stroke="none" d="M7 19h10a4.5 4.5 0 0 0 .6-9 6 6 0 0 0-11.5 1.8A3.6 3.6 0 0 0 7 19z"/>',
+    cloud: '<path fill="currentColor" stroke="none" d="M7 19h10a4.5 4.5 0 0 0 .6-9 6 6 0 0 0-11.5 1.8A3.6 3.6 0 0 0 7 19z"/>',
+    fog: '<g transform="translate(2.4,0.8) scale(0.8)"><path fill="currentColor" stroke="none" d="M7 19h10a4.5 4.5 0 0 0 .6-9 6 6 0 0 0-11.5 1.8A3.6 3.6 0 0 0 7 19z"/></g><path d="M6 18.5h12M8 21.5h8"/>',
+    rain: '<path fill="currentColor" stroke="none" d="M7 19h10a4.5 4.5 0 0 0 .6-9 6 6 0 0 0-11.5 1.8A3.6 3.6 0 0 0 7 19z"/><ellipse cx="8" cy="21.3" rx="1" ry="1.7" transform="rotate(12 8 21.3)" fill="currentColor" stroke="none"/><ellipse cx="12" cy="21.3" rx="1" ry="1.7" transform="rotate(12 12 21.3)" fill="currentColor" stroke="none"/><ellipse cx="16" cy="21.3" rx="1" ry="1.7" transform="rotate(12 16 21.3)" fill="currentColor" stroke="none"/>',
+    snow: '<path fill="currentColor" stroke="none" d="M7 19h10a4.5 4.5 0 0 0 .6-9 6 6 0 0 0-11.5 1.8A3.6 3.6 0 0 0 7 19z"/><circle cx="8" cy="21" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="22" r="1.2" fill="currentColor" stroke="none"/><circle cx="16" cy="21" r="1.2" fill="currentColor" stroke="none"/>',
+    storm: '<path fill="currentColor" stroke="none" d="M7 19h10a4.5 4.5 0 0 0 .6-9 6 6 0 0 0-11.5 1.8A3.6 3.6 0 0 0 7 19z"/><path fill="currentColor" stroke="none" d="M13.4 14.5L9.8 19.8h2.8L10.8 24l4.2-5.8h-2.8l1.4-3.7z"/>',
     wifioff: '<path d="M2 2l20 20M8.5 16.4a5 5 0 0 1 7 0M5 12.9a10 10 0 0 1 5.2-2.7M19 12.9a10 10 0 0 0-2.3-1.6M2 9.3a15 15 0 0 1 4.3-2.6M22 9.3a15 15 0 0 0-11-3.8M12 20h.01"/>',
     desklamp: '<path d="M4 21h10"/><path d="M9 21l-2-7 6-5"/><path d="M12.5 6.5l3.5-3 5 5-3.5 3z"/><circle cx="7" cy="14" r="1"/>',
     column: '<rect x="8" y="2" width="8" height="15" rx="1.5"/><path d="M8 6h8M8 10h8M8 14h8M9.5 17l-1 4M14.5 17l1 4M8 21h8"/>',
@@ -3112,7 +3116,7 @@
   function weatherInfo(code, isDay) {
     if (code === 0) return isDay ? ['sun', 'Clear'] : ['moon', 'Clear'];
     if (code === 1) return isDay ? ['sun', 'Mainly clear'] : ['moon', 'Mainly clear'];
-    if (code === 2) return ['cloudsun', 'Partly cloudy'];
+    if (code === 2) return isDay ? ['cloudsun', 'Partly cloudy'] : ['cloudmoon', 'Partly cloudy'];
     if (code === 3) return ['cloud', 'Overcast'];
     if (code === 45 || code === 48) return ['fog', 'Fog'];
     if (code >= 51 && code <= 57) return ['rain', 'Drizzle'];

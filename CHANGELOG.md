@@ -2,6 +2,11 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.2
+
+- Weather symbols are now filled silhouettes like Apple's Weather app: a solid sun and moon, a plump cloud, and the sun or moon peeking from behind the cloud when it's partly cloudy.
+- Partly cloudy nights now show the moon behind the cloud instead of the sun.
+
 ## 2.91.1
 
 - Wall tablet: the face dots at the bottom fade out after 3 seconds without a touch, and come back on the next touch.
