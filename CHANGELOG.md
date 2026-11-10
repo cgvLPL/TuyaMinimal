@@ -2,6 +2,15 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.80.1
+- **Climate and Humidity chips:** the icon colour now follows the reading (the average of live sensors), on the same scale as their full-screen pages. Temperature: light blue when cold or cool, green when comfortable (20–26 °C), orange when warm, red when hot. Humidity: orange when dry (under 30 %), blue when comfortable, light blue when humid, purple when very humid. The chip's spoken label says how it feels.
+- **Fixed:** the Air and Outdoor air chip icons were always green, because a broader style overrode the air quality colours. They now show yellow (moderate), orange, red or purple as the air gets worse.
+- **Home picker:** each home has the Home app's filled house on an orange gradient tile.
+
+## 2.80.0
+- **Home picker:** tapping the home's name under the greeting now opens it like a device: it zooms out of the name into a full-screen page over the blurred background (the same as device controls), with a big glass row for each home. The current home is ticked and shows its number of accessories; tap another to switch, or tap outside / go back to close. The ⌄ now sits right after the name.
+- 2.78.0 and 2.79.0 (the redesigned wall tablet Home and Clock faces) were rolled back; this release builds on 2.77.0.
+
 ## 2.77.0
 More of Apple's HomeView on the wall tablet.
 - **Home face** (like HomeView's Home Modular face): the time, date and weather on top, and a 3×3 grid of large tiles for your favourite accessories and scenes. Tap a tile to switch it on or off or run the scene; AC tiles open the full-screen control. By default it shows your ACs first, then other accessories, then scenes. Circuit breakers are left out of the defaults, so one stray tap can't cut the power, but you can still pick them.

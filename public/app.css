@@ -306,6 +306,26 @@ h1, h2, h3, p { margin: 0; }
 .rename .chip { height: 44px; padding: 0 14px; }
 
 /* ---------- Home picker in the header ---------- */
+.home-btn { border: 0; background: none; padding: 0 22px 0 0; margin: 0; font: inherit; font-weight: 600; color: var(--text); cursor: pointer; border-radius: 8px; min-width: 0; -webkit-tap-highlight-color: transparent; }
+.home-btn .home-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-btn .title-chevron { position: absolute; right: 0; top: 50%; transform: translateY(-50%); display: inline-flex; pointer-events: none; }
+.home-btn:active { opacity: .6; }
+/* Home picker page (opens like a device) */
+.qc-homes { justify-content: center; }
+.homes-list { display: flex; flex-direction: column; gap: 12px; width: min(440px, 100%); margin: 0 auto; }
+.home-row { display: flex; align-items: center; gap: 14px; min-height: 76px; padding: 12px 18px 12px 14px; border: 0; border-radius: 26px; text-align: left; font: inherit; cursor: pointer;
+  color: var(--a-ink, #fff); background: var(--g-fill, rgba(255, 255, 255, 0.14)); box-shadow: var(--g-rim, inset 0 0 0 1px rgba(255, 255, 255, 0.18));
+  -webkit-tap-highlight-color: transparent; transition: transform .3s var(--spring, ease), background .2s ease; }
+.home-row:active { transform: scale(.97); }
+.home-row.on { background: rgba(255, 255, 255, 0.92); color: #1c1c1e; }
+.home-row-ic { flex: none; width: 48px; height: 48px; display: grid; place-items: center; border-radius: 14px; color: #fff;
+  background: linear-gradient(180deg, #ffc23d 0%, #ff9500 100%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 2px 6px rgba(255, 140, 0, 0.3); }
+.home-row:not(.on) .home-row-ic { filter: saturate(.85); opacity: .9; }
+
+.home-row-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.home-row-name { font-size: 18px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-row-sub { font-size: 13.5px; font-weight: 600; opacity: .6; }
+.home-row-check { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: #1c1c1e; color: #fff; }
 .home-pick { position: relative; display: inline-flex; align-items: center; max-width: 100%; }
 .title-select {
   appearance: none; -webkit-appearance: none; border: 0; background: transparent;
@@ -2104,7 +2124,7 @@ html.kiosk body, html.kiosk .app, html.kiosk .main { background: transparent !im
   transition: transform .45s var(--spring, ease);
 }
 .summary:active { transform: scale(.95); }
-.sum-icon { width: 30px; height: 30px; border-radius: 999px; flex: none; display: flex; align-items: center; justify-content: center; color: #fff; }
+.sum-icon { width: 30px; height: 30px; border-radius: 999px; flex: none; display: flex; align-items: center; justify-content: center; color: #fff; transition: background-color .6s ease; }
 .sum-icon.temp { background: #32ade6; }
 .sum-icon.hum { background: #0a84ff; }
 .sum-icon svg { stroke-width: 2.2; }
@@ -2879,7 +2899,9 @@ html .tabbar .tab .pill .tab-glass { will-change: transform; }
 
 /* ---------- 2.63.0 air quality ---------- */
 .air, .summary[class*="aq-"], .aq-good, .aq-moderate, .aq-usg, .aq-unhealthy, .aq-very, .aq-hazard { --aq: #30d158; }
-.aq-moderate { --aq: #e6b800; } .aq-usg { --aq: #ff9f0a; } .aq-unhealthy { --aq: #ff453a; } .aq-very { --aq: #bf5af2; } .aq-hazard { --aq: #a2242f; }
+/* (.summary.aq-… so they beat the .summary[class*="aq-"] default above; before, every chip stayed green) */
+.aq-moderate, .summary.aq-moderate { --aq: #e6b800; } .aq-usg, .summary.aq-usg { --aq: #ff9f0a; } .aq-unhealthy, .summary.aq-unhealthy { --aq: #ff453a; }
+.aq-very, .summary.aq-very { --aq: #bf5af2; } .aq-hazard, .summary.aq-hazard { --aq: #a2242f; }
 .sum-icon.aqi { background: var(--aq, #30d158); color: #fff; }
 .summary[class*="aq-"] .sum-value { color: var(--text); }
 .air { display: flex; flex-direction: column; align-items: center; gap: 22px; width: 100%; max-width: 360px; margin: 0 auto;

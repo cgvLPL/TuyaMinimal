@@ -5,6 +5,22 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.80.1",
+      "items": [
+        "Climate and Humidity chip icons change colour with the reading, like their full-screen pages (Cool, Comfortable, Warm, Hot / Dry, Comfortable, Humid)",
+        "Fixed: the Air and Outdoor air chip icons stayed green whatever the air quality; they now turn yellow, orange, red or purple",
+        "The home picker uses the Home app's house icon on an orange tile"
+      ]
+    },
+    {
+      "v": "2.80.0",
+      "items": [
+        "The home picker opens like a device: it zooms out of the home's name into a full-screen page over the blurred background, with a big row for each home",
+        "Tap a home to switch; the current one is ticked and shows how many accessories it has",
+        "The wall tablet is back to its 2.77.0 faces (2.78.0 and 2.79.0 were rolled back)"
+      ]
+    },
+    {
       "v": "2.77.0",
       "items": [
         "Wall tablet: a new Home face, like HomeView's Home Modular face: the time and weather above a 3×3 grid of your favourite accessories and scenes",
@@ -1411,10 +1427,14 @@
     let html = '<div class="summaries" role="group" aria-label="Climate">';
     const t = rangeText(temps, fmtReading);
     const h = rangeText(hums, (v) => Math.round(v) + '%');
-    const cbtn = (key, title, value, label) =>
-      '<button class="summary" data-act="clim-open" data-kind="' + key + '" data-key="sum-' + key + '" aria-label="' + esc(label + ', show details') + '">' +
-      '<span class="sum-icon ' + key + '">' + icon(key === 'temp' ? 'thermo' : 'drop', 16) + '</span>' +
+    // The icon takes the colour of how it feels (average of live sensors), like the full-screen page.
+    const avgOf = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
+    const cbtn = (key, title, value, label) => {
+      const f = climFeel(key, avgOf(key === 'temp' ? temps : hums));
+      return '<button class="summary" data-act="clim-open" data-kind="' + key + '" data-key="sum-' + key + '" aria-label="' + esc(label + (f.feel ? ', ' + f.feel : '') + ', show details') + '">' +
+      '<span class="sum-icon ' + key + '" style="background:' + f.col + '">' + icon(key === 'temp' ? 'thermo' : 'drop', 16) + '</span>' +
       '<span class="sum-text"><span class="sum-title">' + title + '</span><span class="sum-value">' + esc(value) + '</span></span></button>';
+    };
     if (t) html += cbtn('temp', 'Climate', t, 'Temperature ' + t);
     if (h) html += cbtn('hum', 'Humidity', h, 'Humidity ' + h);
     const airDevs = live.map((x) => ({ d: x.d, a: aqiInfo(x.d) })).filter((x) => x.a);
@@ -1934,6 +1954,7 @@
   }
 
   function findDevice(id) {
+    if (id === HOMES_ID) return homesDevice();
     if (id === OUT_AIR_ID) return outdoorDevice();
     if (/^clim-(temp|hum)(-k)?$/.test(id)) return climDevice(id);
     return S.data && S.data.devices.find((x) => x.id === id);
@@ -1953,21 +1974,25 @@
     if (!sensors.length) return null;
     return { id, name: kind === 'temp' ? 'Climate' : 'Humidity', category: 'wsdcg', product: '', online: true, room: '', status: {}, clim: kind, kiosk, sensors };
   }
+  // How a temperature or humidity feels, and its colour; shared by the chips and the full-screen page.
+  function climFeel(kind, v) {
+    if (v == null) return { col: '#8e8e93', feel: '', c: null };
+    const c = kind === 'temp' ? (S.tempUnit === 'f' ? (v - 32) * 5 / 9 : v) : v;
+    if (kind === 'temp') {
+      return c < 18 ? { col: '#64d2ff', feel: 'Cold', c } : c < 20 ? { col: '#5ac8fa', feel: 'Cool', c } : c <= 26 ? { col: '#30d158', feel: 'Comfortable', c }
+        : c <= 30 ? { col: '#ff9f0a', feel: 'Warm', c } : { col: '#ff453a', feel: 'Hot', c };
+    }
+    return c < 30 ? { col: '#ff9f0a', feel: 'Dry', c } : c <= 60 ? { col: '#0a84ff', feel: 'Comfortable', c } : c <= 70 ? { col: '#5ac8fa', feel: 'Humid', c } : { col: '#bf5af2', feel: 'Very humid', c };
+  }
   function climPanel(d) {
     const kind = d.clim, live = d.sensors.filter((x) => x.online && readingsOf(x)[kind] != null);
     const vals = live.map((x) => readingsOf(x)[kind]);
     const fmt = kind === 'temp' ? fmtReading : (v) => Math.round(v) + '%';
     const num = kind === 'temp' ? (v) => fmtReading(v) : (v) => String(Math.round(v));
     const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
-    const c = avg == null ? null : kind === 'temp' ? (S.tempUnit === 'f' ? (avg - 32) * 5 / 9 : avg) : avg;
     // Ring: temperature across 0–40 °C, humidity across 0–100 %; coloured by how it feels.
+    const { col, feel, c } = climFeel(kind, avg);
     const frac = c == null ? 0 : Math.min(1, Math.max(0, kind === 'temp' ? c / 40 : c / 100));
-    const col = c == null ? '#8e8e93' : kind === 'temp'
-      ? (c < 18 ? '#64d2ff' : c < 20 ? '#5ac8fa' : c <= 26 ? '#30d158' : c <= 30 ? '#ff9f0a' : '#ff453a')
-      : (c < 30 ? '#ff9f0a' : c <= 60 ? '#0a84ff' : c <= 70 ? '#5ac8fa' : '#bf5af2');
-    const feel = c == null ? '' : kind === 'temp'
-      ? (c < 18 ? 'Cold' : c < 20 ? 'Cool' : c <= 26 ? 'Comfortable' : c <= 30 ? 'Warm' : 'Hot')
-      : (c < 30 ? 'Dry' : c <= 60 ? 'Comfortable' : c <= 70 ? 'Humid' : 'Very humid');
     const R = 80, C = 2 * Math.PI * R, arc = C * 0.75;
     const lo = vals.length ? Math.min(...vals) : null, hi = vals.length ? Math.max(...vals) : null;
     const several = vals.length > 1;
@@ -1995,6 +2020,31 @@
   // Outdoor air quality as a read-only "device", so its chip opens the same full-screen air page
   // (ring, reading tiles, zoom animation, blurred background) as a real air quality monitor.
   const OUT_AIR_ID = 'outdoor-air';
+  // The home picker opens like a device: the same full-screen glass page, zooming out of the home's
+  // name over the blurred background, with a big row per home.
+  const HOMES_ID = 'homes-pick';
+  function homesDevice() {
+    const homes = (S.data && S.data.homes) || [];
+    if (homes.length < 2) return null;
+    return { id: HOMES_ID, name: 'Homes', category: '', product: '', online: true, room: '', status: {}, homesPick: true, homes };
+  }
+  function homesPanel(d) {
+    const cur = S.data && S.data.homeId;
+    return '<div class="homes-list" role="list">' + d.homes.map((h) => {
+      const on = h.id === cur;
+      return '<button class="home-row' + (on ? ' on' : '') + '" role="listitem" data-act="home-choose" data-id="' + esc(h.id) + '" data-key="home-' + esc(h.id) + '" aria-current="' + on + '">' +
+        '<span class="home-row-ic">' + roomGlyph('home', 24) + '</span><span class="home-row-txt"><span class="home-row-name">' + esc(h.name) + '</span>' +
+        '<span class="home-row-sub">' + (on ? 'Current home · ' + S.data.devices.length + ' accessor' + (S.data.devices.length === 1 ? 'y' : 'ies') : 'Tap to switch') + '</span></span>' +
+        (on ? '<span class="home-row-check">' + icon('check', 20) + '</span>' : '') + '</button>';
+    }).join('') + '</div>';
+  }
+  function switchHome(id) {
+    if (!id || (S.data && id === S.data.homeId)) return;
+    S.homeId = id; store.set('homeId', id); S.room = 'All';
+    S.data = null; S.iconPicking = null; S.renaming = null; S.sceneState = {};
+    if (route().view === 'device') history.replaceState(null, '', location.pathname + location.search + '#devices');
+    refresh();
+  }
   function outdoorDevice() {
     const o = outdoorAirInfo(); if (!o) return null;
     const a = o.a;
@@ -2268,6 +2318,7 @@
   const qcMotion = () => !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
   function qcTileOf(id) {
     if (id === OUT_AIR_ID) return document.querySelector('[data-key="sum-outair"]');
+    if (id === HOMES_ID) return document.querySelector('[data-key="home-head"]');
     if (/^clim-(temp|hum)/.test(id)) return document.querySelector('[data-key="sum-' + (id.indexOf('clim-hum') === 0 ? 'hum' : 'temp') + '"]');
     if (qc && qc.fromChip && qc.id === id) { const chip = document.querySelector('[data-key="sum-air"]'); if (chip) return chip; }
     return document.querySelector('.grid > .card[data-card-id="' + CSS.escape(id) + '"]') || document.querySelector('.k26 .k-ctl[data-id="' + CSS.escape(id) + '"]') ||
@@ -2275,6 +2326,7 @@
   }
   // What the big control is for a device: the Home app's full-screen layout.
   function qcKind(d) {
+    if (d.homesPick) return 'homes';
     if (d.clim) return 'clim';
     if (isKioskAc(d)) return 'ac';
     if (kindOf(d) === 'irremote') return 'remote';
@@ -2384,7 +2436,7 @@
     const dim = kind === 'dim' || kind === 'cover';
     const swatches = kind === 'dim' && (warmCode(d) || colourCode(d));
     const el = document.createElement('div');
-    el.className = 'qc hue-' + hueOf(d) + (dim ? ' qc-dim' : '') + (kind === 'cover' ? ' qc-cover' : '') + (multi ? ' qc-multi-on' : '') + (page ? ' qc-page' : '') + (kind === 'ac' ? ' qc-ac-on' : '') + (!kind ? ' qc-none' : '') + (d.outdoor || d.clim ? ' qc-nogear' : '');
+    el.className = 'qc hue-' + hueOf(d) + (dim ? ' qc-dim' : '') + (kind === 'cover' ? ' qc-cover' : '') + (multi ? ' qc-multi-on' : '') + (page ? ' qc-page' : '') + (kind === 'ac' ? ' qc-ac-on' : '') + (!kind ? ' qc-none' : '') + (d.outdoor || d.clim || d.homesPick ? ' qc-nogear' : '');
     el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', d.name);
     el.innerHTML = '<div class="qc-bg"></div>' +
       (page ? '<button class="qc-x" aria-label="Close">' + X_ICON + '</button>' : '') +
@@ -2394,6 +2446,7 @@
         : kind === 'remote' ? '<div class="qc-body qc-remote"></div>'
         : kind === 'air' ? '<div class="qc-body qc-air"></div>'
         : kind === 'clim' ? '<div class="qc-body qc-air qc-clim"></div>'
+        : kind === 'homes' ? '<div class="qc-body qc-air qc-homes"></div>'
         : multi
         ? '<div class="qc-multi qc-body" style="--n:' + codes.length + '">' + codes.map((c) =>
             '<div class="qc-unit"><button class="qc-pill qc-switch qc-ch" role="switch" aria-label="' + esc(channelName(d, c)) + '" data-act="toggle" data-id="' + esc(d.id) + '" data-code="' + esc(c) + '">' +
@@ -2408,10 +2461,10 @@
     qc = { id: d.id, el, last: null, lastCh: {}, drag: null, focusBack: document.activeElement, page, back: !!(opts && opts.back), kind, sl: dim ? qcSliderFor(d) : null };
     qcSync(true);
     if (!page) { try { history.pushState({ qc: 1 }, '', location.href); qc.pushed = true; } catch (e) { /* fine without */ } }
-    const pill = el.querySelector(multi ? '.qc-multi' : kind === 'ac' ? '.qc-ac' : kind === 'remote' ? '.qc-remote' : kind === 'air' || kind === 'clim' ? '.qc-air' : !kind ? '.qc-empty' : '.qc-pill');
+    const pill = el.querySelector(multi ? '.qc-multi' : kind === 'ac' ? '.qc-ac' : kind === 'remote' ? '.qc-remote' : kind === 'air' || kind === 'clim' || kind === 'homes' ? '.qc-air' : !kind ? '.qc-empty' : '.qc-pill');
     el.querySelector('.qc-bg').addEventListener('click', () => qcExit());
     if (page) el.querySelector('.qc-x').addEventListener('click', () => qcExit());
-    if (!d.outdoor && !d.clim) el.querySelector('.qc-gear').addEventListener('click', () => qcSheetOpen());
+    if (!d.outdoor && !d.clim && !d.homesPick) el.querySelector('.qc-gear').addEventListener('click', () => qcSheetOpen());
     if (dim) qcSliderEvents(pill);
     if (!kind) { qcSheetOpen(true); return; }   // nothing to show big (sensors, remotes...): straight to its settings
     if (qcMotion() && tile && pill.animate) {
@@ -2534,11 +2587,12 @@
     } else el.classList.toggle('on', on && !chs.length);
     if (d.outdoor) statusTxt = 'Outdoor · from the internet';
     if (d.clim) { const n = d.sensors.length; statusTxt = n === 1 ? (d.sensors[0].room || d.sensors[0].name) : n + ' sensors' + (S.room && S.room !== 'All' && !d.kiosk ? ' · ' + S.room : ''); }
+    if (d.homesPick) statusTxt = d.homes.length + ' homes';
     el.querySelector('.qc-status').textContent = statusTxt;
     const rmBody = el.querySelector('.qc-remote');
     if (rmBody) patchHtml(rmBody, irRemotePad(d, '-qr'));
     const airBody = el.querySelector('.qc-air');
-    if (airBody) patchHtml(airBody, d.clim ? climPanel(d) : airPanel(d));
+    if (airBody) patchHtml(airBody, d.homesPick ? homesPanel(d) : d.clim ? climPanel(d) : airPanel(d));
     const acBody = el.querySelector('.qc-ac');
     if (acBody && !S.dragging) patchHtml(acBody, acPage(d, '-qa'));
     const sws = el.querySelector('.qc-swatches');
@@ -3008,10 +3062,8 @@
     const homes = data.homes || [];
     const homeName = home ? home.name : 'My Home';
     const homeLine = homes.length > 1
-      ? '<span class="home-pick"><label class="sr-only" for="home-head">Home</label>' +
-        '<select id="home-head" class="home-select" data-act="home" data-key="home-head">' +
-        homes.map((h) => '<option value="' + esc(h.id) + '"' + (h.id === data.homeId ? ' selected' : '') + '>' + esc(h.name) + '</option>').join('') +
-        '</select><span class="title-chevron" aria-hidden="true">' + icon('down', 16) + '</span></span>'
+      ? '<button class="home-pick home-btn" data-act="homes-open" data-key="home-head" aria-haspopup="dialog" aria-label="' + esc('Home: ' + homeName + '. Change home') + '">' +
+        '<span class="home-name">' + esc(homeName) + '</span><span class="title-chevron" aria-hidden="true">' + icon('down', 16) + '</span></button>'
       : '<span>' + esc(homeName) + '</span>';
     const initial = (S.me && S.me.name ? S.me.name : 'H').trim().charAt(0).toUpperCase();
     // The top (greeting, rooms, readings, heading) stays put; only the device cards scroll.
@@ -6075,6 +6127,13 @@
       case 'climate-toggle': S.climateOpen = !S.climateOpen; render(); break;
       case 'k-open': { const kd = findDevice(id); if (kd) qcOpen(kd, qcTileOf(id) || el); break; }
       case 'air-open': { const ad = findDevice(id); if (ad) { qcOpen(ad, el); if (qc) qc.fromChip = true; } break; }
+      case 'homes-open': { const hd = homesDevice(); if (hd) qcOpen(hd, el); break; }
+      case 'home-choose': {
+        // Close the page first (it shrinks back into the home's name), then switch.
+        if (qc) qcClose();
+        setTimeout(() => switchHome(id), 320);
+        break;
+      }
       case 'outdoor-air': { const od = outdoorDevice(); if (od) qcOpen(od, el); break; }
       case 'clim-open': { const cd = climDevice('clim-' + el.dataset.kind + (el.closest('.k26') ? '-k' : '')); if (cd) qcOpen(cd, el); break; }
       case 'open-history': {
@@ -6218,10 +6277,7 @@
     } else if (act === 'fanspeed' && d) {
       send(d, [{ code: 'fan_speed_percent', value: Number(el.value) }], { fan_speed_percent: Number(el.value) });
     } else if (act === 'home') {
-      S.homeId = el.value; store.set('homeId', el.value); S.room = 'All';
-      S.data = null; S.iconPicking = null; S.renaming = null; S.sceneState = {};
-      if (route().view === 'device') history.replaceState(null, '', location.pathname + location.search + '#devices');
-      refresh();
+      switchHome(el.value);
     }
   });
 
