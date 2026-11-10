@@ -4,6 +4,23 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.87.0", "items": ["Wall tablet: press and hold the numerals clock to change its background: sky, mint, peach, lavender, sun, graphite or your wallpaper.", "On the wallpaper the numerals turn into liquid glass: frosted, refracting the picture behind, with a lit edge."]},
+    {
+      "v": "2.86.1",
+      "items": [
+        "The numerals clock is redrawn to HomeView's exact proportions: the numerals in a cross around the centre, hands with a thin neck then a thick bar, a long second hand with a short tail, flat sky blue, and the day in teal"
+      ]
+    },
+    {
+      "v": "2.86.0",
+      "items": [
+        "Wall tablet: press and drag up or down inside a light (or blind) tile to set its level; the tile fills yellow with the percentage",
+        "Faces slide in and out as rounded cards, like HomeView",
+        "Press and hold the Home page to edit it: tiles jiggle, tap one to make it S, M or L, – removes it, + adds more, Done finishes",
+        "Tap the weather in the top bar to open the full Weather page, now with an hourly forecast strip; ✕ goes back",
+        "Tap the Clock face to switch to a big-numeral analog clock (and back)"
+      ]
+    },
     {
       "v": "2.85.0",
       "items": [
@@ -1034,7 +1051,11 @@
     kRoom: store.get('kRoom') || 'All',
     kFace: /^(clock|weather|mod\d*)$/.test(store.get('kFace') || '') ? store.get('kFace') : 'clock',
     kHomeRoom: store.get('kHomeRoom') || 'All',  // room shown on the Home pages (All = favourites)  // wall tablet face: Clock, Home (favourites) or All controls
-    kModEdit: false,  // choosing the Home face's favourites  // wall tablet mode's room (separate from the Home tab)
+    kModEdit: false,  // choosing the Home face's favourites
+    kEdit: false, kEditSel: null,  // editing the Home pages (jiggle, sizes)
+    kWxBack: null,  // face to return to after opening the weather from a widget
+    kClockStyle: store.get('kClock') === 'numerals' ? 'numerals' : 'digital',
+    kClockBg: store.get('kClockBg') || 'sky', kClockPick: false,  // wall tablet mode's room (separate from the Home tab)
     data: null,
     loading: false,
     gate: null,          // null | 'login' | 'setup'
@@ -3177,7 +3198,7 @@
       S.weather = { homeId, unit: S.tempUnit, at: Date.now(), available: !!r.available, temp: r.temp, code: r.code, isDay: r.isDay, unitLabel: r.unit === '°F' ? '°F' : '°C',
         lat: typeof r.lat === 'number' ? r.lat : null, lon: typeof r.lon === 'number' ? r.lon : null,
         air: r.air && typeof r.air.aqi === 'number' ? r.air : null, place: r.place || '', reason: r.reason || '',
-        hi: r.hi, lo: r.lo, humidity: r.humidity, wind: r.wind, windUnit: r.windUnit, sun: Array.isArray(r.sun) ? r.sun : [] };
+        hi: r.hi, lo: r.lo, humidity: r.humidity, wind: r.wind, windUnit: r.windUnit, sun: Array.isArray(r.sun) ? r.sun : [], hours: Array.isArray(r.hours) ? r.hours : [] };
       updatePosition();
       if (S.weather.available && !readVault()) {  // like the device snapshot: nothing kept when PIN unlock is on
         try {
@@ -5286,7 +5307,7 @@
     const pages = [];
     let cur = [], used = 0;
     for (const p of kHomeItems(data)) {
-      const w = p.indexOf('dev:') === 0 && isKioskAc(findDevice(p.slice(4))) ? 4 : 1;
+      const w = kCellsOf(kSizeOf(p));
       if (cur.length && used + w > kPageCells()) { pages.push(cur); cur = []; used = 0; }
       cur.push(p); used += w;
     }
@@ -5368,24 +5389,31 @@
       '<button class="km-step up" data-act="' + act + '" data-id="' + esc(d.id) + '" data-delta="1" data-key="km-up-' + esc(d.id) + '" aria-label="Raise temperature"' + dis + '>' + icon('chevron', 30) + '</button></div></div>';
   }
   function kModFace(data, now, picks) {
-    // Uniform big tiles: every favourite the same size (ACs as thermostat tiles), filling the screen.
-    let grid = '';
+    // Big tiles filling the screen, each S (1×1), M (2×1) or L (2×2). In edit mode they jiggle, show a
+    // "–" to remove (favourites only) and, when selected, an S / M / L size picker.
+    const fav = !S.kHomeRoom || S.kHomeRoom === 'All';
+    let grid = '', n = 0, hasM = false, hasL = false;
     picks.forEach((p) => {
       const d = p.indexOf('dev:') === 0 ? findDevice(p.slice(4)) : null;
-      grid += d && isKioskAc(d) ? kModThermo(d) : kModTile(data, p);
+      const sz = kSizeOf(p); n += kCellsOf(sz); hasM = hasM || sz !== 's'; hasL = hasL || sz === 'l';
+      const sel = S.kEdit && S.kEditSel === p;
+      grid += '<div class="km-cell km-' + sz + (sel ? ' km-sel' : '') + '" data-pick="' + esc(p) + '" data-key="kc-' + esc(p) + '">' +
+        (d && isKioskAc(d) ? kModThermo(d) : kModTile(data, p)) +
+        (S.kEdit && fav ? '<button class="km-del" data-act="kedit-del" data-pick="' + esc(p) + '" aria-label="Remove from Home">' + icon('minus', 14) + '</button>' : '') +
+        (sel ? '<div class="km-sizes" role="group" aria-label="Tile size">' + ['s', 'm', 'l'].map((z) =>
+          '<button data-act="ksize" data-pick="' + esc(p) + '" data-size="' + z + '" aria-pressed="' + (z === sz) + '">' + z.toUpperCase() + '</button>').join('') + '</div>' : '') +
+        '</div>';
     });
-    const showAdd = picks.length === 0 && (!S.kHomeRoom || S.kHomeRoom === 'All');
-    if (showAdd) grid += '<button class="k-mt k-madd" data-act="kmod-edit" data-key="km-add" aria-label="Choose favourites">' + icon('plus', 34) + '</button>';
+    const showAdd = picks.length === 0 && fav;
+    if (showAdd) { grid += '<div class="km-cell km-s"><button class="k-mt k-madd" data-act="kmod-edit" data-key="km-add" aria-label="Choose favourites">' + icon('plus', 34) + '</button></div>'; n += 1; }
+    n = Math.max(1, n);
     // Pick the columns × rows that give the biggest tiles, letting tiles stretch a little (not too
     // far from square) so the grid fills the screen.
-    // ACs stay large (2×2); everything else is one uniform tile.
-    const nAc = picks.filter((p) => p.indexOf('dev:') === 0 && isKioskAc(findDevice(p.slice(4)))).length;
-    const n = Math.max(1, picks.length - nAc + nAc * 4 + (showAdd ? 1 : 0));
     const gap = Math.round(Math.max(8, Math.min(innerWidth, innerHeight) * 0.022));
     const W = innerWidth - 48, H = innerHeight - 96 - Math.min(innerWidth, innerHeight) * 0.07;
     let best = { cols: 3, rows: 3, cw: 100, ch: 100, score: 0 };
-    for (let cols = nAc ? 2 : 1; cols <= 7; cols++) {
-      const rows = Math.max(nAc ? 2 : 1, Math.ceil(n / cols) + (nAc && cols % 2 ? 1 : 0));
+    for (let cols = hasM ? 2 : 1; cols <= 7; cols++) {
+      const rows = Math.max(hasL ? 2 : 1, Math.ceil(n / cols) + (hasL && cols % 2 ? 1 : 0));
       let cw = (W - (cols - 1) * gap) / cols, ch = (H - (rows - 1) * gap) / rows;
       if (cw > ch * 1.45) cw = ch * 1.45;
       if (ch > cw * 1.2) ch = cw * 1.2;
@@ -5393,10 +5421,11 @@
       if (score > best.score) best = { cols, rows, cw, ch, score };
     }
     const cell = Math.floor(Math.min(best.cw, best.ch));
-    return '<section class="k-modface" style="--cols:' + best.cols + ';--cw:' + Math.floor(best.cw) + 'px;--ch:' + Math.floor(best.ch) + 'px;--cell:' + cell + 'px;--gap:' + gap + 'px" aria-label="Home">' +
-      kTopBar(data, now, kRoomPicker(data)) +
-      '<div class="k-modgrid" role="group" aria-label="Favourites. Press and hold to choose.">' + grid + '</div></section>';
+    return '<section class="k-modface' + (S.kEdit ? ' k-editing' : '') + '" style="--cols:' + best.cols + ';--cw:' + Math.floor(best.cw) + 'px;--ch:' + Math.floor(best.ch) + 'px;--cell:' + cell + 'px;--gap:' + gap + 'px" aria-label="Home">' +
+      kTopBar(data, now, kRoomPicker(data), true) +
+      '<div class="k-modgrid" role="group" aria-label="Favourites. Press and hold to edit.">' + grid + '</div></section>';
   }
+
 
   // ---- Weather face, after HomeView's: the temperature huge in frosted glass on a sky that matches
   // the conditions; condition and high/low top left, the time top right; sun, wind and humidity below. ----
@@ -5417,7 +5446,7 @@
     return '<nav class="k-hrooms" aria-label="Rooms">' + ['All'].concat(rooms).map((r) =>
       '<button class="k-hroom" data-act="khroom" data-room="' + esc(r) + '" data-key="khr-' + esc(r) + '" aria-pressed="' + (r === cur) + '">' + esc(r) + '</button>').join('') + '</nav>';
   }
-  function kTopBar(data, now, mid) {
+  function kTopBar(data, now, mid, wxLink) {
     const w = S.weather, ok = w && w.available && w.homeId === data.homeId && w.unit === S.tempUnit;
     let left = '';
     if (ok) {
@@ -5425,7 +5454,8 @@
       left = '<div class="kw-cond">' + icon(ic, 20) + '<span>' + esc(desc) + '</span></div>' +
         (w.hi != null && w.lo != null ? '<div class="kw-hl">H:' + w.hi + '° L:' + w.lo + '°</div>' : '');
     }
-    return '<header class="kw-top"><div class="kw-l-side">' + left + '</div>' + (mid || '') + '<div class="kw-time" data-kclock="time">' + kTime(now) + '</div></header>';
+    const lside = wxLink && left ? '<button class="kw-l-side kw-link" data-act="kwx-open" aria-label="Open the weather">' + left + '</button>' : '<div class="kw-l-side">' + left + '</div>';
+    return '<header class="kw-top">' + lside + (mid || '') + '<div class="kw-time" data-kclock="time">' + kTime(now) + '</div></header>';
   }
   // ---- Clouds, the way Apple's Weather app draws them: pre-lit cloud textures in tiled layers that
   // scroll in seamless loops (each slide is exactly one tile wide), at different depths and speeds,
@@ -5591,7 +5621,8 @@
     const golden = w.isDay && sunPhase(w, now).phase === 'golden';
     return '<section class="k-wxface ' + kSky(w.code, w.isDay) + (golden ? ' sky-golden' : '') + '" aria-label="Weather">' + kWeatherFx(w, now) + kTopBar(data, now) +
       '<div class="kw-big" role="img" aria-label="' + esc(w.temp + ' degrees, ' + desc) + '"><span>' + esc(String(w.temp)) + '</span><span class="kw-deg">°</span></div>' +
-      (stats ? '<div class="kw-stats">' + stats + '</div>' : '') + '</section>';
+      '<div class="kw-card">' + (stats ? '<div class="kw-stats">' + stats + '</div>' : '') + kHourly(w, now) + '</div>' +
+      (S.kWxBack ? '<button class="kw-close" data-act="kwx-close" aria-label="Close the weather">' + icon('close', 18) + '</button>' : '') + '</section>';
   }
   function kModEditor(data) {
     const c = kModCandidates(data), picks = kModPicks(data);
@@ -5611,14 +5642,21 @@
   }
   // Press and hold the Home face to choose its favourites (like editing a face on HomeView).
   let kResizeT = 0;
-  window.addEventListener('resize', () => { clearTimeout(kResizeT); kResizeT = setTimeout(() => { if (route().view === 'kiosk' && isModFace(S.kFace)) render(); }, 150); });
+  window.addEventListener('resize', () => { clearTimeout(kResizeT); kResizeT = setTimeout(() => { if (route().view === 'kiosk' && (isModFace(S.kFace) || (S.kFace === 'clock' && S.kClockBg === 'photo'))) render(); }, 150); });
   let kHold = null, kHoldFired = false;
   document.addEventListener('pointerdown', (e) => {
+    const nf = e.target.closest && e.target.closest('.k-numface');
+    if (nf && !S.kClockPick && !e.target.closest('.kn-pick')) {
+      const x = e.clientX, y = e.clientY;
+      clearTimeout(kHold && kHold.t);
+      kHold = { x, y, t: setTimeout(() => { kHold = null; kHoldFired = true; S.kClockPick = true; render(); if (navigator.vibrate) navigator.vibrate(12); }, 650) };
+      return;
+    }
     const g = e.target.closest && e.target.closest('.k-modgrid');
-    if (!g || S.kModEdit) return;
+    if (!g || S.kModEdit || S.kEdit) return;
     const x = e.clientX, y = e.clientY;
     clearTimeout(kHold && kHold.t);
-    kHold = { x, y, t: setTimeout(() => { kHold = null; kHoldFired = true; S.kModEdit = true; render(); if (navigator.vibrate) navigator.vibrate(12); }, 650) };
+    kHold = { x, y, t: setTimeout(() => { if (kLvl && kLvl.on) return; kHold = null; kLvl = null; kHoldFired = true; S.kEdit = true; S.kEditSel = null; render(); if (navigator.vibrate) navigator.vibrate(12); }, 650) };
   });
   document.addEventListener('pointermove', (e) => { if (kHold && Math.hypot(e.clientX - kHold.x, e.clientY - kHold.y) > 10) { clearTimeout(kHold.t); kHold = null; } }, { passive: true });
   ['pointerup', 'pointercancel'].forEach((n) => document.addEventListener(n, () => { if (kHold) { clearTimeout(kHold.t); kHold = null; } }));
@@ -5626,18 +5664,164 @@
   let kSwiped = false;
   document.addEventListener('pointerdown', () => { kHoldFired = false; }, true);
   document.addEventListener('click', (e) => {
-    if (kHoldFired || kSwiped) { kHoldFired = false; kSwiped = false; e.stopPropagation(); e.preventDefault(); }
+    if (kHoldFired || kSwiped || kLvlFired) { kHoldFired = false; kSwiped = false; kLvlFired = false; e.stopPropagation(); e.preventDefault(); return; }
+    // Edit mode: tapping a tile selects it (to resize) instead of switching it.
+    if (S.kEdit && e.target.closest) {
+      const cell = e.target.closest('.km-cell'), ctl = e.target.closest('.km-del, .km-sizes, .k-editbar');
+      if (cell && !ctl) { e.stopPropagation(); e.preventDefault(); S.kEditSel = S.kEditSel === cell.dataset.pick ? null : cell.dataset.pick; render(); }
+      else if (!cell && !ctl && e.target.closest('.k-modface')) { e.stopPropagation(); e.preventDefault(); S.kEditSel = null; render(); }
+    }
   }, true);
   document.addEventListener('contextmenu', (e) => { if (e.target.closest && e.target.closest('.k-modgrid')) e.preventDefault(); });
-  function kSetFace(f) {
+  // ---- Tile sizes (HomeView edit mode: S / M / L). S = 1×1, M = 2×1, L = 2×2. ACs default to L. ----
+  function kSizes() { try { return JSON.parse(store.get('kSize') || '{}') || {}; } catch (e) { return {}; } }
+  function kSizeOf(pick) {
+    const s = kSizes()[pick];
+    if (s === 's' || s === 'm' || s === 'l') return s;
+    return pick.indexOf('dev:') === 0 && isKioskAc(findDevice(pick.slice(4))) ? 'l' : 's';
+  }
+  const kCellsOf = (sz) => (sz === 'l' ? 4 : sz === 'm' ? 2 : 1);
+  // ---- Smooth reflow: tiles slide and resize into their new places (FLIP) ----
+  function kFlip(fn) {
+    const before = {};
+    document.querySelectorAll('.km-cell[data-pick]').forEach((n) => { before[n.dataset.pick] = n.getBoundingClientRect(); });
+    fn();
+    if (!qcMotion()) return;
+    document.querySelectorAll('.km-cell[data-pick]').forEach((n) => {
+      const a = before[n.dataset.pick]; if (!a) return;
+      const b = n.getBoundingClientRect();
+      if (!b.width || (Math.abs(a.left - b.left) < 1 && Math.abs(a.top - b.top) < 1 && Math.abs(a.width - b.width) < 1 && Math.abs(a.height - b.height) < 1)) return;
+      n.style.transition = 'none'; n.style.transformOrigin = '0 0';
+      n.style.transform = 'translate(' + (a.left - b.left) + 'px,' + (a.top - b.top) + 'px) scale(' + (a.width / b.width) + ',' + (a.height / b.height) + ')';
+      void n.offsetWidth;
+      n.style.transition = 'transform .5s cubic-bezier(.3,1.25,.4,1)'; n.style.transform = '';
+      setTimeout(() => { n.style.transition = ''; n.style.transformOrigin = ''; }, 520);
+    });
+  }
+  // ---- Press and drag up/down inside a light (or blind) tile to set its level, like HomeView ----
+  let kLvl = null, kLvlFired = false;
+  const kLvlPct = (d) => qcSliderFor(d).pct(d);
+  document.addEventListener('pointerdown', (e) => {
+    if (S.kEdit || route().view !== 'kiosk') return;
+    const cell = e.target.closest && e.target.closest('.k-modgrid .km-cell[data-pick^="dev:"]');
+    if (!cell) return;
+    const d = findDevice(cell.dataset.pick.slice(4));
+    if (!d || !d.online || !['dim', 'cover'].includes(qcKind(d))) return;
+    kLvl = { cell, d, x: e.clientX, y: e.clientY, pct0: kLvlPct(d), pct: null, h: cell.getBoundingClientRect().height, on: false };
+  });
+  document.addEventListener('pointermove', (e) => {
+    if (!kLvl) return;
+    const dx = e.clientX - kLvl.x, dy = e.clientY - kLvl.y;
+    if (!kLvl.on) {
+      if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) { kLvl = null; return; }  // a sideways swipe
+      if (Math.abs(dy) < 10) return;
+      kLvl.on = true; kSw = null;
+      if (kHold) { clearTimeout(kHold.t); kHold = null; }
+      kLvl.cell.classList.add('km-leveling');
+      if (!kLvl.cell.querySelector('.km-lvl')) kLvl.cell.insertAdjacentHTML('beforeend', '<span class="km-lvl" aria-hidden="true"><b></b></span>');
+    }
+    const pct = clamp(Math.round(kLvl.pct0 - (dy / (kLvl.h * 1.1)) * 100), 0, 100);
+    kLvl.pct = pct;
+    kLvl.cell.style.setProperty('--lvl', pct + '%');
+    kLvl.cell.querySelector('.km-lvl b').textContent = pct + (qcKind(kLvl.d) === 'cover' ? '%' : '');
+  }, { passive: true });
+  ['pointerup', 'pointercancel'].forEach((n) => document.addEventListener(n, () => {
+    if (!kLvl) return;
+    const l = kLvl; kLvl = null;
+    if (!l.on) return;
+    kLvlFired = true; setTimeout(() => { kLvlFired = false; }, 400);
+    if (l.pct != null && l.pct !== l.pct0) qcSliderFor(l.d).commit(l.d, l.pct);
+    setTimeout(() => { l.cell.classList.remove('km-leveling'); const v = l.cell.querySelector('.km-lvl'); if (v) v.remove(); render(); }, 450);
+  }));
+  // ---- Face carousel: the old face slides away as a rounded card while the new one slides in ----
+  function kCarousel(dir, origin) {
+    const old = document.querySelector('.k26');
+    let ghost = null;
+    if (old && qcMotion()) {
+      const r = old.getBoundingClientRect();
+      ghost = old.cloneNode(true);
+      ghost.removeAttribute('data-key');
+      ghost.querySelectorAll('[data-kclock], [data-khand]').forEach((n) => { n.removeAttribute('data-kclock'); n.removeAttribute('data-khand'); });
+      ghost.classList.add('k-ghost', origin ? 'k-zoom-out' : 'k-car-out-' + dir);
+      Object.assign(ghost.style, { position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', margin: '0', zIndex: '30', pointerEvents: 'none' });
+      document.body.appendChild(ghost);
+    }
+    return () => {
+      const k = document.querySelector('.k26');
+      if (k && ghost) {
+        const cls = origin ? 'k-zoom-in' : 'k-car-in-' + dir;
+        if (origin) k.style.transformOrigin = origin.x + 'px ' + origin.y + 'px';
+        k.classList.add(cls);
+        setTimeout(() => { k.classList.remove(cls); k.style.transformOrigin = ''; }, 560);
+      }
+      if (ghost) setTimeout(() => ghost.remove(), 560);
+    };
+  }
+  // ---- Numerals clock (HomeView's big-numeral analog face): 12, 3, 6 and 9 huge and overlapping,
+  // thin white hands with a sweeping second hand, the day in a corner ----
+  // Backgrounds for the numerals clock: solid colours, or the wallpaper (numerals turn to liquid glass).
+const KN_BGS = [['sky', '#7fd5ee'], ['mint', '#9fe3c4'], ['peach', '#ffc3a6'], ['lavender', '#c9b8f5'], ['sun', '#ffd95e'], ['graphite', '#1c1c1e'], ['photo', '']];
+function knPhoto() { return '/backgrounds/' + (S.bg && S.bg !== 'system' ? S.bg : 'aura') + '.jpg'; }
+function kNumeralClock(now) {
+  const a = kHandAngles(now), sec = now.getSeconds() + now.getMilliseconds() / 1000;
+  const day = now.toLocaleDateString([], { weekday: 'short' }).toUpperCase().replace('.', '') + ' ' + now.getDate();
+  const hand = (k, neck, from, to, w) => '<g data-khand="' + k + '" class="kn-hand" style="transform:rotate(' + a[k].toFixed(2) + 'deg)">' +
+    '<line x1="500" y1="500" x2="500" y2="' + neck + '" stroke-width="8"/><line x1="500" y1="' + from + '" x2="500" y2="' + to + '" stroke-width="' + w + '"/></g>';
+  const nums = '<text x="480" y="466">12</text><text x="186" y="707">9</text><text x="810" y="707">3</text><text x="478" y="952">6</text>';
+  let face = '<g class="kn-nums">' + nums + '</g>';
+  if (S.kClockBg === 'photo') {
+    // Liquid glass: the wallpaper, blurred, brightened and slightly magnified (refraction), seen through
+    // the numeral shapes, then a translucent body, a bright rim and a soft shadow. The picture is mapped
+    // to screen coordinates so the glass lines up with the wallpaper behind it.
+    const sz = Math.min(innerWidth, innerHeight) || 1, W = innerWidth * 1000 / sz, H = innerHeight * 1000 / sz;
+    const m = 1.1;
+    face = '<defs><clipPath id="knClip" class="kn-nums">' + nums + '</clipPath>' +
+      '<filter id="knBlur" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="9"/><feColorMatrix type="saturate" values="1.45"/>' +
+      '<feComponentTransfer><feFuncR type="linear" slope="1.16" intercept=".02"/><feFuncG type="linear" slope="1.16" intercept=".02"/><feFuncB type="linear" slope="1.16" intercept=".02"/></feComponentTransfer></filter>' +
+      '<filter id="knEdge" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="7"/></filter>' +
+      '<linearGradient id="knRim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset=".5" stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#fff" stop-opacity=".8"/></linearGradient>' +
+      '<filter id="knShadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="10" stdDeviation="16" flood-color="#000" flood-opacity=".28"/></filter>' +
+      '<linearGradient id="knSheen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".16"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity=".07"/></linearGradient></defs>' +
+      '<g class="kn-nums kn-shade" filter="url(#knShadow)">' + nums + '</g>' +
+      '<g clip-path="url(#knClip)"><image href="' + esc(knPhoto()) + '" x="' + (500 - W * m / 2).toFixed(1) + '" y="' + (500 - H * m / 2).toFixed(1) +
+      '" width="' + (W * m).toFixed(1) + '" height="' + (H * m).toFixed(1) + '" preserveAspectRatio="xMidYMid slice" filter="url(#knBlur)"/>' +
+      '<g class="kn-nums kn-edge" filter="url(#knEdge)">' + nums + '</g></g>' +
+      '<g class="kn-nums kn-glass">' + nums + '</g>';
+  }
+  return '<svg class="kn-svg" viewBox="0 0 1000 1000" role="img" aria-label="' + esc(now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })) + '">' +
+    face + hand('h', 444, 444, 267, 25) + hand('m', 420, 420, 86, 23) +
+    '<line class="kn-sec" x1="500" y1="539" x2="500" y2="20" style="animation-delay:-' + sec.toFixed(2) + 's"/>' +
+    '<circle cx="500" cy="500" r="14" class="kn-pin"/></svg>' + '<div class="kn-day">' + esc(day) + '</div>' +
+    (S.kClockPick ? kClockPicker() : '');
+}
+function kClockPicker() {
+  return '<div class="kn-pick" role="radiogroup" aria-label="Clock background">' + KN_BGS.map(([k, c]) =>
+    '<button class="kn-sw' + (S.kClockBg === k ? ' on' : '') + '" data-act="kclock-bg" data-bg="' + k + '" role="radio" aria-checked="' + (S.kClockBg === k) + '" aria-label="' + (k === 'photo' ? 'Wallpaper' : k) + '"' +
+    (k === 'photo' ? ' style="background-image:url(' + knPhoto() + ')"' : ' style="background:' + c + '"') + '></button>').join('') +
+    '<button class="kn-done" data-act="kclock-pick-done">Done</button></div>';
+}
+
+  // ---- Weather: hourly strip in a glass "Conditions" card ----
+  function kHourly(w, now) {
+    const hrs = (w.hours || []).filter((h) => h.t > now.getTime() - 36e5).slice(0, 12);
+    if (!hrs.length) return '';
+    return '<div class="kw-hours">' + hrs.map((h, i) => {
+      const [ic] = weatherInfo(h.code, h.isDay);
+      return '<div class="kw-hr"><span class="kw-hr-t">' + (i === 0 ? 'Now' : esc(new Date(h.t).toLocaleTimeString([], { hour: 'numeric' }))) + '</span>' + icon(ic, 22) +
+        '<span class="kw-hr-p">' + (h.pop >= 10 ? h.pop + '%' : '') + '</span><span class="kw-hr-v">' + h.temp + '°</span></div>';
+    }).join('') + '</div>';
+  }
+  function kSetFace(f, origin) {
     const faces = kFaces();
     if (!faces.includes(f) || f === S.kFace) return;
     const dir = faces.indexOf(f) > faces.indexOf(S.kFace) ? 'l' : 'r';
+    const done = kCarousel(dir, origin);
+    if (!origin) S.kWxBack = null;
     S.kFace = f; store.set('kFace', f);
+    S.kEdit = false; S.kEditSel = null;
     if (f === 'weather') loadWeather();
     render();
-    const k = document.querySelector('.k26');
-    if (k && qcMotion()) { k.classList.remove('k-swap-l', 'k-swap-r'); void k.offsetWidth; k.classList.add('k-swap-' + dir); setTimeout(() => k.classList.remove('k-swap-' + dir), 500); }
+    done();
   }
   // Swipe sideways to change face (like HomeView). Starts on controls and sideways-scrolling rows
   // don't count on the Home face, so dials, sliders and capsule rows behave as before.
@@ -5645,7 +5829,7 @@
   const kSwStart = (x, y, t) => {
     if (route().view !== 'kiosk' || qc || document.documentElement.classList.contains('k-night')) return;
     if (t.closest && t.closest('.k-exit, .k-dots, input, .qc, .qc-sheet')) return;
-    if (S.kModEdit) return;
+    if (S.kModEdit || S.kEdit || kLvl) return;
     if (S.kFace === 'home' && t.closest && t.closest('.k-ac, .k-ctl, .k-scenes26, .k-rooms, .k-climate, button')) return;
     kSw = { x, y, at: Date.now() };
   };
@@ -5686,9 +5870,11 @@
     const wx = w && w.available && w.homeId === data.homeId && w.unit === S.tempUnit
       ? (() => { const [ic, desc] = weatherInfo(w.code, w.isDay); return '<span class="k-wx" aria-label="' + esc(desc + ', ' + w.temp + w.unitLabel) + '">' + icon(ic, 20) + '<span>' + w.temp + '°</span></span>'; })()
       : '';
-    const exitBtn = '<button class="k-exit" data-key="k-exit" aria-label="Leave wall tablet mode (press and hold)" title="Press and hold to leave">' +
+    const exitBtn = '<button class="k-exit" data-act="k-exit-tap" data-key="k-exit" aria-label="Leave wall tablet mode (press and hold)" title="Press and hold to leave">' +
       '<svg class="k-exit-ring" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="20"/></svg>' + icon('close', 18) + '</button>';
-    const tail = () => kDots() + kNightFace(data, now) + (S.kModEdit ? kModEditor(data) : '') +
+    const editBar = '<div class="k-editbar"><button class="k-eb-add" data-act="kedit-add" aria-label="Add or remove favourites">' + icon('plus', 20) + '</button>' +
+      '<span class="k-eb-hint">' + (S.kEditSel ? 'Choose a size' : 'Tap a tile to resize it') + '</span><button class="k-eb-done" data-act="kedit-done">Done</button></div>';
+    const tail = () => (S.kEdit && isModFace(S.kFace) ? editBar : kDots()) + kNightFace(data, now) + (S.kModEdit ? kModEditor(data) : '') +
       '<button class="k-dim" data-act="kiosk-wake" data-key="k-dim" aria-label="Wake the screen" tabindex="-1"></button></div>';
     if (S.kFace === 'home') S.kFace = 'mod';
     if (isModFace(S.kFace)) {
@@ -5699,8 +5885,12 @@
     }
     if (S.kFace === 'weather') return '<div class="kiosk-wrap k26 k-face-weather">' + kWeatherFace(data, now) + exitBtn.replace('class="k-exit"', 'class="k-exit km-exit"') + tail();
     // Clock face: a very large clock with the date and glanceable readings, nothing to press.
+    if (S.kFace === 'clock' && S.kClockStyle === 'numerals') {
+      return '<div class="kiosk-wrap k26 k-face-clock k-numerals kn-bg-' + esc(S.kClockBg) + '" style="--kn-img:url(' + knPhoto() + ')"><section class="k-numface" data-act="kclock-style" aria-label="Clock. Tap to change style, press and hold to change background.">' + kNumeralClock(now) + '</section>' +
+        exitBtn.replace('class="k-exit"', 'class="k-exit km-exit"') + tail();
+    }
     if (S.kFace === 'clock') {
-      return '<div class="kiosk-wrap k26 k-face-clock"><section class="k-clockface" aria-label="Clock">' + exitBtn +
+      return '<div class="kiosk-wrap k26 k-face-clock"><section class="k-clockface" data-act="kclock-style" aria-label="Clock. Tap to change style.">' + exitBtn +
         '<div class="kc-date" data-kclock="date">' + kDate(now) + '</div>' +
         '<div class="k-time kc-time" data-kclock="time">' + kTime(now) + '</div>' +
         kGlanceHtml(kGlance(data), 'kc-info') + '</section>' + kDots() + kNightFace(data, now) +
@@ -6319,6 +6509,40 @@
       case 'hide-toggle': { const hd = findDevice(id); if (hd) { const h = !isHidden(hd); setHidden(id, h); render(); toast(h ? hd.name + ' hidden from Home' : hd.name + ' is back on Home'); } break; }
       case 'kiosk-enter': kioskStart(); break;
       case 'kface': kSetFace(el.dataset.face); break;
+      case 'ksize': {
+        const sz = kSizes(); sz[el.dataset.pick] = el.dataset.size; store.set('kSize', JSON.stringify(sz));
+        kFlip(render);
+        // A bigger tile may no longer fit on this page: follow it to the page it moved to.
+        if (!document.querySelector('.km-cell[data-pick="' + CSS.escape(el.dataset.pick) + '"]')) {
+          const pi = kHomePages(S.data).findIndex((pg) => pg.includes(el.dataset.pick));
+          if (pi >= 0) { const f = pi ? 'mod' + pi : 'mod'; const ed = S.kEditSel; kSetFace(f); S.kEdit = true; S.kEditSel = ed; render(); }
+        }
+        break;
+      }
+      case 'kedit-del': {
+        const ids = kModPicks(S.data).filter((x) => x !== el.dataset.pick); kModSave(ids);
+        if (S.kEditSel === el.dataset.pick) S.kEditSel = null;
+        kFlip(render); break;
+      }
+      case 'kedit-done': S.kEdit = false; S.kEditSel = null; render(); break;
+      case 'kedit-add': S.kModEdit = true; render(); break;
+      case 'kwx-open': {
+        const r = el.getBoundingClientRect(), from = S.kFace;
+        S.kWxBack = from;
+        kSetFace('weather', { x: r.left + r.width / 2, y: r.top + r.height / 2 });
+        S.kWxBack = from; render(); break;
+      }
+      case 'kwx-close': { const back = S.kWxBack || 'clock'; S.kWxBack = null; kSetFace(back); break; }
+      case 'kclock-bg': {
+        if (!KN_BGS.some(([k]) => k === el.dataset.bg)) break;
+        S.kClockBg = el.dataset.bg; store.set('kClockBg', S.kClockBg); render(); break;
+      }
+      case 'kclock-pick-done': S.kClockPick = false; render(); break;
+      case 'kclock-style': {
+        if (S.kClockPick) { S.kClockPick = false; render(); break; }
+        S.kClockStyle = S.kClockStyle === 'numerals' ? 'digital' : 'numerals'; store.set('kClock', S.kClockStyle);
+        const done = kCarousel('l', { x: innerWidth / 2, y: innerHeight / 2 }); render(); done(); break;
+      }
       case 'khroom': {
         S.kHomeRoom = el.dataset.room; store.set('kHomeRoom', S.kHomeRoom);
         S.kFace = 'mod'; store.set('kFace', 'mod');
@@ -7369,6 +7593,8 @@
         return { available: true, temp: f ? 75 : 24, code: wxq != null && wxq !== '' ? Number(wxq) : 2, isDay: !q.has('night'), unit: f ? '°F' : '°C', place: 'Demo', lat: 51.5074, lon: -0.1278,
           air: { aqi: 42, pm25: 9.8, pm10: 16.4, o3: 61, no2: 18.2, time: null },
           hi: f ? 79 : 26, lo: f ? 64 : 18, humidity: 72, wind: f ? 6 : 10, windUnit: f ? 'mph' : 'km/h',
+          hours: Array.from({ length: 13 }, (_, i) => { const b = new Date(); b.setMinutes(0, 0, 0); const t = b.getTime() + i * 36e5, hr = new Date(t).getHours();
+            return { t, temp: (f ? 75 : 24) + Math.round(Math.sin((hr - 9) / 24 * 2 * Math.PI) * (f ? 6 : 3)), code: [2, 2, 3, 61, 61, 3, 2, 1, 0, 0, 1, 2, 2][i], pop: [10, 20, 40, 60, 30, 10, 0, 0, 0, 0, 5, 5, 10][i], isDay: hr >= 6 && hr < 18 }; }),
           sun: [0, 1].map((i) => { const b = new Date(); b.setHours(0, 0, 0, 0); const day = b.getTime() + i * 864e5; return { rise: day + 5.9 * 36e5, set: day + 17.8 * 36e5 }; }) };
       }
       if (path.startsWith('history')) {

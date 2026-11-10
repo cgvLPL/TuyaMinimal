@@ -20,7 +20,12 @@ function todayExtras(w, unit) {
     humidity: num(c.relative_humidity_2m) == null ? null : Math.round(c.relative_humidity_2m),
     wind: num(c.wind_speed_10m) == null ? null : Math.round(c.wind_speed_10m),
     windUnit: unit === 'f' ? 'mph' : 'km/h',
-    sun: (d.sunrise || []).map((r, i) => ({ rise: ts(r), set: ts(d.sunset && d.sunset[i]) })).filter((x) => x.rise && x.set)
+    sun: (d.sunrise || []).map((r, i) => ({ rise: ts(r), set: ts(d.sunset && d.sunset[i]) })).filter((x) => x.rise && x.set),
+    // The next 12 hours, for the hourly strip on the wall tablet's Weather face.
+    hours: ((w.hourly && w.hourly.time) || []).map((tm, i) => {
+      const h = w.hourly, t = num(h.temperature_2m[i]);
+      return { t: ts(tm), temp: t == null ? null : Math.round(t), code: num(h.weather_code[i]), pop: num(h.precipitation_probability && h.precipitation_probability[i]), isDay: !!(h.is_day && h.is_day[i]) };
+    }).filter((x) => x.t && x.temp != null).slice(0, 13)
   };
 }
 const HALF_HOUR = 30 * 60 * 1000;
@@ -65,12 +70,13 @@ module.exports = handler(['GET'], async (req) => {
   if (!loc) return { available: false, reason: 'no_location' };
   const { lat, lon, place } = loc;
 
-  const key = 'wx3:' + lat.toFixed(2) + ',' + lon.toFixed(2) + ':' + unit;
+  const key = 'wx4:' + lat.toFixed(2) + ',' + lon.toFixed(2) + ':' + unit;
   const airP = outdoorAir(lat, lon);
   const w = await cached(key, FIVE_MIN, () => getJson(
     'https://api.open-meteo.com/v1/forecast?latitude=' + lat.toFixed(4) + '&longitude=' + lon.toFixed(4) +
     '&current=temperature_2m,weather_code,is_day,precipitation,rain,showers,cloud_cover,relative_humidity_2m,wind_speed_10m' +
     '&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&forecast_days=2&timezone=auto' +
+    '&hourly=temperature_2m,weather_code,precipitation_probability,is_day&forecast_hours=13' +
     (unit === 'f' ? '&temperature_unit=fahrenheit&wind_speed_unit=mph' : '&wind_speed_unit=kmh')));
   const c = w && w.current;
   if (!c || typeof c.temperature_2m !== 'number') throw new TuyaError('Weather data unavailable.', 'weather', 502);

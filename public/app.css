@@ -2054,7 +2054,7 @@ html.kiosk, html.kiosk body { overscroll-behavior-x: none; }
 .k26 .km-scene.done { background: rgba(48, 209, 88, 0.85); }
 .k26 .k-madd { justify-content: center; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.3); color: rgba(255, 255, 255, 0.7); }
 /* Thermostat: 2×2 */
-.k26 .km-big { grid-column: span 2; grid-row: span 2; justify-content: space-between; padding: calc(var(--cell) * 0.06) calc(var(--cell) * 0.04) calc(var(--cell) * 0.1); cursor: default; }
+.k26 .km-big { justify-content: space-between; padding: calc(var(--cell) * 0.06) calc(var(--cell) * 0.04) calc(var(--cell) * 0.1); cursor: default; }
 .k26 .km-big-open { flex: 1; display: grid; place-items: center; width: 100%; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; padding: 0; }
 .k26 .km-big-temp { font-size: calc(var(--cell) * 0.95); font-weight: 600; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .k26 .km-big-row { flex: none; display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 8px; }
@@ -3257,3 +3257,126 @@ html:not([data-bg]) .ios-pin .keypad .key:active:not(:disabled) { background: co
 .ios-pin .pin-bottom { display: grid; grid-template-columns: 1fr 1fr; width: 100%; max-width: 330px; margin-top: 28px; }
 .ios-pin .pin-text { border: 0; background: none; padding: 10px 6px; font: inherit; font-size: 18px; font-weight: 400; color: inherit; cursor: pointer; justify-self: center; min-height: 44px; }
 .ios-pin .pin-text:active { opacity: .5; }
+
+/* ---- Home pages: tile cells with sizes (S 1×1, M 2×1, L 2×2) ---- */
+.k26 .km-cell { position: relative; min-width: 0; min-height: 0; display: flex; }
+.k26 .km-cell > .k-mt { flex: 1; width: 100%; height: 100%; }
+.k26 .km-cell.km-m { grid-column: span 2; }
+.k26 .km-cell.km-l { grid-column: span 2; grid-row: span 2; }
+.k26 .k-modgrid { touch-action: none; }
+/* Thermostat at smaller sizes */
+.k26 .km-s .km-big-temp { font-size: calc(var(--cell) * 0.4); }
+.k26 .km-s .km-step { width: calc(var(--cell) * 0.2); height: calc(var(--cell) * 0.2); }
+.k26 .km-s .km-big .km-name { font-size: calc(var(--cell) * 0.1); }
+.k26 .km-s .km-big .km-sub { font-size: calc(var(--cell) * 0.085); }
+.k26 .km-m .km-big-temp { font-size: calc(var(--cell) * 0.5); }
+.k26 .km-m .km-big .km-name { font-size: calc(var(--cell) * 0.11); }
+.k26 .km-m .km-big .km-sub { font-size: calc(var(--cell) * 0.095); }
+/* Wide (M) device tiles: icon left, text right, like HomeView's medium tiles */
+.k26 .km-m > .k-mt:not(.km-big) { flex-direction: row; justify-content: flex-start; align-items: center; gap: calc(var(--cell) * 0.1); padding: 0 calc(var(--cell) * 0.12); text-align: left; }
+.k26 .km-m > .k-mt:not(.km-big) .km-ic { width: auto; }
+.k26 .km-m > .k-mt:not(.km-big) .km-name { margin-top: 0; }
+.k26 .km-m > .k-mt:not(.km-big) .km-name, .k26 .km-m > .k-mt:not(.km-big) .km-sub { text-align: left; }
+.k26 .km-m > .k-mt:not(.km-big) { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: calc(var(--cell) * 0.1); align-content: center; }
+.k26 .km-m > .k-mt:not(.km-big) .km-ic { grid-row: span 2; }
+/* Large (L) device tiles: everything bigger */
+.k26 .km-l > .k-mt:not(.km-big) .km-ic svg { width: calc(var(--cell) * 0.55); height: calc(var(--cell) * 0.55); }
+.k26 .km-l > .k-mt:not(.km-big) .km-name { font-size: calc(var(--cell) * 0.17); }
+.k26 .km-l > .k-mt:not(.km-big) .km-sub { font-size: calc(var(--cell) * 0.14); }
+
+/* ---- Drag inside a light tile to set its level ---- */
+.k26 .km-cell.km-leveling > .k-mt { background: linear-gradient(0deg, #ffd60a var(--lvl, 50%), rgba(255, 255, 255, 0.28) var(--lvl, 50%)); color: #1c1c1e; transform: scale(1.04); transition: transform .25s var(--spring, ease); box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25); }
+.k26 .km-cell.km-leveling > .k-mt > * { opacity: .25; }
+.k26 .km-lvl { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; z-index: 2; }
+.k26 .km-lvl b { font-size: calc(var(--cell) * 0.42); font-weight: 600; letter-spacing: -0.02em; color: #1c1c1e; font-variant-numeric: tabular-nums; }
+
+/* ---- Edit mode: jiggle, remove badges, size picker, bottom bar ---- */
+.k26 .k-editing .km-cell > .k-mt { animation: kJiggle .32s ease-in-out infinite alternate; }
+.k26 .k-editing .km-cell:nth-child(2n) > .k-mt { animation-delay: -.16s; animation-direction: alternate-reverse; }
+.k26 .k-editing .km-cell.km-sel > .k-mt { animation: none; transform: scale(1.03); box-shadow: 0 0 0 3px #fff, 0 16px 40px rgba(0, 0, 0, 0.3); }
+@keyframes kJiggle { from { transform: rotate(-1.1deg); } to { transform: rotate(1.1deg); } }
+.k26 .km-del { position: absolute; top: -8px; left: -8px; z-index: 3; width: 28px; height: 28px; border-radius: 50%; border: 0; display: grid; place-items: center;
+  background: rgba(60, 60, 67, 0.85); color: #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); cursor: pointer; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.k26 .km-sizes { position: absolute; left: 50%; top: -18px; transform: translate(-50%, -100%); z-index: 4; display: flex; gap: 4px; padding: 5px; border-radius: 999px;
+  background: rgba(30, 30, 34, 0.86); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); animation: knIn .2s ease; }
+.k26 .km-l .km-sizes, .k26 .km-sizes { top: 8px; transform: translate(-50%, 0); }
+.k26 .km-sizes button { width: 40px; height: 34px; border: 0; border-radius: 999px; background: none; color: #fff; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+.k26 .km-sizes button[aria-pressed="true"] { background: #fff; color: #111; }
+.k26 .k-editbar { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 10px); z-index: 25; transform: translateX(-50%); display: flex; align-items: center; gap: 10px;
+  padding: 6px; border-radius: 999px; background: rgba(30, 30, 34, 0.72); -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); animation: knIn .25s ease; }
+.k26 .k-editbar button { height: 40px; border: 0; border-radius: 999px; font: inherit; font-weight: 700; cursor: pointer; }
+.k26 .k-eb-add { width: 40px; display: grid; place-items: center; background: rgba(255, 255, 255, 0.16); color: #fff; }
+.k26 .k-eb-done { padding: 0 20px; background: #fff; color: #111; }
+.k26 .k-eb-hint { color: rgba(255, 255, 255, 0.75); font-size: 14px; font-weight: 600; padding: 0 4px; white-space: nowrap; }
+
+/* ---- Face carousel: faces slide as rounded cards ---- */
+.k26.k-car-in-l, .k26.k-car-in-r, .k26.k-zoom-in, .k-ghost { border-radius: 44px; overflow: hidden; will-change: transform; }
+.k26.k-car-in-l { animation: kCarInL .55s cubic-bezier(.3, .8, .2, 1); }
+.k26.k-car-in-r { animation: kCarInR .55s cubic-bezier(.3, .8, .2, 1); }
+.k-ghost.k-car-out-l { animation: kCarOutL .55s cubic-bezier(.3, .8, .2, 1) forwards; }
+.k-ghost.k-car-out-r { animation: kCarOutR .55s cubic-bezier(.3, .8, .2, 1) forwards; }
+@keyframes kCarInL { from { transform: translateX(106%) scale(.86); } 30% { transform: translateX(70%) scale(.86); } to { transform: none; border-radius: 0; } }
+@keyframes kCarInR { from { transform: translateX(-106%) scale(.86); } 30% { transform: translateX(-70%) scale(.86); } to { transform: none; border-radius: 0; } }
+@keyframes kCarOutL { from { transform: none; border-radius: 0; } 70% { transform: translateX(-70%) scale(.86); } to { transform: translateX(-106%) scale(.86); } }
+@keyframes kCarOutR { from { transform: none; border-radius: 0; } 70% { transform: translateX(70%) scale(.86); } to { transform: translateX(106%) scale(.86); } }
+/* Opening the weather from a widget: it grows out of the tap point */
+.k26.k-zoom-in { animation: kZoomIn .5s cubic-bezier(.3, 1.1, .3, 1); }
+.k-ghost.k-zoom-out { animation: kZoomOut .5s ease forwards; }
+@keyframes kZoomIn { from { transform: scale(.25); opacity: 0; } 40% { opacity: 1; } to { transform: none; border-radius: 0; } }
+@keyframes kZoomOut { to { transform: scale(.94); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .k26.k-car-in-l, .k26.k-car-in-r, .k26.k-zoom-in, .k-ghost { animation-duration: .01s !important; } .k26 .k-editing .km-cell > .k-mt { animation: none; } }
+
+/* ---- Weather: glass Conditions card with the hourly strip; widget link and close ---- */
+.k26 .kw-link { border: 0; background: none; color: inherit; font: inherit; text-align: left; padding: 0; cursor: pointer; }
+.k26 .kw-card { margin: 0 2vw 1vmin; padding: 1.4vmin 2vmin; border-radius: 3vmin; background: rgba(255, 255, 255, 0.16);
+  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.14); }
+.k26 .kw-card .kw-stats { padding: 0 0 1.2vmin; border-bottom: 1px solid rgba(255, 255, 255, 0.18); }
+.k26 .kw-card .kw-stat { flex-direction: row; gap: .6vmin; align-items: baseline; }
+.k26 .kw-card .kw-stat svg { width: 2.6vmin; height: 2.6vmin; align-self: center; }
+.k26 .kw-card .kw-v { font-size: 2.6vmin; } .k26 .kw-card .kw-l { font-size: 2.2vmin; }
+.k26 .kw-hours { display: flex; justify-content: space-between; gap: 1vmin; padding-top: 1.2vmin; overflow: hidden; }
+.k26 .kw-hr { flex: 1 0 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: .3vmin; }
+.k26 .kw-hr svg { width: 3.2vmin; height: 3.2vmin; }
+.k26 .kw-hr-t { font-size: 2vmin; font-weight: 600; opacity: .85; white-space: nowrap; }
+.k26 .kw-hr-p { font-size: 1.7vmin; font-weight: 700; color: #8fd8ff; min-height: 1.2em; }
+.k26 .kw-hr-v { font-size: 2.6vmin; font-weight: 600; font-variant-numeric: tabular-nums; }
+.k26 .kw-close { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 10px); left: 50%; transform: translateX(-50%); z-index: 22; width: max(38px, 4.6vmin); height: max(38px, 4.6vmin);
+  border: 0; border-radius: 50%; display: grid; place-items: center; color: #fff; background: rgba(255, 255, 255, 0.2); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); cursor: pointer; }
+@media (max-aspect-ratio: 1/1) { .k26 .kw-hr:nth-child(n+7) { display: none; } }
+
+/* ---- Numerals clock face (HomeView's big-numeral analog clock), drawn to its proportions ---- */
+.k26.k-numerals { --kn-bg: #7fd5ee; --kn-ink: #0a1229; --kn-day: #1d6890; --kn-dot: rgba(10, 40, 70, 0.16); }
+.k26.kn-bg-mint { --kn-bg: #9fe3c4; --kn-ink: #0b2a1e; --kn-day: #24785a; --kn-dot: rgba(10, 60, 40, 0.16); }
+.k26.kn-bg-peach { --kn-bg: #ffc3a6; --kn-ink: #3a1408; --kn-day: #b0522c; --kn-dot: rgba(80, 30, 10, 0.16); }
+.k26.kn-bg-lavender { --kn-bg: #c9b8f5; --kn-ink: #1b1240; --kn-day: #5a43a8; --kn-dot: rgba(40, 20, 90, 0.16); }
+.k26.kn-bg-sun { --kn-bg: #ffd95e; --kn-ink: #2d2000; --kn-day: #96700a; --kn-dot: rgba(70, 50, 0, 0.16); }
+.k26.kn-bg-graphite { --kn-bg: #1c1c1e; --kn-ink: #f2f2f7; --kn-day: #8e8e93; --kn-dot: rgba(255, 255, 255, 0.18); }
+.k26.kn-bg-photo { --kn-day: #fff; --kn-dot: rgba(255, 255, 255, 0.22); }
+.k26.k-numerals::before { content: ''; position: fixed; inset: 0; z-index: -1; background: var(--kn-bg); }
+.k26.kn-bg-photo::before { background: #000 var(--kn-img) center / cover no-repeat; }
+.k26.kn-bg-photo .kn-day { text-shadow: 0 1px 10px rgba(0, 0, 0, .35); }
+/* Liquid glass numerals over the wallpaper */
+.k26 .kn-nums.kn-shade text { fill: #000; fill-opacity: .001; }
+.k26 .kn-nums.kn-edge text { fill: none; stroke: #fff; stroke-opacity: .5; stroke-width: 22; }
+.k26 .kn-nums.kn-glass text { fill: url(#knSheen); stroke: url(#knRim); stroke-width: 2.5; }
+/* Background picker (press and hold the clock) */
+.k26 .kn-pick { position: fixed; left: 50%; bottom: max(28px, 5vmin); transform: translateX(-50%); display: flex; align-items: center; gap: 14px;
+  padding: 12px 14px 12px 16px; border-radius: 999px; background: rgba(30, 30, 34, .42); -webkit-backdrop-filter: blur(24px) saturate(1.6); backdrop-filter: blur(24px) saturate(1.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 10px 30px rgba(0, 0, 0, .25); animation: knPickIn .28s cubic-bezier(.2, .9, .3, 1.2); cursor: default; }
+@keyframes knPickIn { from { opacity: 0; transform: translateX(-50%) translateY(18px) scale(.94); } }
+.k26 .kn-sw { width: 44px; height: 44px; border-radius: 50%; border: 0; padding: 0; background-size: cover; background-position: center;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .35); transition: transform .2s ease, box-shadow .2s ease; cursor: pointer; }
+.k26 .kn-sw.on { box-shadow: 0 0 0 3px rgba(255, 255, 255, .95), inset 0 0 0 1px rgba(0, 0, 0, .15); transform: scale(1.06); }
+.k26 .kn-done { margin-left: 4px; height: 44px; padding: 0 20px; border: 0; border-radius: 999px; background: rgba(255, 255, 255, .92); color: #000; font: 600 16px/1 var(--font, system-ui); cursor: pointer; }
+.k26 .k-numface { position: fixed; inset: 0; display: grid; place-items: center; cursor: pointer; }
+.k26 .kn-svg { width: min(100dvh, 100vw); height: min(100dvh, 100vw); overflow: visible; }
+.k26 .kn-nums text, .k26 #knClip text { font-family: -apple-system, "SF Pro Display", var(--font, system-ui), sans-serif; font-size: 566px; font-weight: 300; letter-spacing: -8px;
+  fill: var(--kn-ink, #0a1229); text-anchor: middle; font-variant-numeric: lining-nums; }
+.k26 .kn-hand { transform-origin: 500px 500px; transition: transform .6s ease; }
+.k26 .kn-hand line { stroke: #fff; stroke-linecap: round; }
+.k26 .kn-sec { stroke: #fff; stroke-width: 3; stroke-linecap: round; transform-origin: 500px 500px; animation: kSec 60s linear infinite; }
+.k26 .kn-pin { fill: #fff; }
+@keyframes kSec { to { transform: rotate(360deg); } }
+.k26 .kn-day { position: fixed; left: 6.5vmin; bottom: 6.5vmin; font-size: 4.2vmin; font-weight: 500; letter-spacing: .02em; color: var(--kn-day, #1d6890); }
+.k26.k-numerals .k-dots { background: var(--kn-dot); }
+html.k-night .k26.k-numerals::before { display: none; }

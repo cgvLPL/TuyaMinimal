@@ -106,6 +106,7 @@
 - Automation list like the Home app's: trigger icon → the devices it controls, the trigger as the title, and an Enable switch in the editor
 - Wall tablet mode (Me → Wall tablet mode): a full-screen clock, weather, climate readings, scenes, room pills, thermostat-style AC controls (drag the arc, pick a mode by symbol) and device buttons. It keeps the screen awake (where the browser allows), switches to a dim, warm night look from 22:00 to 06:00 (tap to wake), and you press and hold the ✕ for a second to leave. Bookmark `/#kiosk` to open straight into it.
 - Wall tablet faces, like Apple's HomeView: swipe sideways (or tap the dots) between three faces: a Clock face, a Weather face (the temperature huge in frosted glass on an animated sky that matches the conditions: drifting clouds, rain, storms with lightning, snow, fog, sun rays or stars, with the condition, high/low, sunrise or sunset, wind and humidity), a Home face (a grid of big tiles filling the screen: large 2×2 AC tiles with the set temperature and ⌄ ⌃, uniform tiles for everything else with a symbol and Room · State; cream when on, frosted glass when off; press and hold to choose them; when there are more than fit, more Home pages appear, and a subtle row of room names in the top bar shows one room's devices instead). Everything scales with the screen. After 2 minutes without a touch it returns to the Clock face. From 22:00 to 06:00 a dim, warm night look shows just the clock, date and readings; tap to wake it for a minute
+- Wall tablet, more HomeView: press and drag up or down inside a light or blind tile to set its level; faces slide as rounded cards; press and hold the Home page to edit (tiles jiggle, tap one for an S / M / L size, – to remove, + to add, Done); tap the weather in the top bar to open the full Weather page with an hourly strip (✕ to go back); tap the Clock face to switch to a big-numeral analog clock (press and hold it to pick its background: a colour or your wallpaper, where the numerals turn into liquid glass)
 - Optional PIN unlock per device instead of typing the password (Me → Settings → Security)
 - Light and dark mode, installable from Chrome or Safari
 - Opens instantly from its saved copy, even on a slow connection or offline, and only redraws what changed when you tap a device
@@ -141,7 +142,7 @@ api/_routes/       the endpoints (folders starting with _ aren't deployed as sep
   timer.js         one-off device timers ("turn off in 30 min") via Tuya cloud schedules
   history.js       sensor history charts from the device's report log
   activity.js      the activity log: who did what (needs the database)
-  weather.js       current weather, today's high/low, sunrise/sunset, wind and humidity, and outdoor air quality at the home's location (Open-Meteo, cached 5 / 30 minutes)
+  weather.js       current weather, the next 12 hours, today's high/low, sunrise/sunset, wind and humidity, and outdoor air quality at the home's location (Open-Meteo, cached 5 / 30 minutes)
 api/_lib/          report-log paging, Tuya client and signing, sign-in, home access checks, scene/automation validation, Neon helpers
 ```
 

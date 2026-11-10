@@ -2,6 +2,22 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.87.0
+
+- Wall tablet: press and hold the numerals clock to change its background: sky, mint, peach, lavender, sun, graphite or your wallpaper.
+- On the wallpaper the numerals turn into liquid glass: frosted, refracting the picture behind, with a lit edge.
+
+## 2.86.1
+- Wall tablet numerals clock redrawn to match HomeView's face: drawn in proportion to the screen's height, with 12 above the centre, 6 below it, 9 and 3 either side (overlapping like the original), in light navy numerals; hour and minute hands with a thin neck from the centre and then a thick white bar; a long, thin second hand with a short tail sweeping smoothly; a white centre dot; a flat sky-blue background; and the day (FRI 6) in teal at the bottom left.
+
+## 2.86.0
+Wall tablet, after a HomeView walkthrough video.
+- **Drag to set a level:** press inside a light or blind tile on a Home page and drag up or down. The tile lifts, fills yellow from the bottom and shows the percentage; letting go sets it. A tap still switches it on or off; a sideways swipe still changes page.
+- **Card carousel:** changing face slides the old face away and the new one in as rounded cards with a gap, instead of a quick fade.
+- **Edit mode:** press and hold a Home page. Tiles jiggle and get a – badge (removes it from your favourites). Tap a tile and choose **S** (1×1), **M** (2×1, icon beside the name) or **L** (2×2); the other tiles slide into place, and if it no longer fits it moves to the next page and the screen follows it. The bottom bar has **+** (the favourites list) and **Done**. ACs start as L. Sizes are kept on the tablet.
+- **Weather from the widget:** on Home pages, tapping the weather in the top bar grows the Weather page out of it, with a ✕ to go back. The Weather page now has a glass card with sunrise or sunset, wind and humidity, and an hourly strip for the next 12 hours (time, symbol, chance of rain, temperature). The weather service now also returns the next 12 hours.
+- **Numerals clock:** tap the Clock face to switch to a big-numeral analog clock (12, 3, 6 and 9 large and overlapping on pale blue, thin white hands with a sweeping second hand, the day in a corner). Tap again to go back.
+
 ## 2.85.0
 - **More Home pages:** the wall tablet's Home slide now spills onto extra pages with the same layout when there are more tiles than fit. A page holds a 3×3 grid of tiles on square screens, 3×4 on portrait, 4×3 on landscape and 5×3 on very wide screens (an AC tile counts as 2×2). Each page gets its own dot; swipe or tap to move between them. The limit of nine favourites is gone, and by default all devices and scenes are included (circuit breakers aside).
 - **Room picker:** the Home pages' top bar shows the room names in small, dim text, with the chosen one white on a faint capsule. **All** shows your favourites; a room shows every device in that room (ACs first). The choice is remembered on the tablet.
