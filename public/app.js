@@ -5,6 +5,12 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.81.3",
+      "items": [
+        "Wall tablet Home face: the + tile is hidden; press and hold the face to choose favourites. It only shows when there are no favourites yet"
+      ]
+    },
+    {
       "v": "2.81.2",
       "items": [
         "Home picker icons are flat, like the Home app's: a plain orange tile with a solid white house"
@@ -5236,9 +5242,11 @@
     if (bigIdx >= 0) grid += kModThermo(findDevice(picks[bigIdx].slice(4)));
     grid += kAnalog(now);
     picks.forEach((p, i) => { if (i !== bigIdx) grid += kModTile(data, p); });
-    if (picks.length < K_MOD_MAX) grid += '<button class="k-mt k-madd" data-act="kmod-edit" data-key="km-add" aria-label="Choose favourites">' + icon('plus', 34) + '</button>';
+    // The + only shows when there are no favourites yet; otherwise press and hold the face to edit.
+    const showAdd = picks.length === 0;
+    if (showAdd) grid += '<button class="k-mt k-madd" data-act="kmod-edit" data-key="km-add" aria-label="Choose favourites">' + icon('plus', 34) + '</button>';
     // Fit on one screen: try column counts and keep the one giving the biggest square tiles.
-    const n = (bigIdx >= 0 ? 4 : 0) + 1 + picks.length - (bigIdx >= 0 ? 1 : 0) + (picks.length < K_MOD_MAX ? 1 : 0);
+    const n = (bigIdx >= 0 ? 4 : 0) + 1 + picks.length - (bigIdx >= 0 ? 1 : 0) + (showAdd ? 1 : 0);
     // Everything scales with the screen: the gap is ~2.2% of the shorter side.
     const gap = Math.round(Math.max(8, Math.min(innerWidth, innerHeight) * 0.022)), W = innerWidth - 48, H = innerHeight - 96;
     let best = { cols: 3, cell: 100 };

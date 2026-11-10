@@ -2,6 +2,9 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.81.3
+- Wall tablet Home face: the empty **+** tile no longer shows next to your favourites; press and hold the face to choose them. It only appears when no favourites are chosen, so there's still a way to start.
+
 ## 2.81.2
 - Home picker: each home's icon is now flat, like the Home app's: a plain orange tile with a solid white house, without the gradient, glass highlight or shadows.
 
