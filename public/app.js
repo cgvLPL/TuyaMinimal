@@ -5,6 +5,14 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.77.0",
+      "items": [
+        "Wall tablet: a new Home face, like HomeView's Home Modular face: the time and weather above a 3×3 grid of your favourite accessories and scenes",
+        "Press and hold the Home face to choose its favourites (up to 9, in the order you tap them)",
+        "Faces are now Clock, Home and All controls (the full dashboard); after 2 minutes without a touch the wall tablet goes back to the Clock face"
+      ]
+    },
+    {
       "v": "2.76.0",
       "items": [
         "Wall tablet: a new Clock face, like Apple's HomeView. Swipe sideways or tap the dots to switch between it and the Home face; it remembers your choice",
@@ -890,7 +898,8 @@
     key: store.get('appKey') || '',
     homeId: store.get('homeId') || '',
     kRoom: store.get('kRoom') || 'All',
-    kFace: store.get('kFace') === 'clock' ? 'clock' : 'home',  // wall tablet face: the dashboard, or the big Clock face  // wall tablet mode's room (separate from the Home tab)
+    kFace: ['clock', 'mod', 'home'].includes(store.get('kFace')) ? store.get('kFace') : 'clock',  // wall tablet face: Clock, Home (favourites) or All controls
+    kModEdit: false,  // choosing the Home face's favourites  // wall tablet mode's room (separate from the Home tab)
     data: null,
     loading: false,
     gate: null,          // null | 'login' | 'setup'
@@ -4847,8 +4856,14 @@
     } catch (e) { return esc(now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })); }
   }
   const kDate = (now) => now.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
+  const K_IDLE_MS = 2 * 60 * 1000;
+  let kioskTouchedAt = Date.now();
+  ['pointerdown', 'keydown'].forEach((n) => document.addEventListener(n, () => { kioskTouchedAt = Date.now(); }, true));
   function kioskTick() {
     if (!kiosk.on) return;
+    // Like HomeView showing a simple face when nobody is close: after 2 minutes without a touch,
+    // go back to the Clock face.
+    if (S.kFace !== 'clock' && !qc && !S.kModEdit && Date.now() - kioskTouchedAt > K_IDLE_MS) kSetFace('clock');
     const now = new Date();
     document.querySelectorAll('[data-kclock="time"]').forEach((n) => { n.innerHTML = kTime(now); });
     document.querySelectorAll('[data-kclock="date"]').forEach((n) => { n.textContent = kDate(now); });
@@ -5050,11 +5065,93 @@
     return '<div class="k-nightface" aria-hidden="true"><div class="kn-time" data-kclock="time">' + kTime(now) + '</div>' +
       '<div class="kn-date" data-kclock="date">' + kDate(now) + '</div>' + kGlanceHtml(kGlance(data), 'kn-info') + '</div>';
   }
-  const K_FACES = ['home', 'clock'];
+  // Faces, like HomeView: Clock, Home (a 3×3 grid of favourites, like its Home Modular face) and
+  // All controls (the full dashboard).
+  const K_FACES = ['clock', 'mod', 'home'];
+  const K_FACE_NAME = { clock: 'Clock', mod: 'Home', home: 'All controls' };
   function kDots() {
     return '<div class="k-dots" role="group" aria-label="Faces">' + K_FACES.map((f) =>
-      '<button class="k-dot" data-act="kface" data-face="' + f + '" data-key="kdot-' + f + '" aria-pressed="' + (S.kFace === f) + '" aria-label="' + (f === 'home' ? 'Home face' : 'Clock face') + '"></button>').join('') + '</div>';
+      '<button class="k-dot" data-act="kface" data-face="' + f + '" data-key="kdot-' + f + '" aria-pressed="' + (S.kFace === f) + '" aria-label="' + K_FACE_NAME[f] + ' face"></button>').join('') + '</div>';
   }
+  // ---- Home face: up to nine favourites (accessories and scenes), chosen by pressing and holding ----
+  const K_MOD_MAX = 9;
+  const isKRemoteDev = (d) => d.ir && !isKioskAc(d) && qcKind(d) === 'remote';
+  function kModCandidates(data) {
+    const devs = sortByOrder(data.devices.filter((d) => !isHidden(d) && (isKioskAc(d) || (hasToggle(d) && !d.ir) || isKRemoteDev(d))), data.homeId);
+    return { devs, scenes: data.scenes || [] };
+  }
+  function kModPicks(data) {
+    const c = kModCandidates(data);
+    const valid = (p) => (p.indexOf('scene:') === 0 ? c.scenes.some((x) => 'scene:' + x.id === p) : c.devs.some((d) => 'dev:' + d.id === p));
+    let ids = null;
+    try { ids = JSON.parse(store.get('kMod') || 'null'); } catch (e) { ids = null; }
+    if (!Array.isArray(ids)) {
+      // Default: air conditioners first, then other accessories, then scenes.
+      // (Circuit breakers stay out of the defaults: one stray tap would cut the power. They can still be picked.)
+      const acs = c.devs.filter(isKioskAc), rest = c.devs.filter((d) => !isKioskAc(d) && !isBreaker(d));
+      ids = acs.concat(rest).map((d) => 'dev:' + d.id).concat(c.scenes.map((x) => 'scene:' + x.id));
+    }
+    return ids.filter(valid).slice(0, K_MOD_MAX);
+  }
+  function kModSave(ids) { store.set('kMod', JSON.stringify(ids.slice(0, K_MOD_MAX))); }
+  function kModTile(data, pick) {
+    if (pick.indexOf('scene:') === 0) {
+      const sc = (data.scenes || []).find((x) => 'scene:' + x.id === pick), st = S.sceneState[sc.id];
+      return '<button class="k-w s k-ctl k-mt k-mscene ' + (st || '') + '" data-act="scene" data-id="' + esc(sc.id) + '" data-key="km-' + esc(pick) + '"' + (st === 'running' ? ' disabled' : '') + ' aria-label="' + esc('Scene ' + sc.name) + '">' +
+        '<span class="k-glyph">' + icon(st === 'done' ? 'check' : 'play', 24) + '</span><span class="k-ctl-text"><span class="k-name">' + esc(sc.name) + '</span><span class="k-status">' + (st === 'running' ? 'Running…' : st === 'done' ? 'Done' : 'Scene') + '</span></span></button>';
+    }
+    const d = findDevice(pick.slice(4));
+    if (isKioskAc(d)) {
+      const on = isOn(d) && d.online;
+      return '<button class="k-w s k-ctl k-mt k-mac hue-' + hueOf(d) + (on ? ' on' : '') + '" data-act="k-open" data-id="' + esc(d.id) + '" data-key="km-' + esc(pick) + '" aria-label="' + esc(d.name + ', ' + (d.online ? statusText(d) : 'Offline') + ', open controls') + '">' +
+        '<span class="k-glyph">' + deviceIcon(d, 24) + '</span><span class="k-ctl-text"><span class="k-name">' + esc(d.name) + '</span><span class="k-status">' + esc(d.online ? statusText(d) : 'Offline') + '</span></span></button>';
+    }
+    return kioskTile(d).replace('class="k-w s k-ctl', 'class="k-w s k-ctl k-mt').replace('data-key="k-', 'data-key="km-');
+  }
+  function kModFace(data, now, wx) {
+    const picks = kModPicks(data);
+    let grid = picks.map((p) => kModTile(data, p)).join('');
+    for (let i = picks.length; i < K_MOD_MAX; i++) {
+      grid += '<button class="k-mt k-madd" data-act="kmod-edit" data-key="km-add-' + i + '" aria-label="Choose favourites">' + (i === picks.length ? icon('plus', 24) : '') + '</button>';
+    }
+    return '<section class="k-modface" aria-label="Home"><header class="km-head"><div class="km-clock"><span class="km-time" data-kclock="time">' + kTime(now) + '</span>' +
+      '<span class="km-date" data-kclock="date">' + kDate(now) + '</span></div>' + (wx || '') + '</header>' +
+      '<div class="k-modgrid" role="group" aria-label="Favourites. Press and hold to choose.">' + grid + '</div></section>';
+  }
+  function kModEditor(data) {
+    const c = kModCandidates(data), picks = kModPicks(data);
+    const item = (key, glyph, name, sub) => {
+      const n = picks.indexOf(key);
+      return '<button class="k-pick" data-act="kmod-pick" data-pick="' + esc(key) + '" data-key="kp-' + esc(key) + '" aria-pressed="' + (n >= 0) + '">' +
+        '<span class="k-pick-ic">' + glyph + '</span><span class="k-pick-txt"><span class="k-pick-name">' + esc(name) + '</span>' + (sub ? '<span class="k-pick-sub">' + esc(sub) + '</span>' : '') + '</span>' +
+        '<span class="k-pick-n">' + (n >= 0 ? n + 1 : '') + '</span></button>';
+    };
+    return '<div class="k-modedit" role="dialog" aria-modal="true" aria-label="Choose favourites"><div class="k-modedit-card">' +
+      '<header><div><h2>Home face</h2><p>Choose up to ' + K_MOD_MAX + ', in the order you tap them · ' + picks.length + ' of ' + K_MOD_MAX + '</p></div>' +
+      '<button class="k-modedit-done" data-act="kmod-done" data-key="kmod-done">Done</button></header>' +
+      '<div class="k-modedit-list">' +
+      (c.devs.length ? '<h3>Accessories</h3><div class="k-pick-grid">' + c.devs.map((d) => item('dev:' + d.id, deviceIcon(d, 20), d.name, d.room || '')).join('') + '</div>' : '') +
+      (c.scenes.length ? '<h3>Scenes</h3><div class="k-pick-grid">' + c.scenes.map((x) => item('scene:' + x.id, icon('play', 18), x.name, '')).join('') + '</div>' : '') +
+      '</div></div></div>';
+  }
+  // Press and hold the Home face to choose its favourites (like editing a face on HomeView).
+  let kHold = null, kHoldFired = false;
+  document.addEventListener('pointerdown', (e) => {
+    const g = e.target.closest && e.target.closest('.k-modgrid');
+    if (!g || S.kModEdit) return;
+    const x = e.clientX, y = e.clientY;
+    clearTimeout(kHold && kHold.t);
+    kHold = { x, y, t: setTimeout(() => { kHold = null; kHoldFired = true; S.kModEdit = true; render(); if (navigator.vibrate) navigator.vibrate(12); }, 650) };
+  });
+  document.addEventListener('pointermove', (e) => { if (kHold && Math.hypot(e.clientX - kHold.x, e.clientY - kHold.y) > 10) { clearTimeout(kHold.t); kHold = null; } }, { passive: true });
+  ['pointerup', 'pointercancel'].forEach((n) => document.addEventListener(n, () => { if (kHold) { clearTimeout(kHold.t); kHold = null; } }));
+  // The tap that ends a long press (or a mouse swipe) must not also press the tile under it.
+  let kSwiped = false;
+  document.addEventListener('pointerdown', () => { kHoldFired = false; }, true);
+  document.addEventListener('click', (e) => {
+    if (kHoldFired || kSwiped) { kHoldFired = false; kSwiped = false; e.stopPropagation(); e.preventDefault(); }
+  }, true);
+  document.addEventListener('contextmenu', (e) => { if (e.target.closest && e.target.closest('.k-modgrid')) e.preventDefault(); });
   function kSetFace(f) {
     if (!K_FACES.includes(f) || f === S.kFace) return;
     const dir = K_FACES.indexOf(f) > K_FACES.indexOf(S.kFace) ? 'l' : 'r';
@@ -5069,6 +5166,7 @@
   const kSwStart = (x, y, t) => {
     if (route().view !== 'kiosk' || qc || document.documentElement.classList.contains('k-night')) return;
     if (t.closest && t.closest('.k-exit, .k-dots, input, .qc, .qc-sheet')) return;
+    if (S.kModEdit) return;
     if (S.kFace === 'home' && t.closest && t.closest('.k-ac, .k-ctl, .k-scenes26, .k-rooms, .k-climate, button')) return;
     kSw = { x, y, at: Date.now() };
   };
@@ -5078,7 +5176,8 @@
     kSw = null;
     if (quick && Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) {
       const i = K_FACES.indexOf(S.kFace) + (dx < 0 ? 1 : -1);
-      if (i >= 0 && i < K_FACES.length) kSetFace(K_FACES[i]);
+      if (kHold) { clearTimeout(kHold.t); kHold = null; }
+      if (i >= 0 && i < K_FACES.length) { kSwiped = true; setTimeout(() => { kSwiped = false; }, 400); kSetFace(K_FACES[i]); }
     }
   };
   document.addEventListener('touchstart', (e) => { const t = e.touches[0]; if (e.touches.length === 1) kSwStart(t.clientX, t.clientY, e.target); else kSw = null; }, { passive: true });
@@ -5110,6 +5209,9 @@
       : '';
     const exitBtn = '<button class="k-exit" data-key="k-exit" aria-label="Leave wall tablet mode (press and hold)" title="Press and hold to leave">' +
       '<svg class="k-exit-ring" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="20"/></svg>' + icon('close', 18) + '</button>';
+    const tail = () => kDots() + kNightFace(data, now) + (S.kModEdit ? kModEditor(data) : '') +
+      '<button class="k-dim" data-act="kiosk-wake" data-key="k-dim" aria-label="Wake the screen" tabindex="-1"></button></div>';
+    if (S.kFace === 'mod') return '<div class="kiosk-wrap k26 k-face-mod">' + kModFace(data, now, wx) + exitBtn.replace('class="k-exit"', 'class="k-exit km-exit"') + tail();
     // Clock face: a very large clock with the date and glanceable readings, nothing to press.
     if (S.kFace === 'clock') {
       return '<div class="kiosk-wrap k26 k-face-clock"><section class="k-clockface" aria-label="Clock">' + exitBtn +
@@ -5724,6 +5826,15 @@
       case 'hide-toggle': { const hd = findDevice(id); if (hd) { const h = !isHidden(hd); setHidden(id, h); render(); toast(h ? hd.name + ' hidden from Home' : hd.name + ' is back on Home'); } break; }
       case 'kiosk-enter': kioskStart(); break;
       case 'kface': kSetFace(el.dataset.face); break;
+      case 'kmod-edit': S.kModEdit = true; render(); break;
+      case 'kmod-done': S.kModEdit = false; render(); break;
+      case 'kmod-pick': {
+        const ids = kModPicks(S.data), k = el.dataset.pick, i = ids.indexOf(k);
+        if (i >= 0) ids.splice(i, 1);
+        else if (ids.length >= K_MOD_MAX) { toast('Up to ' + K_MOD_MAX + ' favourites. Remove one first.'); break; }
+        else ids.push(k);
+        kModSave(ids); render(); break;
+      }
       case 'kiosk-wake': kiosk.wokeUntil = Date.now() + 60000; kioskTick(); break;
       case 'toggle': {
         if (!d) return;

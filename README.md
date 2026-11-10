@@ -105,7 +105,7 @@
 - Hide devices from Home in Arrange (they keep working in scenes and automations)
 - Automation list like the Home app's: trigger icon → the devices it controls, the trigger as the title, and an Enable switch in the editor
 - Wall tablet mode (Me → Wall tablet mode): a full-screen clock, weather, climate readings, scenes, room pills, thermostat-style AC controls (drag the arc, pick a mode by symbol) and device buttons. It keeps the screen awake (where the browser allows), switches to a dim, warm night look from 22:00 to 06:00 (tap to wake), and you press and hold the ✕ for a second to leave. Bookmark `/#kiosk` to open straight into it.
-- Wall tablet faces, like Apple's HomeView: swipe sideways (or tap the dots) between the Home face (controls) and a Clock face (a huge clock, date, weather, indoor temperature, humidity and air quality). From 22:00 to 06:00 a dim, warm night look shows just the clock, date and readings; tap to wake it for a minute
+- Wall tablet faces, like Apple's HomeView: swipe sideways (or tap the dots) between a Clock face (a huge clock, date, weather, indoor temperature, humidity and air quality), a Home face (a 3×3 grid of your favourite accessories and scenes; press and hold it to choose them) and All controls (the full dashboard). After 2 minutes without a touch it returns to the Clock face. From 22:00 to 06:00 a dim, warm night look shows just the clock, date and readings; tap to wake it for a minute
 - Optional PIN unlock per device instead of typing the password (Me → Settings → Security)
 - Light and dark mode, installable from Chrome or Safari
 - Opens instantly from its saved copy, even on a slow connection or offline, and only redraws what changed when you tap a device

@@ -2,6 +2,13 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.77.0
+More of Apple's HomeView on the wall tablet.
+- **Home face** (like HomeView's Home Modular face): the time, date and weather on top, and a 3×3 grid of large tiles for your favourite accessories and scenes. Tap a tile to switch it on or off or run the scene; AC tiles open the full-screen control. By default it shows your ACs first, then other accessories, then scenes. Circuit breakers are left out of the defaults, so one stray tap can't cut the power, but you can still pick them.
+- **Choose favourites by pressing and holding** the Home face (or tapping an empty slot): a sheet lists accessories and scenes. Tap to add, in order, up to nine; tap again to remove. Saved on the tablet.
+- **Three faces:** Clock, Home and All controls (the full dashboard from before). Swipe sideways or tap the dots. A swipe that starts on a Home face tile changes face without pressing the tile.
+- **Back to the Clock face when idle:** after 2 minutes without a touch, like HomeView showing a simpler face when nobody is close.
+
 ## 2.76.0
 Inspired by Apple's HomeView smart display.
 - **Clock face (wall tablet):** a second face beside the Home face (the controls). Swipe sideways, or tap the dots at the bottom, to switch. It shows a very large clock, the date, and glanceable readings: weather, the home's indoor temperature and humidity (averaged across live sensors), and air quality (a sensor's, otherwise outdoor). The wall tablet remembers which face you left it on.
