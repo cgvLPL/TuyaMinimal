@@ -2,6 +2,11 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.89.0
+
+- Wall tablet: choose its own wallpaper. Press and hold a Home page, then tap the picture button next to +. Pick Same as app, Night sky, any of the app's photos, or a photo of your own from the tablet.
+- The wallpaper only applies in wall tablet mode on that device; the rest of the app keeps its own background. The numerals clock's Wallpaper option uses it too.
+
 ## 2.88.0
 
 - Wall tablet: the Weather face now looks like HomeView's: a huge temperature with sunrise or sunset, wind and humidity floating underneath (symbol, value, label), without the hourly card. Tap the weather in the top bar for the Weather page with the hourly forecast.

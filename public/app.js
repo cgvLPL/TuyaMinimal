@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.89.0", "items": ["Wall tablet: choose its own wallpaper. Press and hold a Home page, then tap the picture button next to +. Pick Same as app, Night sky, any of the app's photos, or a photo of your own from the tablet.", "The wallpaper only applies in wall tablet mode on that device; the rest of the app keeps its own background. The numerals clock's Wallpaper option uses it too."]},
   {"v": "2.88.0", "items": ["Wall tablet: the Weather face now looks like HomeView's: a huge temperature with sunrise or sunset, wind and humidity floating underneath (symbol, value, label), without the hourly card. Tap the weather in the top bar for the Weather page with the hourly forecast.", "The Weather face stays on at night: no night clock over it, just its own night sky.", "After 2 minutes without a touch the wall tablet now returns to whichever of Clock or Weather you left it on."]},
   {"v": "2.87.0", "items": ["Wall tablet: press and hold the numerals clock to change its background: sky, mint, peach, lavender, sun, graphite or your wallpaper.", "On the wallpaper the numerals turn into liquid glass: frosted, refracting the picture behind, with a lit edge."]},
     {
@@ -1056,7 +1057,8 @@
     kEdit: false, kEditSel: null,  // editing the Home pages (jiggle, sizes)
     kWxBack: null,  // face to return to after opening the weather from a widget
     kClockStyle: store.get('kClock') === 'numerals' ? 'numerals' : 'digital',
-    kClockBg: store.get('kClockBg') || 'sky', kClockPick: false,  // wall tablet mode's room (separate from the Home tab)
+    kClockBg: store.get('kClockBg') || 'sky', kClockPick: false,
+    kBg: store.get('kBg') || 'app', kWall: false,  // wall tablet mode's room (separate from the Home tab)
     data: null,
     loading: false,
     gate: null,          // null | 'login' | 'setup'
@@ -2285,6 +2287,7 @@
     home: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/>',
     back: '<path d="M15 5l-7 7 7 7"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
+    wallpaper: '<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="M3.5 17.5l5-4.5 4 3.5 3-2.5 5 4"/>',
     minus: '<path d="M5 12h14"/>',
     power: '<path d="M12 3v8M6.3 7.3a8 8 0 1 0 11.4 0"/>',
     flake: '<path d="M12 2v20M3.3 7l17.4 10M3.3 17l17.4-10M9.5 3.5 12 6l2.5-2.5M9.5 20.5 12 18l2.5 2.5M3.6 10.4 6.8 9.5 5.9 6.2M18.1 17.8l-.9-3.3 3.2-.9M3.6 13.6l3.2.9-.9 3.3M18.1 6.2l-.9 3.3 3.2.9"/>',
@@ -3087,10 +3090,23 @@
   }
   // ---------- Optional backgrounds ----------
   const BACKGROUNDS = [['system', 'System'], ['aura', 'Aura'], ['ember', 'Ember'], ['tide', 'Tide'], ['mist', 'Mist'], ['halftone', 'Halftone'], ['dusk', 'Dusk']];
+  // The wall tablet can have its own wallpaper: 'app' (same as the app), 'night' (the default dark
+  // gradient), one of the photos, or 'custom' (a photo from this device, kept in localStorage).
+  const KBGS = [['app', 'Same as app'], ['night', 'Night sky']].concat(BACKGROUNDS.filter(([v]) => v !== 'system'), [['custom', 'Your photo']]);
+  const inKiosk = () => document.documentElement.classList.contains('kiosk');
+  function effBg() {
+    if (!inKiosk() || S.kBg === 'app') return S.bg;
+    if (S.kBg === 'night') return 'system';
+    if (S.kBg === 'custom') return store.get('kBgImg') ? 'custom' : S.bg;
+    return S.kBg;
+  }
+  const bgUrl = (bg) => (bg === 'custom' ? store.get('kBgImg') || '' : '/backgrounds/' + bg + '.jpg');
   function applyBackground() {
     const root = document.documentElement;
-    const photo = S.bg && S.bg !== 'system';
-    if (photo) root.setAttribute('data-bg', S.bg); else root.removeAttribute('data-bg');
+    const bgNow = effBg();
+    const photo = bgNow && bgNow !== 'system';
+    if (photo) root.setAttribute('data-bg', bgNow); else root.removeAttribute('data-bg');
+    if (bgNow === 'custom') root.style.setProperty('--kbg-img', 'url("' + bgUrl('custom') + '")'); else root.style.removeProperty('--kbg-img');
     // Since iOS 26.1, home-screen web apps can't draw behind the clock and battery: iOS fills that strip
     // with the page's background colour (an iOS bug, WebKit 301994). So with a photo, that colour is
     // the photo's own top edge (dimmed like the photo is), and the strip blends into the picture.
@@ -3103,7 +3119,7 @@
     };
     if (!photo) { setTop(null); try { localStorage.removeItem('bgTop'); } catch (e) { /* ignore */ } return; }
     let saved = null;
-    try { const j = JSON.parse(localStorage.getItem('bgTop') || 'null'); if (j && j.bg === S.bg) saved = j.col; } catch (e) { /* ignore */ }
+    try { const j = JSON.parse(localStorage.getItem('bgTop') || 'null'); if (j && j.bg === bgNow && bgNow !== 'custom') saved = j.col; } catch (e) { /* ignore */ }
     setTop(saved);
     const img = new Image();
     img.onload = () => {
@@ -3117,12 +3133,12 @@
         const dim = parseFloat(getComputedStyle(root).getPropertyValue('--dim')) || 0;
         const f = (v) => Math.round((v / n) * (1 - dim)).toString(16).padStart(2, '0');
         const col = '#' + f(r) + f(g) + f(b);
-        if (S.bg !== root.getAttribute('data-bg')) return;
+        if (bgNow !== root.getAttribute('data-bg')) return;
         setTop(col);
-        try { localStorage.setItem('bgTop', JSON.stringify({ bg: S.bg, col })); } catch (e) { /* ignore */ }
+        try { if (bgNow !== 'custom') localStorage.setItem('bgTop', JSON.stringify({ bg: bgNow, col })); } catch (e) { /* ignore */ }
       } catch (e) { /* keep black */ }
     };
-    img.src = '/backgrounds/' + S.bg + '.jpg';
+    img.src = bgUrl(bgNow);
   }
   applyBackground();
 
@@ -5629,6 +5645,45 @@
         : (stats ? '<div class="kw-stats kw-float">' + stats + '</div>' : '')) +
       (S.kWxBack ? '<button class="kw-close" data-act="kwx-close" aria-label="Close the weather">' + icon('close', 18) + '</button>' : '') + '</section>';
   }
+  function kWallSheet() {
+    const has = !!store.get('kBgImg'), cur = S.kBg === 'custom' && !has ? 'app' : S.kBg;
+    const thumb = (v) => v === 'app' ? (S.bg && S.bg !== 'system' ? 'background-image:url(/backgrounds/thumbs/' + S.bg + '.jpg)' : '') :
+      v === 'night' ? '' : v === 'custom' ? (has ? 'background-image:url(' + store.get('kBgImg') + ')' : '') : 'background-image:url(/backgrounds/thumbs/' + v + '.jpg)';
+    const tile = ([v, n]) => {
+      const t = thumb(v), cls = 'kw-thumb' + (!t && v !== 'custom' ? ' kw-thumb-night' : '') + (v === 'custom' && !t ? ' kw-thumb-add' : '');
+      const inner = '<span class="' + cls + '"' + (t ? ' style="' + t + '"' : '') + '>' + (v === 'custom' && !t ? icon('plus', 22) : '') +
+        (cur === v ? '<span class="bg-check">' + icon('check', 16) + '</span>' : '') + '</span><span class="kw-name">' + esc(n) + '</span>';
+      return v === 'custom' && !t
+        ? '<label class="kw-choice" aria-label="Choose a photo">' + inner + '<input type="file" accept="image/*" data-act="kwall-file" hidden></label>'
+        : '<button class="kw-choice" role="radio" aria-checked="' + (cur === v) + '" data-act="kwall-set" data-v="' + v + '">' + inner + '</button>';
+    };
+    return '<div class="k-wall-scrim" data-act="kwall-close"></div><section class="k-wall" role="dialog" aria-label="Wallpaper">' +
+      '<header class="k-wall-head"><h2>Wallpaper</h2><button class="kn-done" data-act="kwall-close">Done</button></header>' +
+      '<div class="k-wall-grid" role="radiogroup">' + KBGS.map(tile).join('') + '</div>' +
+      (has ? '<label class="k-wall-change">Choose another photo<input type="file" accept="image/*" data-act="kwall-file" hidden></label>' : '') +
+      '<p class="k-wall-note">Only for wall tablet mode on this device. The rest of the app keeps its own background.</p></section>';
+  }
+  // Shrinks a chosen photo (longest side at most 2048 px, JPEG) so it fits in local storage.
+  function kWallFromFile(file) {
+    if (!file || !/^image\//.test(file.type)) return;
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let q = 0.82, max = 2048, out = '';
+      for (let i = 0; i < 4; i++) {
+        const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        out = c.toDataURL('image/jpeg', q);
+        if (out.length < 1.6e6) break;
+        max = Math.round(max * 0.75); q -= 0.06;
+      }
+      try { localStorage.setItem('kBgImg', out); } catch (e) { toast('That photo is too big to keep on this device.'); return; }
+      S.kBg = 'custom'; store.set('kBg', 'custom'); applyBackground(); render();
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); toast('That photo couldn\'t be opened.'); };
+    img.src = url;
+  }
   function kModEditor(data) {
     const c = kModCandidates(data), picks = kModPicks(data);
     const item = (key, glyph, name, sub) => {
@@ -5766,7 +5821,7 @@
   // thin white hands with a sweeping second hand, the day in a corner ----
   // Backgrounds for the numerals clock: solid colours, or the wallpaper (numerals turn to liquid glass).
 const KN_BGS = [['sky', '#7fd5ee'], ['mint', '#9fe3c4'], ['peach', '#ffc3a6'], ['lavender', '#c9b8f5'], ['sun', '#ffd95e'], ['graphite', '#1c1c1e'], ['photo', '']];
-function knPhoto() { return '/backgrounds/' + (S.bg && S.bg !== 'system' ? S.bg : 'aura') + '.jpg'; }
+function knPhoto() { const b = effBg(); return bgUrl(b && b !== 'system' ? b : 'aura'); }
 function kNumeralClock(now) {
   const a = kHandAngles(now), sec = now.getSeconds() + now.getMilliseconds() / 1000;
   const day = now.toLocaleDateString([], { weekday: 'short' }).toUpperCase().replace('.', '') + ' ' + now.getDate();
@@ -5879,8 +5934,9 @@ function kClockPicker() {
     const exitBtn = '<button class="k-exit" data-act="k-exit-tap" data-key="k-exit" aria-label="Leave wall tablet mode (press and hold)" title="Press and hold to leave">' +
       '<svg class="k-exit-ring" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="20"/></svg>' + icon('close', 18) + '</button>';
     const editBar = '<div class="k-editbar"><button class="k-eb-add" data-act="kedit-add" aria-label="Add or remove favourites">' + icon('plus', 20) + '</button>' +
+      '<button class="k-eb-add" data-act="kwall-open" aria-label="Change the wallpaper">' + icon('wallpaper', 20) + '</button>' +
       '<span class="k-eb-hint">' + (S.kEditSel ? 'Choose a size' : 'Tap a tile to resize it') + '</span><button class="k-eb-done" data-act="kedit-done">Done</button></div>';
-    const tail = () => (S.kEdit && isModFace(S.kFace) ? editBar : kDots()) + kNightFace(data, now) + (S.kModEdit ? kModEditor(data) : '') +
+    const tail = () => (S.kEdit && isModFace(S.kFace) ? editBar : kDots()) + kNightFace(data, now) + (S.kModEdit ? kModEditor(data) : '') + (S.kWall ? kWallSheet() : '') +
       '<button class="k-dim" data-act="kiosk-wake" data-key="k-dim" aria-label="Wake the screen" tabindex="-1"></button></div>';
     if (S.kFace === 'home') S.kFace = 'mod';
     if (isModFace(S.kFace)) {
@@ -6386,7 +6442,9 @@ function kClockPicker() {
     shell.main.classList.toggle('devices-view', devicesPage);
     document.documentElement.classList.toggle('lock-scroll', devicesPage);
     if (r.view !== 'devices' && S.reorder) S.reorder = false;
+    const wasK = document.documentElement.classList.contains('kiosk');
     document.documentElement.classList.toggle('kiosk', r.view === 'kiosk');
+    if (wasK !== (r.view === 'kiosk') && S.kBg !== 'app') applyBackground();
     if (render.lastView !== r.view + (r.id || '')) { document.documentElement.classList.remove('tab-min'); render.lastView = r.view + (r.id || ''); }
     if (r.view !== 'kiosk' && kiosk.on) kioskStop();
     document.documentElement.classList.toggle('in-editor', r.view === 'scene-edit' || r.view === 'auto-edit');
@@ -6532,6 +6590,11 @@ function kClockPicker() {
       }
       case 'kedit-done': S.kEdit = false; S.kEditSel = null; render(); break;
       case 'kedit-add': S.kModEdit = true; render(); break;
+      case 'kwall-open': S.kWall = true; render(); break;
+      case 'kwall-close': S.kWall = false; render(); break;
+      case 'kwall-set':
+        if (!KBGS.some(([v]) => v === el.dataset.v)) break;
+        S.kBg = el.dataset.v; store.set('kBg', S.kBg); applyBackground(); render(); break;
       case 'kwx-open': {
         const r = el.getBoundingClientRect(), from = S.kFace;
         S.kWxBack = from;
@@ -6909,6 +6972,7 @@ function kClockPicker() {
     const el = e.target;
     if (!el.dataset) return;
     const act = el.dataset.act;
+    if (act === 'kwall-file') { kWallFromFile(el.files && el.files[0]); el.value = ''; return; }
     const d = el.dataset.id ? findDevice(el.dataset.id) : null;
     if (LIVE_PREFIX[act]) S.dragging = false;
     if (['hue', 'sat', 'cbright'].includes(act)) {
