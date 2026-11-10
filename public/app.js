@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.3", "items": ["Wall tablet: swiping between faces now follows your finger, like HomeView — the face moves with the drag and springs to the next face (or back) when you let go.", "A slow drag past halfway also changes face, and swiping past the first or last face resists instead of moving freely."]},
   {"v": "2.91.2", "items": ["Weather symbols are now filled silhouettes like Apple's Weather app: a solid sun and moon, a plump cloud, and the sun or moon peeking from behind the cloud when it's partly cloudy.", "Partly cloudy nights now show the moon behind the cloud instead of the sun."]},
   {"v": "2.91.1", "items": ["Wall tablet: the face dots at the bottom fade out after 3 seconds without a touch, and come back on the next touch."]},
   {"v": "2.91.0", "items": ["Floors: in Me → Floors, add your home's floors (rename, reorder or remove them) and put each room on a floor.", "Home shows a floor switch above the rooms: pick a floor to see only its rooms and devices. All floors shows everything.", "Wall tablet: floors are listed before the rooms in the top bar; pick one to show every device on that floor.", "Floors sync across your devices when sync is on; otherwise they're saved on each device."]},
@@ -5864,27 +5865,48 @@
     setTimeout(() => { l.cell.classList.remove('km-leveling'); const v = l.cell.querySelector('.km-lvl'); if (v) v.remove(); render(); }, 450);
   }));
   // ---- Face carousel: the old face slides away as a rounded card while the new one slides in ----
+  // A swipe hands its drag offset over (kDragX) so the faces continue from where the finger left
+  // them instead of jumping back to centre first; taps still use the CSS card animation.
   function kCarousel(dir, origin) {
     const old = document.querySelector('.k26');
     let ghost = null;
+    const dragX = (old && old.animate) ? kDragX : null; kDragX = null;
     if (old && qcMotion()) {
       const r = old.getBoundingClientRect();
       ghost = old.cloneNode(true);
       ghost.removeAttribute('data-key');
       ghost.querySelectorAll('[data-kclock], [data-khand]').forEach((n) => { n.removeAttribute('data-kclock'); n.removeAttribute('data-khand'); });
-      ghost.classList.add('k-ghost', origin ? 'k-zoom-out' : 'k-car-out-' + dir);
+      ghost.classList.add('k-ghost');
+      if (dragX == null) ghost.classList.add(origin ? 'k-zoom-out' : 'k-car-out-' + dir);
       Object.assign(ghost.style, { position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', margin: '0', zIndex: '30', pointerEvents: 'none' });
       document.body.appendChild(ghost);
+      if (dragX != null) {
+        const w = r.width || innerWidth, outX = dir === 'l' ? -w : w;
+        const s = 1 - Math.min(Math.abs(dragX) / w, 1) * 0.05;
+        ghost.animate([
+          { transform: 'translateX(' + dragX + 'px) scale(' + s.toFixed(3) + ')' },
+          { transform: 'translateX(' + outX + 'px) scale(.86)' },
+        ], { duration: 350, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'forwards' });
+      }
     }
     return () => {
       const k = document.querySelector('.k26');
       if (k && ghost) {
-        const cls = origin ? 'k-zoom-in' : 'k-car-in-' + dir;
-        if (origin) k.style.transformOrigin = origin.x + 'px ' + origin.y + 'px';
-        k.classList.add(cls);
-        setTimeout(() => { k.classList.remove(cls); k.style.transformOrigin = ''; }, 560);
+        if (dragX == null) {
+          const cls = origin ? 'k-zoom-in' : 'k-car-in-' + dir;
+          if (origin) k.style.transformOrigin = origin.x + 'px ' + origin.y + 'px';
+          k.classList.add(cls);
+          setTimeout(() => { k.classList.remove(cls); k.style.transformOrigin = ''; }, 560);
+        } else {
+          const w = k.getBoundingClientRect().width || innerWidth;
+          const inX = dragX + (dir === 'l' ? w : -w);
+          k.animate([
+            { transform: 'translateX(' + inX + 'px) scale(.86)', borderRadius: '44px' },
+            { transform: 'translateX(0px) scale(1)', borderRadius: '0px' },
+          ], { duration: 350, easing: 'cubic-bezier(.2,.7,.2,1)' });
+        }
       }
-      if (ghost) setTimeout(() => ghost.remove(), 560);
+      if (ghost) setTimeout(() => ghost.remove(), dragX == null ? 560 : 380);
     };
   }
   // ---- Numerals clock (HomeView's big-numeral analog face): 12, 3, 6 and 9 huge and overlapping,
@@ -5957,6 +5979,8 @@ function kClockPicker() {
   // Swipe sideways to change face (like HomeView). Starts on controls and sideways-scrolling rows
   // don't count on the Home face, so dials, sliders and capsule rows behave as before.
   let kSw = null;
+  let kDrag = null;   // { dx, w } while a swipe drag is tracking the finger
+  let kDragX = null;  // drag offset handed to the carousel when a swipe changes face
   const kSwStart = (x, y, t) => {
     if (route().view !== 'kiosk' || qc || document.documentElement.classList.contains('k-night')) return;
     if (t.closest && t.closest('.k-exit, .k-dots, input, .qc, .qc-sheet')) return;
@@ -5964,20 +5988,67 @@ function kClockPicker() {
     if (S.kFace === 'home' && t.closest && t.closest('.k-ac, .k-ctl, .k-scenes26, .k-rooms, .k-climate, button')) return;
     kSw = { x, y, at: Date.now() };
   };
+  // Spring the face back to centre after a swipe that didn't change face.
+  const kSwSnapBack = (el) => {
+    if (qcMotion()) {
+      el.style.transition = 'transform .32s cubic-bezier(.2,.7,.2,1)';
+      el.style.transform = '';
+      setTimeout(() => { el.style.transition = ''; el.style.willChange = ''; }, 350);
+    } else { el.style.transform = ''; el.style.transition = ''; el.style.willChange = ''; }
+  };
+  // The face follows the finger while swiping (like HomeView); on release it springs to the
+  // next face or back. At the first/last face the drag resists instead of moving freely.
+  const kSwMove = (x, y) => {
+    if (!kSw) return;
+    const dx0 = x - kSw.x, dy = y - kSw.y;
+    if (Math.abs(dy) > Math.abs(dx0)) {
+      // A vertical gesture, not a face swipe: stop tracking (springing back if already moving).
+      kSw = null;
+      if (kDrag) { const el = document.querySelector('.k26'); if (el) kSwSnapBack(el); kDrag = null; }
+      return;
+    }
+    if (Math.abs(dx0) < 8) return;
+    const el = document.querySelector('.k26');
+    if (!el) return;
+    const faces = kFaces(), i = faces.indexOf(S.kFace);
+    let dx = dx0;
+    if ((i <= 0 && dx > 0) || (i >= faces.length - 1 && dx < 0)) dx = dx0 * 0.35;
+    const w = el.offsetWidth || innerWidth;
+    const s = 1 - Math.min(Math.abs(dx) / w, 1) * 0.05;
+    el.style.transition = 'none';
+    el.style.willChange = 'transform';
+    el.style.transform = 'translateX(' + dx + 'px) scale(' + s.toFixed(3) + ')';
+    kDrag = { dx, w };
+  };
   const kSwEnd = (x, y) => {
     if (!kSw) return;
     const dx = x - kSw.x, dy = y - kSw.y, quick = Date.now() - kSw.at < 900;
     kSw = null;
-    if (quick && Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      const faces = kFaces(), i = faces.indexOf(S.kFace) + (dx < 0 ? 1 : -1);
+    const horiz = Math.abs(dx) > Math.abs(dy) * 1.5;
+    const passed = horiz && ((quick && Math.abs(dx) > 70) || (kDrag && Math.abs(dx) > kDrag.w * 0.4));
+    const faces = kFaces(), i = faces.indexOf(S.kFace) + (dx < 0 ? 1 : -1);
+    const el = document.querySelector('.k26');
+    if (passed && i >= 0 && i < faces.length) {
+      if (kDrag) kDragX = kDrag.dx;
+      // Clear the drag transform before the carousel clones the face, so the ghost
+      // measures the face at rest; the carousel continues from the drag offset.
+      if (el) { el.style.transform = ''; el.style.transition = ''; el.style.willChange = ''; }
       if (kHold) { clearTimeout(kHold.t); kHold = null; }
-      if (i >= 0 && i < faces.length) { kSwiped = true; setTimeout(() => { kSwiped = false; }, 400); kSetFace(faces[i]); }
+      kSwiped = true; setTimeout(() => { kSwiped = false; }, 400);
+      kSetFace(faces[i]);
+    } else if (kDrag && el) {
+      kSwSnapBack(el);
     }
+    kDrag = null;
   };
-  document.addEventListener('touchstart', (e) => { const t = e.touches[0]; if (e.touches.length === 1) kSwStart(t.clientX, t.clientY, e.target); else kSw = null; }, { passive: true });
+  document.addEventListener('touchstart', (e) => { const t = e.touches[0]; if (e.touches.length === 1) kSwStart(t.clientX, t.clientY, e.target); else { kSw = null; if (kDrag) { const el = document.querySelector('.k26'); if (el) kSwSnapBack(el); kDrag = null; } } }, { passive: true });
+  document.addEventListener('touchmove', (e) => { const t = e.touches[0]; if (t) kSwMove(t.clientX, t.clientY); }, { passive: true });
   document.addEventListener('touchend', (e) => { const t = e.changedTouches[0]; if (t) kSwEnd(t.clientX, t.clientY); }, { passive: true });
+  document.addEventListener('touchcancel', () => { kSw = null; if (kDrag) { const el = document.querySelector('.k26'); if (el) kSwSnapBack(el); kDrag = null; } });
   document.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse' && e.button === 0) kSwStart(e.clientX, e.clientY, e.target); });
+  document.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' && e.buttons === 1) kSwMove(e.clientX, e.clientY); });
   document.addEventListener('pointerup', (e) => { if (e.pointerType === 'mouse') kSwEnd(e.clientX, e.clientY); });
+  document.addEventListener('pointercancel', () => { kSw = null; if (kDrag) { const el = document.querySelector('.k26'); if (el) kSwSnapBack(el); kDrag = null; } });
   function kioskView() {
     const data = S.data;
     if (!data) return '<div class="kiosk-wrap k26"><div class="k-lock"><div class="k-time">…</div></div></div>';

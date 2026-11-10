@@ -1,6 +1,6 @@
 {
   "name": "tuya-home-pwa",
-  "version": "2.91.2",
+  "version": "2.91.3",
   "private": true,
   "description": "A minimal PWA for Tuya smart home devices, with a Vercel proxy for the Tuya Cloud API.",
   "engines": {
