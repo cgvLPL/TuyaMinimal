@@ -2,6 +2,11 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.90.0
+
+- Wall tablet mode now scales to any screen, from an iPhone 7 to a 13-inch iPad, in 16:9, 16:10, 4:3, 18:9 and other shapes, portrait or landscape. Text, readings, chips and the top bar grow and shrink with the screen instead of staying a fixed size.
+- Portrait: the room picker gets its own row under the weather and time, and Home tiles grow taller so they fill the screen.
+
 ## 2.89.0
 
 - Wall tablet: choose its own wallpaper. Press and hold a Home page, then tap the picture button next to +. Pick Same as app, Night sky, any of the app's photos, or a photo of your own from the tablet.

@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.90.0", "items": ["Wall tablet mode now scales to any screen, from an iPhone 7 to a 13-inch iPad, in 16:9, 16:10, 4:3, 18:9 and other shapes, portrait or landscape. Text, readings, chips and the top bar grow and shrink with the screen instead of staying a fixed size.", "Portrait: the room picker gets its own row under the weather and time, and Home tiles grow taller so they fill the screen."]},
   {"v": "2.89.0", "items": ["Wall tablet: choose its own wallpaper. Press and hold a Home page, then tap the picture button next to +. Pick Same as app, Night sky, any of the app's photos, or a photo of your own from the tablet.", "The wallpaper only applies in wall tablet mode on that device; the rest of the app keeps its own background. The numerals clock's Wallpaper option uses it too."]},
   {"v": "2.88.0", "items": ["Wall tablet: the Weather face now looks like HomeView's: a huge temperature with sunrise or sunset, wind and humidity floating underneath (symbol, value, label), without the hourly card. Tap the weather in the top bar for the Weather page with the hourly forecast.", "The Weather face stays on at night: no night clock over it, just its own night sky.", "After 2 minutes without a touch the wall tablet now returns to whichever of Clock or Weather you left it on."]},
   {"v": "2.87.0", "items": ["Wall tablet: press and hold the numerals clock to change its background: sky, mint, peach, lavender, sun, graphite or your wallpaper.", "On the wallpaper the numerals turn into liquid glass: frosted, refracting the picture behind, with a lit edge."]},
@@ -5428,13 +5429,13 @@
     // Pick the columns × rows that give the biggest tiles, letting tiles stretch a little (not too
     // far from square) so the grid fills the screen.
     const gap = Math.round(Math.max(8, Math.min(innerWidth, innerHeight) * 0.022));
-    const W = innerWidth - 48, H = innerHeight - 96 - Math.min(innerWidth, innerHeight) * 0.07;
+    const W = innerWidth - 48, H = innerHeight - 96 - Math.min(innerWidth, innerHeight) * 0.07 - (innerHeight > innerWidth ? Math.max(14, 2.3 * Math.max(5, Math.min(innerHeight / 100, innerWidth * 1.35 / 100))) * 1.6 + 12 : 0);  // portrait: the rooms' own row
     let best = { cols: 3, rows: 3, cw: 100, ch: 100, score: 0 };
     for (let cols = hasM ? 2 : 1; cols <= 7; cols++) {
       const rows = Math.max(hasL ? 2 : 1, Math.ceil(n / cols) + (hasL && cols % 2 ? 1 : 0));
       let cw = (W - (cols - 1) * gap) / cols, ch = (H - (rows - 1) * gap) / rows;
       if (cw > ch * 1.45) cw = ch * 1.45;
-      if (ch > cw * 1.2) ch = cw * 1.2;
+      if (ch > cw * (innerHeight > innerWidth ? 1.45 : 1.2)) ch = cw * (innerHeight > innerWidth ? 1.45 : 1.2);  // portrait: taller tiles fill the height
       const score = Math.min(cw, ch) - (cols * rows - n) * 4;
       if (score > best.score) best = { cols, rows, cw, ch, score };
     }
