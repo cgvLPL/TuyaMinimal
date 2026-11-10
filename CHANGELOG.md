@@ -2,6 +2,19 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.81.2
+- Home picker: each home's icon is now flat, like the Home app's: a plain orange tile with a solid white house, without the gradient, glass highlight or shadows.
+
+## 2.81.1
+- **Home picker, after Apple's Liquid Glass and icon guidance:** the homes sit in one glass panel as rows divided by a hairline, instead of a separate glass pill each (Apple advises against glass on glass). The current home is marked with an orange checkmark rather than a filled row, and shows its number of accessories; "Tap to switch" is gone. Panel, row and icon corners are concentric. Each home's icon is a layered tile: a solid house with a crisp door cut-out, a glass highlight on top and a soft shadow under the symbol. In light mode the panel is lighter with dark text.
+
+## 2.81.0
+Wall tablet, after Apple's HomeView reference screens.
+- **Weather face (new):** the outdoor temperature huge in frosted glass on a sky that matches the conditions (clear, partly cloudy, overcast, fog, rain, storm, snow, and a night sky). The condition and today's high/low sit top left, the time top right, and along the bottom the next sunrise or sunset, the wind and the outdoor humidity. The faces are now Clock, Weather, Home and All controls.
+- **Home face redesigned:** a 2×2 thermostat for the first AC in your favourites (the set temperature huge, ⌄ ⌃ either side of its name, and the room with the AC's own measured temperature, never a room sensor's), a minimal analog clock (tick marks, no numbers), and square tiles with a large symbol, the name and **Room · State**. Tiles turn cream with dark text when on, and are frosted glass over your wallpaper when off. Lamps with a product photo get the matching symbol on this face.
+- **Scales with the screen:** text, tiles, gaps, the face dots and the ✕ are sized from the screen, so a small wall tablet and a large display show the same layout. The tile grid re-fits when the tablet rotates.
+- The weather service now also returns today's high/low, sunrise and sunset, wind speed (km/h, or mph with °F) and outdoor humidity.
+
 ## 2.80.1
 - **Climate and Humidity chips:** the icon colour now follows the reading (the average of live sensors), on the same scale as their full-screen pages. Temperature: light blue when cold or cool, green when comfortable (20–26 °C), orange when warm, red when hot. Humidity: orange when dry (under 30 %), blue when comfortable, light blue when humid, purple when very humid. The chip's spoken label says how it feels.
 - **Fixed:** the Air and Outdoor air chip icons were always green, because a broader style overrode the air quality colours. They now show yellow (moderate), orange, red or purple as the air gets worse.

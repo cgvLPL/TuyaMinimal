@@ -8,6 +8,21 @@ const { cached } = require('../_lib/cache');
 const access = require('../_lib/access');
 
 const TEN_MIN = 10 * 60 * 1000;
+
+function todayExtras(w, unit) {
+  const d = w.daily || {}, c = w.current || {}, off = (w.utc_offset_seconds || 0) * 1000;
+  const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+  const ts = (v) => { const t = typeof v === 'string' ? Date.parse(v + 'Z') : NaN; return Number.isFinite(t) ? t - off : null; };
+  const hi = num(d.temperature_2m_max && d.temperature_2m_max[0]), lo = num(d.temperature_2m_min && d.temperature_2m_min[0]);
+  return {
+    hi: hi == null ? null : Math.round(hi),
+    lo: lo == null ? null : Math.round(lo),
+    humidity: num(c.relative_humidity_2m) == null ? null : Math.round(c.relative_humidity_2m),
+    wind: num(c.wind_speed_10m) == null ? null : Math.round(c.wind_speed_10m),
+    windUnit: unit === 'f' ? 'mph' : 'km/h',
+    sun: (d.sunrise || []).map((r, i) => ({ rise: ts(r), set: ts(d.sunset && d.sunset[i]) })).filter((x) => x.rise && x.set)
+  };
+}
 const HALF_HOUR = 30 * 60 * 1000;
 
 // Outdoor air quality (US AQI, the same scale the app uses for indoor monitors). Used when the
@@ -50,11 +65,13 @@ module.exports = handler(['GET'], async (req) => {
   if (!loc) return { available: false, reason: 'no_location' };
   const { lat, lon, place } = loc;
 
-  const key = 'wx2:' + lat.toFixed(2) + ',' + lon.toFixed(2) + ':' + unit;
+  const key = 'wx3:' + lat.toFixed(2) + ',' + lon.toFixed(2) + ':' + unit;
   const airP = outdoorAir(lat, lon);
   const w = await cached(key, TEN_MIN, () => getJson(
     'https://api.open-meteo.com/v1/forecast?latitude=' + lat.toFixed(4) + '&longitude=' + lon.toFixed(4) +
-    '&current=temperature_2m,weather_code,is_day,precipitation,rain,showers,cloud_cover' + (unit === 'f' ? '&temperature_unit=fahrenheit' : '')));
+    '&current=temperature_2m,weather_code,is_day,precipitation,rain,showers,cloud_cover,relative_humidity_2m,wind_speed_10m' +
+    '&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&forecast_days=2&timezone=auto' +
+    (unit === 'f' ? '&temperature_unit=fahrenheit&wind_speed_unit=mph' : '&wind_speed_unit=kmh')));
   const c = w && w.current;
   if (!c || typeof c.temperature_2m !== 'number') throw new TuyaError('Weather data unavailable.', 'weather', 502);
   return {
@@ -66,6 +83,9 @@ module.exports = handler(['GET'], async (req) => {
     place,
     lat: Math.round(lat * 10000) / 10000,
     lon: Math.round(lon * 10000) / 10000,
-    air: await airP
+    air: await airP,
+    // For the wall tablet's Weather face: today's high/low, outdoor humidity, wind, and sunrise/sunset
+    // (as timestamps; Open-Meteo gives local times plus the location's UTC offset).
+    ...todayExtras(w, unit)
   };
 });

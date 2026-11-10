@@ -5,6 +5,27 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.81.2",
+      "items": [
+        "Home picker icons are flat, like the Home app's: a plain orange tile with a solid white house"
+      ]
+    },
+    {
+      "v": "2.81.1",
+      "items": [
+        "Home picker follows Apple's Liquid Glass guidance: one glass panel with the homes as rows (no glass on glass), and the current home marked with a checkmark",
+        "Rounded corners are concentric, and each home has a crisp layered house icon with a glass highlight"
+      ]
+    },
+    {
+      "v": "2.81.0",
+      "items": [
+        "Wall tablet: a new Weather face, after HomeView's: the temperature huge in frosted glass on a sky that matches the conditions, with high/low, sunrise or sunset, wind and humidity",
+        "Wall tablet Home face redesigned after HomeView's: a 2×2 thermostat (⌄ ⌃, room and the AC's own temperature), a minimal analog clock, and tiles showing Room · State; cream when on, frosted glass when off",
+        "Both faces scale with the screen, from a small wall tablet to a large display"
+      ]
+    },
+    {
       "v": "2.80.1",
       "items": [
         "Climate and Humidity chip icons change colour with the reading, like their full-screen pages (Cool, Comfortable, Warm, Hot / Dry, Comfortable, Humid)",
@@ -914,7 +935,7 @@
     key: store.get('appKey') || '',
     homeId: store.get('homeId') || '',
     kRoom: store.get('kRoom') || 'All',
-    kFace: ['clock', 'mod', 'home'].includes(store.get('kFace')) ? store.get('kFace') : 'clock',  // wall tablet face: Clock, Home (favourites) or All controls
+    kFace: ['clock', 'weather', 'mod', 'home'].includes(store.get('kFace')) ? store.get('kFace') : 'clock',  // wall tablet face: Clock, Home (favourites) or All controls
     kModEdit: false,  // choosing the Home face's favourites  // wall tablet mode's room (separate from the Home tab)
     data: null,
     loading: false,
@@ -2029,13 +2050,16 @@
     return { id: HOMES_ID, name: 'Homes', category: '', product: '', online: true, room: '', status: {}, homesPick: true, homes };
   }
   function homesPanel(d) {
+    // One glass panel (no glass on glass), rows divided by hairlines; the current home is marked
+    // with a checkmark rather than a filled row.
     const cur = S.data && S.data.homeId;
-    return '<div class="homes-list" role="list">' + d.homes.map((h) => {
+    return '<div class="homes-list" role="listbox" aria-label="Homes">' + d.homes.map((h) => {
       const on = h.id === cur;
-      return '<button class="home-row' + (on ? ' on' : '') + '" role="listitem" data-act="home-choose" data-id="' + esc(h.id) + '" data-key="home-' + esc(h.id) + '" aria-current="' + on + '">' +
-        '<span class="home-row-ic">' + roomGlyph('home', 24) + '</span><span class="home-row-txt"><span class="home-row-name">' + esc(h.name) + '</span>' +
-        '<span class="home-row-sub">' + (on ? 'Current home · ' + S.data.devices.length + ' accessor' + (S.data.devices.length === 1 ? 'y' : 'ies') : 'Tap to switch') + '</span></span>' +
-        (on ? '<span class="home-row-check">' + icon('check', 20) + '</span>' : '') + '</button>';
+      const n = on ? S.data.devices.length : null;
+      return '<button class="home-row' + (on ? ' on' : '') + '" role="option" aria-selected="' + on + '" data-act="home-choose" data-id="' + esc(h.id) + '" data-key="home-' + esc(h.id) + '">' +
+        '<span class="home-row-ic" aria-hidden="true">' + roomGlyph('home', 26) + '</span><span class="home-row-txt"><span class="home-row-name">' + esc(h.name) + '</span>' +
+        (on ? '<span class="home-row-sub">' + n + ' accessor' + (n === 1 ? 'y' : 'ies') + '</span>' : '') + '</span>' +
+        '<span class="home-row-check" aria-hidden="true">' + (on ? icon('check', 22) : '') + '</span></button>';
     }).join('') + '</div>';
   }
   function switchHome(id) {
@@ -3037,7 +3061,8 @@
       const r = await api('weather?homeId=' + encodeURIComponent(homeId) + '&unit=' + S.tempUnit);
       S.weather = { homeId, unit: S.tempUnit, at: Date.now(), available: !!r.available, temp: r.temp, code: r.code, isDay: r.isDay, unitLabel: r.unit === '°F' ? '°F' : '°C',
         lat: typeof r.lat === 'number' ? r.lat : null, lon: typeof r.lon === 'number' ? r.lon : null,
-        air: r.air && typeof r.air.aqi === 'number' ? r.air : null, place: r.place || '' };
+        air: r.air && typeof r.air.aqi === 'number' ? r.air : null, place: r.place || '', reason: r.reason || '',
+        hi: r.hi, lo: r.lo, humidity: r.humidity, wind: r.wind, windUnit: r.windUnit, sun: Array.isArray(r.sun) ? r.sun : [] };
       updatePosition();
     } catch (e) {
       S.weather = { homeId, unit: S.tempUnit, at: Date.now(), error: true };
@@ -4919,6 +4944,8 @@
     const now = new Date();
     document.querySelectorAll('[data-kclock="time"]').forEach((n) => { n.innerHTML = kTime(now); });
     document.querySelectorAll('[data-kclock="date"]').forEach((n) => { n.textContent = kDate(now); });
+    const ang = kHandAngles(now);
+    document.querySelectorAll('[data-khand]').forEach((n) => { n.style.transform = 'rotate(' + ang[n.dataset.khand].toFixed(2) + 'deg)'; });
     document.documentElement.classList.toggle('k-night', kioskIsNight(now));
   }
   // A Control Center-style tile: glyph in a circle at the top, name and state at the bottom.
@@ -5119,8 +5146,8 @@
   }
   // Faces, like HomeView: Clock, Home (a 3×3 grid of favourites, like its Home Modular face) and
   // All controls (the full dashboard).
-  const K_FACES = ['clock', 'mod', 'home'];
-  const K_FACE_NAME = { clock: 'Clock', mod: 'Home', home: 'All controls' };
+  const K_FACES = ['clock', 'weather', 'mod', 'home'];
+  const K_FACE_NAME = { clock: 'Clock', weather: 'Weather', mod: 'Home', home: 'All controls' };
   function kDots() {
     return '<div class="k-dots" role="group" aria-label="Faces">' + K_FACES.map((f) =>
       '<button class="k-dot" data-act="kface" data-face="' + f + '" data-key="kdot-' + f + '" aria-pressed="' + (S.kFace === f) + '" aria-label="' + K_FACE_NAME[f] + ' face"></button>').join('') + '</div>';
@@ -5146,29 +5173,112 @@
     return ids.filter(valid).slice(0, K_MOD_MAX);
   }
   function kModSave(ids) { store.set('kMod', JSON.stringify(ids.slice(0, K_MOD_MAX))); }
+  // ---- Home face, after HomeView's Home face: a 2×2 thermostat, a minimal analog clock, and tiles
+  // with a big icon, the name and "Room · State". On = cream with dark text; off = frosted glass. ----
+  function kHandAngles(now) {
+    const m = now.getMinutes() + now.getSeconds() / 60, h = (now.getHours() % 12) + m / 60;
+    return { h: h * 30, m: m * 6 };
+  }
+  function kAnalog(now) {
+    const a = kHandAngles(now);
+    let ticks = '';
+    for (let i = 0; i < 12; i++) {
+      const ang = i * 30 * Math.PI / 180, r1 = 70, r2 = 92;
+      ticks += '<line x1="' + (100 + Math.sin(ang) * r1).toFixed(1) + '" y1="' + (100 - Math.cos(ang) * r1).toFixed(1) + '" x2="' + (100 + Math.sin(ang) * r2).toFixed(1) + '" y2="' + (100 - Math.cos(ang) * r2).toFixed(1) + '"/>';
+    }
+    return '<div class="km-analog" data-key="km-analog" role="img" aria-label="' + esc(now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })) + '"><svg viewBox="0 0 200 200" aria-hidden="true">' +
+      '<circle cx="100" cy="100" r="98" class="km-face"/><g class="km-ticks">' + ticks + '</g>' +
+      '<line x1="100" y1="100" x2="100" y2="52" class="km-hh" data-khand="h" style="transform:rotate(' + a.h.toFixed(2) + 'deg)"/>' +
+      '<line x1="100" y1="100" x2="100" y2="26" class="km-mh" data-khand="m" style="transform:rotate(' + a.m.toFixed(2) + 'deg)"/>' +
+      '<circle cx="100" cy="100" r="4" class="km-pin"/></svg></div>';
+  }
   function kModTile(data, pick) {
     if (pick.indexOf('scene:') === 0) {
       const sc = (data.scenes || []).find((x) => 'scene:' + x.id === pick), st = S.sceneState[sc.id];
-      return '<button class="k-w s k-ctl k-mt k-mscene ' + (st || '') + '" data-act="scene" data-id="' + esc(sc.id) + '" data-key="km-' + esc(pick) + '"' + (st === 'running' ? ' disabled' : '') + ' aria-label="' + esc('Scene ' + sc.name) + '">' +
-        '<span class="k-glyph">' + icon(st === 'done' ? 'check' : 'play', 24) + '</span><span class="k-ctl-text"><span class="k-name">' + esc(sc.name) + '</span><span class="k-status">' + (st === 'running' ? 'Running…' : st === 'done' ? 'Done' : 'Scene') + '</span></span></button>';
+      return '<button class="k-mt km-scene ' + (st || '') + '" data-act="scene" data-id="' + esc(sc.id) + '" data-key="km-' + esc(pick) + '"' + (st === 'running' ? ' disabled' : '') + ' aria-label="' + esc('Scene ' + sc.name) + '">' +
+        '<span class="km-ic">' + icon(st === 'done' ? 'check' : 'home', 44) + '</span><span class="km-name">' + esc(sc.name) + '</span><span class="km-sub">' + (st === 'running' ? 'Running…' : st === 'done' ? 'Done' : 'Scene') + '</span></button>';
     }
     const d = findDevice(pick.slice(4));
-    if (isKioskAc(d)) {
-      const on = isOn(d) && d.online;
-      return '<button class="k-w s k-ctl k-mt k-mac hue-' + hueOf(d) + (on ? ' on' : '') + '" data-act="k-open" data-id="' + esc(d.id) + '" data-key="km-' + esc(pick) + '" aria-label="' + esc(d.name + ', ' + (d.online ? statusText(d) : 'Offline') + ', open controls') + '">' +
-        '<span class="k-glyph">' + deviceIcon(d, 24) + '</span><span class="k-ctl-text"><span class="k-name">' + esc(d.name) + '</span><span class="k-status">' + esc(d.online ? statusText(d) : 'Offline') + '</span></span></button>';
+    const on = isOn(d) && d.online, busy = isPending(d.id);
+    const state = d.online ? statusText(d) : 'Offline';
+    const sub = d.room ? d.room + ' · ' + state : state;
+    const cls = 'k-mt' + (on ? ' on' : '') + (busy ? ' pending' : '');
+    // Product photos don't suit this face: use the matching glyph instead (HomeView uses symbols).
+    const PH_GLYPH = { photodesk: 'desklamp', photocolumn: 'column', photodonut: 'lamp', phototable: 'tablelamp', photoac: 'climate', photolantern: 'lantern', photostar: 'starlight' };
+    let gk = iconKeyOf(d);
+    if (PH_GLYPH[gk]) gk = PH_GLYPH[gk];
+    const inner = '<span class="km-ic">' + glyph(gk, 44) + '</span><span class="km-name">' + esc(d.name) + '</span><span class="km-sub">' + esc(sub) + '</span>';
+    if (isKioskAc(d) || isKRemoteDev(d)) {
+      return '<button class="' + cls + '" data-act="k-open" data-id="' + esc(d.id) + '" data-key="km-' + esc(pick) + '" aria-label="' + esc(d.name + ', ' + state + ', open controls') + '">' + inner + '</button>';
     }
-    return kioskTile(d).replace('class="k-w s k-ctl', 'class="k-w s k-ctl k-mt').replace('data-key="k-', 'data-key="km-');
+    return '<button class="' + cls + '" data-act="toggle" data-id="' + esc(d.id) + '" data-key="km-' + esc(pick) + '" aria-pressed="' + isOn(d) + '" aria-label="' + esc(d.name + ', ' + state) + '"' + (d.online ? '' : ' disabled') + '>' + inner + '</button>';
   }
-  function kModFace(data, now, wx) {
+  // The first air conditioner becomes the 2×2 thermostat: the set temperature, huge; ⌄ name ⌃ along
+  // the bottom, with the room and the AC's own measured temperature (never a room sensor's).
+  function kModThermo(d) {
+    const ir = kindOf(d) === 'irac', on = isOn(d) && d.online;
+    const set = ir ? (d.ir.state ? d.ir.state.temp : 24) : scaled(d, 'temp_set', true);
+    const num = set == null ? '–' : (Math.round(set * 10) / 10).toLocaleString([], { maximumFractionDigits: 1 });
+    const cur = ir ? null : scaled(d, 'temp_current', false);
+    const sub = [d.room || '', d.online ? (on ? (cur != null ? fmtReading(cur) : '') : 'Off') : 'Offline'].filter(Boolean).join(' · ');
+    const act = ir ? 'irtemp' : 'temp', dis = d.online ? '' : ' disabled';
+    return '<div class="k-mt km-big' + (on ? ' on' : '') + '" data-key="km-big-' + esc(d.id) + '" role="group" aria-label="' + esc(d.name) + '">' +
+      '<button class="km-big-open" data-act="k-open" data-id="' + esc(d.id) + '" data-key="km-bo-' + esc(d.id) + '" aria-label="' + esc(d.name + ', set to ' + num + '°, ' + (d.online ? statusText(d) : 'Offline') + ', open controls') + '">' +
+      '<span class="km-big-temp">' + esc(num) + '</span></button>' +
+      '<div class="km-big-row"><button class="km-step" data-act="' + act + '" data-id="' + esc(d.id) + '" data-delta="-1" data-key="km-dn-' + esc(d.id) + '" aria-label="Lower temperature"' + dis + '>' + icon('chevron', 30) + '</button>' +
+      '<button class="km-big-name" data-act="k-open" data-id="' + esc(d.id) + '" data-key="km-bn-' + esc(d.id) + '" tabindex="-1" aria-hidden="true"><span class="km-name">' + esc(d.name) + '</span><span class="km-sub">' + esc(sub) + '</span></button>' +
+      '<button class="km-step up" data-act="' + act + '" data-id="' + esc(d.id) + '" data-delta="1" data-key="km-up-' + esc(d.id) + '" aria-label="Raise temperature"' + dis + '>' + icon('chevron', 30) + '</button></div></div>';
+  }
+  function kModFace(data, now) {
     const picks = kModPicks(data);
-    let grid = picks.map((p) => kModTile(data, p)).join('');
-    for (let i = picks.length; i < K_MOD_MAX; i++) {
-      grid += '<button class="k-mt k-madd" data-act="kmod-edit" data-key="km-add-' + i + '" aria-label="Choose favourites">' + (i === picks.length ? icon('plus', 24) : '') + '</button>';
+    const bigIdx = picks.findIndex((p) => p.indexOf('dev:') === 0 && isKioskAc(findDevice(p.slice(4))));
+    let grid = '';
+    if (bigIdx >= 0) grid += kModThermo(findDevice(picks[bigIdx].slice(4)));
+    grid += kAnalog(now);
+    picks.forEach((p, i) => { if (i !== bigIdx) grid += kModTile(data, p); });
+    if (picks.length < K_MOD_MAX) grid += '<button class="k-mt k-madd" data-act="kmod-edit" data-key="km-add" aria-label="Choose favourites">' + icon('plus', 34) + '</button>';
+    // Fit on one screen: try column counts and keep the one giving the biggest square tiles.
+    const n = (bigIdx >= 0 ? 4 : 0) + 1 + picks.length - (bigIdx >= 0 ? 1 : 0) + (picks.length < K_MOD_MAX ? 1 : 0);
+    // Everything scales with the screen: the gap is ~2.2% of the shorter side.
+    const gap = Math.round(Math.max(8, Math.min(innerWidth, innerHeight) * 0.022)), W = innerWidth - 48, H = innerHeight - 96;
+    let best = { cols: 3, cell: 100 };
+    for (let cols = bigIdx >= 0 ? 2 : 1; cols <= 8; cols++) {
+      const rows = Math.max(bigIdx >= 0 ? 2 : 1, Math.ceil(n / cols) + (bigIdx >= 0 && cols === 2 ? 1 : 0));
+      const cell = Math.min((W - (cols - 1) * gap) / cols, (H - (rows - 1) * gap) / rows);
+      if (cell > best.cell) best = { cols, cell };
     }
-    return '<section class="k-modface" aria-label="Home"><header class="km-head"><div class="km-clock"><span class="km-time" data-kclock="time">' + kTime(now) + '</span>' +
-      '<span class="km-date" data-kclock="date">' + kDate(now) + '</span></div>' + (wx || '') + '</header>' +
+    return '<section class="k-modface" style="--cols:' + best.cols + ';--cell:' + Math.floor(best.cell) + 'px;--gap:' + gap + 'px" aria-label="Home">' +
       '<div class="k-modgrid" role="group" aria-label="Favourites. Press and hold to choose.">' + grid + '</div></section>';
+  }
+  // ---- Weather face, after HomeView's: the temperature huge in frosted glass on a sky that matches
+  // the conditions; condition and high/low top left, the time top right; sun, wind and humidity below. ----
+  function kSky(code, isDay) {
+    const sky = code === 0 || code === 1 ? 'clear' : code === 2 ? 'partly' : code === 3 ? 'overcast' : code === 45 || code === 48 ? 'fog'
+      : (code >= 71 && code <= 77) || code === 85 || code === 86 ? 'snow' : code >= 95 ? 'storm' : code >= 51 ? 'rain' : 'partly';
+    return 'sky-' + sky + (isDay ? '' : ' sky-night');
+  }
+  function kWeatherFace(data, now) {
+    const w = S.weather;
+    const t = (ms) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    if (!w || !w.available || w.homeId !== data.homeId || w.unit !== S.tempUnit) {
+      return '<section class="k-wxface sky-partly" aria-label="Weather"><header class="kw-top"><div class="kw-cond">Weather</div><div class="kw-time" data-kclock="time">' + kTime(now) + '</div></header>' +
+        '<div class="kw-empty">' + (w && w.reason === 'no_location' ? 'Set your home\'s location in the Tuya app to see the weather here.' : 'Loading the weather…') + '</div></section>';
+    }
+    const [ic, desc] = weatherInfo(w.code, w.isDay);
+    const nowMs = now.getTime(), sun = w.sun || [];
+    let ev = null;
+    for (const s of sun) {
+      if (s.rise > nowMs) { ev = ['sunrise', t(s.rise), 'Sunrise']; break; }
+      if (s.set > nowMs) { ev = ['sunset', t(s.set), 'Sunset']; break; }
+    }
+    const stat = (icn, v, l) => '<div class="kw-stat">' + icon(icn, 26) + '<span class="kw-v">' + esc(v) + '</span><span class="kw-l">' + esc(l) + '</span></div>';
+    const stats = (ev ? stat(ev[0], ev[1], ev[2]) : '') + (w.wind != null ? stat('air', w.wind + ' ' + (w.windUnit || 'km/h'), 'Wind') : '') + (w.humidity != null ? stat('drop', w.humidity + '%', 'Humidity') : '');
+    return '<section class="k-wxface ' + kSky(w.code, w.isDay) + '" aria-label="Weather">' +
+      '<header class="kw-top"><div><div class="kw-cond">' + icon(ic, 28) + '<span>' + esc(desc) + '</span></div>' +
+      (w.hi != null && w.lo != null ? '<div class="kw-hl">H:' + w.hi + '° L:' + w.lo + '°</div>' : '') + '</div>' +
+      '<div class="kw-time" data-kclock="time">' + kTime(now) + '</div></header>' +
+      '<div class="kw-big" role="img" aria-label="' + esc(w.temp + ' degrees, ' + desc) + '"><span>' + esc(String(w.temp)) + '</span><span class="kw-deg">°</span></div>' +
+      (stats ? '<div class="kw-stats">' + stats + '</div>' : '') + '</section>';
   }
   function kModEditor(data) {
     const c = kModCandidates(data), picks = kModPicks(data);
@@ -5187,6 +5297,8 @@
       '</div></div></div>';
   }
   // Press and hold the Home face to choose its favourites (like editing a face on HomeView).
+  let kResizeT = 0;
+  window.addEventListener('resize', () => { clearTimeout(kResizeT); kResizeT = setTimeout(() => { if (route().view === 'kiosk' && S.kFace === 'mod') render(); }, 150); });
   let kHold = null, kHoldFired = false;
   document.addEventListener('pointerdown', (e) => {
     const g = e.target.closest && e.target.closest('.k-modgrid');
@@ -5263,7 +5375,8 @@
       '<svg class="k-exit-ring" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="20"/></svg>' + icon('close', 18) + '</button>';
     const tail = () => kDots() + kNightFace(data, now) + (S.kModEdit ? kModEditor(data) : '') +
       '<button class="k-dim" data-act="kiosk-wake" data-key="k-dim" aria-label="Wake the screen" tabindex="-1"></button></div>';
-    if (S.kFace === 'mod') return '<div class="kiosk-wrap k26 k-face-mod">' + kModFace(data, now, wx) + exitBtn.replace('class="k-exit"', 'class="k-exit km-exit"') + tail();
+    if (S.kFace === 'mod') return '<div class="kiosk-wrap k26 k-face-mod">' + kModFace(data, now) + exitBtn.replace('class="k-exit"', 'class="k-exit km-exit"') + tail();
+    if (S.kFace === 'weather') return '<div class="kiosk-wrap k26 k-face-weather">' + kWeatherFace(data, now) + exitBtn.replace('class="k-exit"', 'class="k-exit km-exit"') + tail();
     // Clock face: a very large clock with the date and glanceable readings, nothing to press.
     if (S.kFace === 'clock') {
       return '<div class="kiosk-wrap k26 k-face-clock"><section class="k-clockface" aria-label="Clock">' + exitBtn +
@@ -6920,7 +7033,9 @@
       if (path.startsWith('weather')) {
         const f = /unit=f/.test(path);
         return { available: true, temp: f ? 75 : 24, code: 2, isDay: true, unit: f ? '°F' : '°C', place: 'Demo', lat: 51.5074, lon: -0.1278,
-          air: { aqi: 42, pm25: 9.8, pm10: 16.4, o3: 61, no2: 18.2, time: null } };
+          air: { aqi: 42, pm25: 9.8, pm10: 16.4, o3: 61, no2: 18.2, time: null },
+          hi: f ? 79 : 26, lo: f ? 64 : 18, humidity: 72, wind: f ? 6 : 10, windUnit: f ? 'mph' : 'km/h',
+          sun: [0, 1].map((i) => { const b = new Date(); b.setHours(0, 0, 0, 0); const day = b.getTime() + i * 864e5; return { rise: day + 5.9 * 36e5, set: day + 17.8 * 36e5 }; }) };
       }
       if (path.startsWith('history')) {
         const hours = /hours=168/.test(path) ? 168 : 24, end = Date.now(), start = end - hours * 3600000;
