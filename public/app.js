@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.88.0", "items": ["Wall tablet: the Weather face now looks like HomeView's: a huge temperature with sunrise or sunset, wind and humidity floating underneath (symbol, value, label), without the hourly card. Tap the weather in the top bar for the Weather page with the hourly forecast.", "The Weather face stays on at night: no night clock over it, just its own night sky.", "After 2 minutes without a touch the wall tablet now returns to whichever of Clock or Weather you left it on."]},
   {"v": "2.87.0", "items": ["Wall tablet: press and hold the numerals clock to change its background: sky, mint, peach, lavender, sun, graphite or your wallpaper.", "On the wallpaper the numerals turn into liquid glass: frosted, refracting the picture behind, with a lit edge."]},
     {
       "v": "2.86.1",
@@ -5086,7 +5087,8 @@
     if (!kiosk.on) return;
     // Like HomeView showing a simple face when nobody is close: after 2 minutes without a touch,
     // go back to the Clock face.
-    if (S.kFace !== 'clock' && !qc && !S.kModEdit && Date.now() - kioskTouchedAt > K_IDLE_MS) kSetFace('clock');
+    const rest = store.get('kRest') === 'weather' ? 'weather' : 'clock';
+    if ((S.kFace !== rest || S.kWxBack) && !qc && !S.kModEdit && Date.now() - kioskTouchedAt > K_IDLE_MS) { S.kWxBack = null; if (S.kFace === rest) render(); else kSetFace(rest); }
     const now = new Date();
     document.querySelectorAll('[data-kclock="time"]').forEach((n) => { n.innerHTML = kTime(now); });
     document.querySelectorAll('[data-kclock="date"]').forEach((n) => { n.textContent = kDate(now); });
@@ -5621,7 +5623,10 @@
     const golden = w.isDay && sunPhase(w, now).phase === 'golden';
     return '<section class="k-wxface ' + kSky(w.code, w.isDay) + (golden ? ' sky-golden' : '') + '" aria-label="Weather">' + kWeatherFx(w, now) + kTopBar(data, now) +
       '<div class="kw-big" role="img" aria-label="' + esc(w.temp + ' degrees, ' + desc) + '"><span>' + esc(String(w.temp)) + '</span><span class="kw-deg">°</span></div>' +
-      '<div class="kw-card">' + (stats ? '<div class="kw-stats">' + stats + '</div>' : '') + kHourly(w, now) + '</div>' +
+      // The face looks like HomeView's: the stats float under the temperature. The hourly card only
+      // shows on the Weather page opened from the top bar.
+      (S.kWxBack ? '<div class="kw-card">' + (stats ? '<div class="kw-stats">' + stats + '</div>' : '') + kHourly(w, now) + '</div>'
+        : (stats ? '<div class="kw-stats kw-float">' + stats + '</div>' : '')) +
       (S.kWxBack ? '<button class="kw-close" data-act="kwx-close" aria-label="Close the weather">' + icon('close', 18) + '</button>' : '') + '</section>';
   }
   function kModEditor(data) {
@@ -5818,6 +5823,7 @@ function kClockPicker() {
     const done = kCarousel(dir, origin);
     if (!origin) S.kWxBack = null;
     S.kFace = f; store.set('kFace', f);
+    if ((f === 'clock' || f === 'weather') && !S.kWxBack) store.set('kRest', f);  // where idle returns to
     S.kEdit = false; S.kEditSel = null;
     if (f === 'weather') loadWeather();
     render();

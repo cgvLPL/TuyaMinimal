@@ -2,6 +2,12 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.88.0
+
+- Wall tablet: the Weather face now looks like HomeView's: a huge temperature with sunrise or sunset, wind and humidity floating underneath (symbol, value, label), without the hourly card. Tap the weather in the top bar for the Weather page with the hourly forecast.
+- The Weather face stays on at night: no night clock over it, just its own night sky.
+- After 2 minutes without a touch the wall tablet now returns to whichever of Clock or Weather you left it on.
+
 ## 2.87.0
 
 - Wall tablet: press and hold the numerals clock to change its background: sky, mint, peach, lavender, sun, graphite or your wallpaper.

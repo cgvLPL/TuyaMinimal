@@ -2130,7 +2130,6 @@ html.kiosk, html.kiosk body { overscroll-behavior-x: none; }
 .k26 .kw-v { font-size: 3.8vmin; font-weight: 600; font-variant-numeric: tabular-nums; }
 .k26 .kw-l { font-size: 2.9vmin; font-weight: 500; opacity: .75; }
 .k26 .kw-empty { flex: 1; display: grid; place-items: center; text-align: center; font-size: 3.4vmin; font-weight: 600; opacity: .85; padding: 0 10%; }
-html.k-night .k26 .k-wxface::before { display: none; }
 /* Weather animation (behind the temperature; transforms and opacity only, so it stays smooth) */
 .k26 .kw-fx { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
 .k26 .kw-fx i { position: absolute; display: block; will-change: transform; }
@@ -2205,7 +2204,11 @@ html.k-night .k26 .k-wxface::before { display: none; }
 .k26 .k-nightface { display: none; }
 html.k-night.kiosk::before { opacity: 0; }
 html.k-night.kiosk, html.k-night.kiosk body { background: #000 !important; }
-html.k-night .k26 > :not(.k-nightface):not(.k-dim) { display: none; }
+html.k-night .k26:not(.k-face-weather) > :not(.k-nightface):not(.k-dim) { display: none; }
+/* The Weather face stays as it is at night (its sky turns to night by itself); no night clock over it */
+html.k-night .k26.k-face-weather .k-nightface { display: none; }
+html.k-night.kiosk:has(.k-face-weather), html.k-night.kiosk:has(.k-face-weather) body { background: #0b1020 !important; }
+html.k-night.kiosk:has(.k-face-weather) body { background: transparent !important; }
 html.k-night .k26 .k-nightface { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-height: calc(100dvh - 80px); gap: 4px;
   --kn: 255, 168, 92; color: rgba(var(--kn), 0.62); animation: knIn 1.2s ease; }
 .k26 .kn-time { font-size: min(26vw, 40vh); font-weight: 700; line-height: .9; letter-spacing: -0.045em; font-variant-numeric: tabular-nums; color: rgba(var(--kn), 0.7); }
@@ -3380,3 +3383,14 @@ html:not([data-bg]) .ios-pin .keypad .key:active:not(:disabled) { background: co
 .k26 .kn-day { position: fixed; left: 6.5vmin; bottom: 6.5vmin; font-size: 4.2vmin; font-weight: 500; letter-spacing: .02em; color: var(--kn-day, #1d6890); }
 .k26.k-numerals .k-dots { background: var(--kn-dot); }
 html.k-night .k26.k-numerals::before { display: none; }
+
+/* Weather face like HomeView: a huge, wide temperature, then sunrise/wind/humidity floating below
+   (symbol, value, label), with no card */
+.k26 .k-face-weather .k-wxface:not(:has(.kw-card)) .kw-big { flex: 1; align-items: center; gap: .07em; margin: 0; font-size: min(74vh, 52vw); }
+.k26 .kw-big > span { background: linear-gradient(170deg, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.36) 55%, rgba(255, 255, 255, 0.44) 100%);
+  -webkit-background-clip: text; background-clip: text; }
+.k26 .kw-stats.kw-float { padding: 0 4vw 4vmin; justify-content: space-around; color: #fff; text-shadow: 0 1px 8px rgba(0, 30, 90, 0.18); }
+.k26 .kw-float .kw-stat { gap: .6vmin; flex: 1 1 0; }
+.k26 .kw-float .kw-stat svg { width: 3.6vmin; height: 3.6vmin; margin-bottom: .6vmin; }
+.k26 .kw-float .kw-v { font-size: 3.4vmin; }
+.k26 .kw-float .kw-l { font-size: 2.6vmin; }
