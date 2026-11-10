@@ -2092,6 +2092,9 @@ html.kiosk, html.kiosk body { overscroll-behavior-x: none; }
 .k26 .k-wxface.sky-storm { --sky1: #262a3f; --sky2: #555b78; }
 .k26 .k-wxface.sky-snow { --sky1: #8ea6bf; --sky2: #e1e9f2; }
 .k26 .k-wxface.sky-night { --sky1: #0b1733; --sky2: #2b4170; }
+/* Sunrise/sunset: the sky warms toward the horizon, like Weather's computed sky gradient */
+.k26 .k-wxface.sky-golden { --sky1: #3f5d9e; --sky2: #f0ae7e; }
+.k26 .k-wxface.sky-overcast.sky-golden, .k26 .k-wxface.sky-rain.sky-golden, .k26 .k-wxface.sky-storm.sky-golden { --sky1: #4f5a78; --sky2: #b99a92; }
 .k26 .k-wxface.sky-night::before { background: radial-gradient(60% 40% at 30% 20%, rgba(255, 255, 255, 0.08), transparent 70%), linear-gradient(180deg, var(--sky1), var(--sky2)); }
 .k26 .kw-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 2vmin; padding: .4vmin .8vmin 0; color: #fff; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.2); }
 .k26 .kw-cond { display: flex; align-items: center; gap: .35em; font-size: 2.7vmin; font-weight: 600; line-height: 1.2; }
@@ -2100,9 +2103,13 @@ html.kiosk, html.kiosk body { overscroll-behavior-x: none; }
 .k26 .kw-time { font-size: 2.7vmin; font-weight: 500; line-height: 1.2; opacity: .92; font-variant-numeric: tabular-nums; }
 .k26 .kw-time .k-ampm { display: none; }  /* like HomeView: just 6:35 */
 .k26 .kw-big { display: flex; align-items: flex-start; justify-content: center; line-height: .82; margin: 1vh 0;
-  font-size: min(58vh, 46vw); -webkit-text-stroke-width: max(1px, .2vmin); font-weight: 400; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
-  color: rgba(255, 255, 255, 0.26); -webkit-text-stroke-color: rgba(255, 255, 255, 0.55);
-  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.35), 0 10px 30px rgba(0, 30, 90, 0.18), 0 -1px 0 rgba(0, 40, 100, 0.08); }
+  font-size: min(58vh, 46vw); font-weight: 400; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+/* Frosted glass digits: a translucent gradient fill with a light rim and a soft shadow. Drawn from the
+   glyph's outer shape only, so a font's overlapping outlines never show (no outline stroke). */
+.k26 .kw-big > span { color: transparent; -webkit-text-fill-color: transparent;
+  background: linear-gradient(170deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.24) 55%, rgba(255, 255, 255, 0.34) 100%);
+  -webkit-background-clip: text; background-clip: text;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.5)) drop-shadow(0 -1px 0 rgba(255, 255, 255, 0.18)) drop-shadow(0 12px 28px rgba(0, 30, 90, 0.2)); }
 .k26 .kw-deg { font-size: .62em; line-height: 1; margin-left: .02em; }
 .k26 .kw-stats { display: flex; justify-content: space-around; gap: 2vmin; padding: 0 2vw 1vmin; }
 .k26 .kw-stat { display: flex; flex-direction: column; align-items: center; gap: .5vmin; min-width: 0; }
@@ -2114,13 +2121,17 @@ html.k-night .k26 .k-wxface::before { display: none; }
 /* Weather animation (behind the temperature; transforms and opacity only, so it stays smooth) */
 .k26 .kw-fx { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
 .k26 .kw-fx i { position: absolute; display: block; will-change: transform; }
-.k26 .kfx-cloud { left: 0; height: 26vh; border-radius: 50%; animation: kfxDrift linear infinite;
-  background: radial-gradient(closest-side at 35% 60%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0) 100%),
-    radial-gradient(closest-side at 62% 45%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 100%),
-    radial-gradient(closest-side at 50% 70%, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0) 100%); }
-.k26 .kfx-cloud.dark { filter: none; background: radial-gradient(closest-side at 35% 60%, rgba(70, 80, 95, 0.75), transparent),
-    radial-gradient(closest-side at 62% 45%, rgba(90, 100, 115, 0.7), transparent), radial-gradient(closest-side at 50% 70%, rgba(60, 70, 85, 0.6), transparent); }
-@keyframes kfxDrift { from { transform: translateX(-60vw); } to { transform: translateX(110vw); } }
+/* Cloud layers: a pre-lit texture tiled sideways, sliding exactly one tile per loop (seamless) */
+.k26 .kfx-layers { position: absolute; inset: 0; opacity: 0; transition: opacity 1.6s ease; }
+.k26 .kfx-layers.ready { opacity: 1; }
+.k26 .kfx-depth { position: absolute; left: 0; right: 0;
+  -webkit-mask: linear-gradient(180deg, transparent 0%, #000 18%, #000 78%, transparent 100%); mask: linear-gradient(180deg, transparent 0%, #000 18%, #000 78%, transparent 100%); }
+.k26 .kfx-depth.near { perspective: 70vh; perspective-origin: 50% 0%; }
+.k26 .kfx-layer { position: absolute; top: 0; left: 0; height: 100%; width: calc(100vw + var(--tw) * 2); will-change: transform;
+  background-repeat: repeat-x; background-size: var(--tw) 100%; animation: kfxScroll linear infinite; }
+.k26 .kfx-depth.near .kfx-layer { transform-origin: 50% 100%; height: 130%; top: -30%; animation-name: kfxScrollNear; }
+@keyframes kfxScroll { from { transform: translateX(calc(-1 * var(--tw))); } to { transform: translateX(0); } }
+@keyframes kfxScrollNear { from { transform: rotateX(38deg) translateX(calc(-1 * var(--tw))); } to { transform: rotateX(38deg) translateX(0); } }
 .k26 .kfx-sun { right: -8vmin; top: -10vmin; width: 60vmin; height: 60vmin; border-radius: 50%;
   background: radial-gradient(closest-side, rgba(255, 246, 210, 0.75), rgba(255, 230, 160, 0.25) 45%, rgba(255, 220, 140, 0) 100%); animation: kfxGlow 8s ease-in-out infinite alternate; }
 @keyframes kfxGlow { from { transform: scale(.94); opacity: .8; } to { transform: scale(1.06); opacity: 1; } }
@@ -2140,7 +2151,7 @@ html.k-night .k26 .k-wxface::before { display: none; }
 .k26 .kfx-fog { left: -50%; width: 200%; height: 22vh; border-radius: 50%;
   background: radial-gradient(closest-side, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0)); animation: kfxFog ease-in-out infinite alternate; }
 @keyframes kfxFog { from { transform: translateX(-12%); } to { transform: translateX(12%); } }
-@media (prefers-reduced-motion: reduce) { .k26 .kw-fx i { animation: none !important; } .k26 .kfx-drop, .k26 .kfx-flash, .k26 .kfx-flake { display: none; } }
+@media (prefers-reduced-motion: reduce) { .k26 .kw-fx i, .k26 .kfx-layer { animation: none !important; } .k26 .kfx-drop, .k26 .kfx-flash, .k26 .kfx-flake { display: none; } }
 
 /* Choosing favourites: a sheet over the face */
 .k26 .k-modedit { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 24px; background: rgba(0, 0, 0, 0.45);

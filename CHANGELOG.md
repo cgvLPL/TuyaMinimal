@@ -2,6 +2,17 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.82.2
+Clouds on the wall tablet's Weather face, rebuilt after how Apple's Weather app renders them (per a reverse-engineering of the app's scene files: tiled cloud images scrolling in seamless loops, some under a perspective transform so they recede toward the horizon, and cloud textures pre-lit in lit/shadowed variants blended by sun angle).
+- **Pre-lit cloud textures:** generated once on the device from layered noise (a seamless band), with the lighting baked in from the sun's real position (from today's sunrise and sunset): bright tops and shaded bases by day, warm highlights and mauve shadows at golden hour, dim grey at night. Overcast, rain and storm clouds are thicker and darker.
+- **Layers at different depths:** two or three layers (far, mid, near) scroll at different speeds, each moving exactly one tile per loop so it never jumps; the near layer is tilted in perspective toward the horizon. Layer edges fade softly.
+- **Sky:** at sunrise and sunset the sky now warms toward the horizon.
+- Only still images slide, so it stays smooth; generation takes about a second on a slow tablet and the clouds fade in. The textures are the app's own (no Apple assets).
+
+## 2.82.1
+- **Realistic clouds** on the wall tablet's Weather face: each cloud is a cluster of puffs (bigger in the middle, flat underneath, lighter on top) with fluffy edges from a noise texture, instead of a soft circle. Overcast and rain clouds are grey, and at night clouds are dim and moonlit. They're sized from the screen's long side, so they no longer look round on portrait screens. Each cloud is drawn once and only slides, so it stays smooth.
+- **Fixed:** the big temperature's glass edge was drawn on the font's inner outlines too, leaving a small mark inside some digits (like the 2). The digits now use a glass gradient with a light rim around their outer shape only.
+
 ## 2.82.0
 - **Animated Weather face (wall tablet):** the sky now moves with the conditions. Clear days get a glowing sun with slowly turning rays; clear nights get twinkling stars; partly cloudy and overcast skies have soft clouds drifting across (darker when overcast); rain falls at a slant, heavier in downpours; storms add dark clouds and lightning flashes; snow drifts down; fog rolls slowly past.
 - It sits behind the temperature and readings, uses only smooth GPU-friendly animation, stops when the device's Reduce Motion setting is on, and is hidden during the night look. A background refresh keeps the same clouds and drops, so nothing jumps.

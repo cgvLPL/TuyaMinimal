@@ -5,6 +5,21 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.82.2",
+      "items": [
+        "Weather face clouds are now drawn the way Apple's Weather app does it: pre-lit cloud textures in layers that scroll in seamless loops at different depths, the nearest one receding toward the horizon",
+        "Cloud lighting follows the real sun: bright tops and shaded bases by day, warm highlights at sunrise and sunset, dim grey at night",
+        "At sunrise and sunset the sky warms toward the horizon"
+      ]
+    },
+    {
+      "v": "2.82.1",
+      "items": [
+        "Weather face clouds look real: clusters of puffs with fluffy edges, flatter bases and light from above, dimmer at night",
+        "Fixed a small mark that showed inside some digits of the big temperature"
+      ]
+    },
+    {
       "v": "2.82.0",
       "items": [
         "Wall tablet Weather face is animated: drifting clouds, falling rain, storms with lightning flashes, snowfall, rolling fog, a glowing sun with slowly turning rays, or twinkling stars at night",
@@ -5350,30 +5365,137 @@
     }
     return '<header class="kw-top"><div>' + left + '</div><div class="kw-time" data-kclock="time">' + kTime(now) + '</div></header>';
   }
+  // ---- Clouds, the way Apple's Weather app draws them: pre-lit cloud textures in tiled layers that
+  // scroll in seamless loops (each slide is exactly one tile wide), at different depths and speeds,
+  // with the near layer tilted to recede toward the horizon. The lighting is baked into the texture
+  // from the sun's position (bright tops and shaded bases by day, warm at sunrise/sunset, dim at
+  // night), like Weather's lit/shadowed texture pairs blended by sun angle. Textures are generated
+  // here (procedural noise), once per look, then only slide, so they stay smooth on a wall tablet.
+  const cloudTex = {};  // key -> object URL
+  function sunPhase(w, now) {
+    const t = now.getTime(), today = (w.sun || []).find((s) => s.rise && s.set && t < s.set + 6 * 36e5) || (w.sun || [])[0];
+    if (!today) return { phase: w.isDay ? 'day' : 'night', x: 0.3, el: w.isDay ? 0.7 : 0 };
+    const p = (t - today.rise) / (today.set - today.rise);
+    if (p < 0 || p > 1) return { phase: 'night', x: 0, el: 0 };
+    const el = Math.sin(Math.PI * p), x = p * 2 - 1;  // x: -1 morning (sun low left) .. 1 evening (right)
+    return { phase: el < 0.28 ? 'golden' : 'day', x, el };
+  }
+  function makeCloudTexture(opts) {
+    // opts: seed, coverage (0..1), dark (0..1), sun {x, el}, phase
+    const W = 512, H = 256;
+    let s = opts.seed * 7919 + 13;
+    const rand = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
+    // Periodic value noise, so the texture tiles seamlessly left to right.
+    const lattices = [];
+    const fbm = (u, v) => {
+      let sum = 0, amp = 0.55, norm = 0;
+      for (let o = 0; o < 6; o++) {
+        const px = 4 << o, py = 2 << o;
+        if (!lattices[o]) { const a = new Float32Array(px * py); for (let i = 0; i < a.length; i++) a[i] = rand(); lattices[o] = a; }
+        const L = lattices[o], x = u * px, y = v * py, xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi;
+        const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+        const x0 = ((xi % px) + px) % px, x1 = (x0 + 1) % px, y0 = Math.min(py - 1, Math.max(0, yi)), y1 = Math.min(py - 1, y0 + 1);
+        const a = L[y0 * px + x0], b = L[y0 * px + x1], c = L[y1 * px + x0], d = L[y1 * px + x1];
+        sum += amp * (a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy);
+        norm += amp; amp *= 0.5;
+      }
+      return sum / norm;
+    };
+    // Density: noise above a coverage threshold, shaped into a band (thin at the top, flatter base).
+    const dens = new Float32Array(W * H), thr = 1 - opts.coverage * 0.62 - 0.12;
+    for (let y = 0; y < H; y++) {
+      const v = y / H, band = Math.max(0, Math.sin(Math.PI * Math.min(1, v * 1.15))) * (v > 0.82 ? Math.max(0, (1 - v) / 0.18) : 1);
+      for (let x = 0; x < W; x++) {
+        const n = fbm(x / W, v);
+        dens[y * W + x] = Math.max(0, Math.min(1, (n - thr) * 3.2)) * band;
+      }
+    }
+    // Lighting: march a few steps toward the sun; more cloud in the way = more shadow (Beer's law).
+    const sx = -opts.sun.x * 0.6, sy = -Math.max(0.25, opts.sun.el);  // toward the sun, in texture space (up = -y)
+    const len = Math.hypot(sx, sy), dx = sx / len, dy = sy / len;
+    const lit = opts.phase === 'golden' ? [255, 214, 170] : opts.phase === 'night' ? [118, 128, 150] : [255, 255, 255];
+    const shade = opts.phase === 'golden' ? [128, 112, 140] : opts.phase === 'night' ? [36, 42, 58] : [150 - opts.dark * 60, 160 - opts.dark * 60, 178 - opts.dark * 58];
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const ctx = c.getContext('2d'), img = ctx.createImageData(W, H), px = img.data;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const d = dens[y * W + x];
+        const i = (y * W + x) * 4;
+        if (d <= 0.001) { px[i + 3] = 0; continue; }
+        let occ = 0;
+        for (let k = 1; k <= 6; k++) {
+          const qx = (((x + Math.round(dx * k * 5)) % W) + W) % W, qy = y + Math.round(dy * k * 5);
+          if (qy >= 0 && qy < H) occ += dens[qy * W + qx];
+        }
+        const light = Math.exp(-occ * (1.1 + opts.dark * 1.4));      // 1 = fully lit (POS), 0 = shadowed (NEG)
+        const edge = Math.pow(1 - d, 2) * 0.35;                        // thin edges glow (silver lining)
+        const l = Math.min(1, light * (1 - opts.dark * 0.45) + edge);
+        px[i] = shade[0] + (lit[0] - shade[0]) * l;
+        px[i + 1] = shade[1] + (lit[1] - shade[1]) * l;
+        px[i + 2] = shade[2] + (lit[2] - shade[2]) * l;
+        px[i + 3] = Math.min(255, Math.pow(d, 0.75) * 255 * (opts.phase === 'night' ? 0.75 : 1));
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    return new Promise((res) => c.toBlob((b) => res(b ? URL.createObjectURL(b) : c.toDataURL())));
+  }
+  // Textures are generated in the background, then applied through a small stylesheet, so the page
+  // markup never carries the image data.
+  function ensureCloudTextures(key, specs) {
+    if (cloudTex[key]) return true;
+    if (ensureCloudTextures.busy === key) return false;
+    ensureCloudTextures.busy = key;
+    const run = async () => {
+      const urls = [];
+      for (const sp of specs) { urls.push(await makeCloudTexture(sp)); await new Promise((r) => setTimeout(r, 0)); }
+      cloudTex[key] = urls;
+      let st = document.getElementById('cloud-tex');
+      if (!st) { st = document.createElement('style'); st.id = 'cloud-tex'; document.head.appendChild(st); }
+      st.textContent += urls.map((u, i) => '.kfx-layer[data-tex="' + key + '-' + i + '"]{background-image:url(' + u + ')}').join('');
+      ensureCloudTextures.busy = null;
+      document.querySelectorAll('.kfx-layers[data-texkey="' + key + '"]').forEach((n) => n.classList.add('ready'));
+    };
+    (window.requestIdleCallback || ((f) => setTimeout(f, 30)))(() => { run(); });
+    return false;
+  }
+  // Layers for a condition: [texture index, top %, height vh, tile width vh, seconds per tile, opacity, near(perspective)]
+  function cloudLayers(sky, w, now) {
+    const sun = sunPhase(w, now);
+    const look = { partly: { cov: 0.52, dark: 0, layers: 2 }, overcast: { cov: 0.9, dark: 0.45, layers: 3 }, rain: { cov: 0.95, dark: 0.6, layers: 3 },
+      storm: { cov: 1, dark: 0.85, layers: 3 }, snow: { cov: 0.75, dark: 0.15, layers: 3 }, fog: null, clear: null }[sky];
+    if (!look) return '';
+    const bucket = sun.phase + (sun.phase === 'night' ? '' : (sun.x < -0.33 ? 'L' : sun.x > 0.33 ? 'R' : 'M'));
+    const key = 'c' + sky + bucket;
+    const specs = [0, 1, 2].slice(0, look.layers).map((i) => ({ seed: 11 + i * 17 + (sky.length * 3), coverage: Math.min(1, look.cov + (i - 1) * 0.08), dark: look.dark, sun, phase: sun.phase }));
+    const ready = ensureCloudTextures(key, specs);
+    const L = [
+      [0, -2, 46, 150, 260, 0.75, false],   // far: high, slow, faint
+      [1, 6, 52, 190, 170, 0.9, false],     // mid
+      [2, 22, 60, 230, 110, 1, true]        // near: lower, faster, receding toward the horizon
+    ].slice(0, look.layers);
+    return '<div class="kfx-layers' + (ready ? ' ready' : '') + '" data-texkey="' + key + '">' + L.map(([t, top, hgt, tile, sec, op, near]) =>
+      '<div class="kfx-depth' + (near ? ' near' : '') + '" style="top:' + top + '%;height:' + hgt + 'vh;opacity:' + op + '">' +
+      '<div class="kfx-layer" data-tex="' + key + '-' + t + '" style="--tw:' + tile + 'vh;animation-duration:' + sec + 's"></div></div>').join('') + '</div>';
+  }
   // Weather animation for the Weather face: drifting clouds, rain, storm lightning, snow, fog,
   // sun rays or twinkling stars, matching the conditions. Positions come from a fixed pseudo-random
   // sequence, so redraws keep the same elements and the animations never restart.
-  function kWeatherFx(code, isDay) {
+  function kWeatherFx(w, now) {
+    const code = w.code, isDay = w.isDay;
     let seed = 7;
     const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
     const sky = kSky(code, isDay).split(' ')[0].replace('sky-', '');
     const heavy = code === 65 || code === 67 || code === 82 || code >= 95;
     let h = '';
-    const clouds = (n, dark) => {
-      for (let i = 0; i < n; i++) {
-        const top = (rnd() * 45 - 5).toFixed(1), w = (35 + rnd() * 30).toFixed(1), dur = (70 + rnd() * 70).toFixed(0), del = (-rnd() * 140).toFixed(1), op = (0.35 + rnd() * 0.35).toFixed(2);
-        h += '<i class="kfx-cloud' + (dark ? ' dark' : '') + '" style="top:' + top + '%;width:' + w + 'vw;opacity:' + op + ';animation-duration:' + dur + 's;animation-delay:' + del + 's"></i>';
-      }
-    };
     if (sky === 'clear') {
       if (isDay) h += '<i class="kfx-sun"></i><i class="kfx-rays"></i>';
       else for (let i = 0; i < 46; i++) h += '<i class="kfx-star" style="left:' + (rnd() * 100).toFixed(1) + '%;top:' + (rnd() * 70).toFixed(1) + '%;animation-delay:-' + (rnd() * 5).toFixed(1) + 's;animation-duration:' + (3 + rnd() * 4).toFixed(1) + 's"></i>';
     }
-    if (sky === 'partly') { if (isDay) h += '<i class="kfx-sun"></i>'; clouds(4, false); }
-    if (sky === 'overcast') clouds(6, true);
+    if (sky === 'partly' && isDay) h += '<i class="kfx-sun"></i>';
+    if (sky === 'partly' && !isDay) for (let i = 0; i < 30; i++) h += '<i class="kfx-star" style="left:' + (rnd() * 100).toFixed(1) + '%;top:' + (rnd() * 60).toFixed(1) + '%;animation-delay:-' + (rnd() * 5).toFixed(1) + 's;animation-duration:' + (3 + rnd() * 4).toFixed(1) + 's"></i>';
+    h += cloudLayers(sky, w, now);
     if (sky === 'fog') for (let i = 0; i < 4; i++) h += '<i class="kfx-fog" style="top:' + (20 + i * 18) + '%;animation-duration:' + (50 + i * 17) + 's;animation-delay:-' + (i * 13) + 's"></i>';
     if (sky === 'rain' || sky === 'storm') {
-      clouds(sky === 'storm' ? 6 : 4, true);
       const n = sky === 'storm' || heavy ? 90 : 55;
       let drops = '';
       for (let i = 0; i < n; i++) drops += '<i class="kfx-drop" style="left:' + (rnd() * 110 - 5).toFixed(1) + '%;animation-delay:-' + (rnd() * 2).toFixed(2) + 's;animation-duration:' + (0.55 + rnd() * 0.45).toFixed(2) + 's;opacity:' + (0.35 + rnd() * 0.5).toFixed(2) + '"></i>';
@@ -5381,13 +5503,12 @@
       if (sky === 'storm') h += '<i class="kfx-flash"></i>';
     }
     if (sky === 'snow') {
-      clouds(3, false);
       for (let i = 0; i < 60; i++) {
         const z = (3 + rnd() * 6).toFixed(1);
         h += '<i class="kfx-flake" style="left:' + (rnd() * 100).toFixed(1) + '%;width:' + z + 'px;height:' + z + 'px;animation-delay:-' + (rnd() * 12).toFixed(1) + 's;animation-duration:' + (8 + rnd() * 8).toFixed(1) + 's"></i>';
       }
     }
-    return '<div class="kw-fx" aria-hidden="true" data-key="kw-fx-' + sky + (isDay ? '-d' : '-n') + '">' + h + '</div>';
+    return '<div class="kw-fx" aria-hidden="true" data-key="kw-fx-' + sky + '-' + sunPhase(w, now).phase + '">' + h + '</div>';
   }
   function kWeatherFace(data, now) {
     const w = S.weather;
@@ -5405,7 +5526,8 @@
     }
     const stat = (icn, v, l) => '<div class="kw-stat">' + icon(icn, 26) + '<span class="kw-v">' + esc(v) + '</span><span class="kw-l">' + esc(l) + '</span></div>';
     const stats = (ev ? stat(ev[0], ev[1], ev[2]) : '') + (w.wind != null ? stat('air', w.wind + ' ' + (w.windUnit || 'km/h'), 'Wind') : '') + (w.humidity != null ? stat('drop', w.humidity + '%', 'Humidity') : '');
-    return '<section class="k-wxface ' + kSky(w.code, w.isDay) + '" aria-label="Weather">' + kWeatherFx(w.code, w.isDay) + kTopBar(data, now) +
+    const golden = w.isDay && sunPhase(w, now).phase === 'golden';
+    return '<section class="k-wxface ' + kSky(w.code, w.isDay) + (golden ? ' sky-golden' : '') + '" aria-label="Weather">' + kWeatherFx(w, now) + kTopBar(data, now) +
       '<div class="kw-big" role="img" aria-label="' + esc(w.temp + ' degrees, ' + desc) + '"><span>' + esc(String(w.temp)) + '</span><span class="kw-deg">°</span></div>' +
       (stats ? '<div class="kw-stats">' + stats + '</div>' : '') + '</section>';
   }
