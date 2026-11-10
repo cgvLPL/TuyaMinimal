@@ -2,6 +2,17 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.85.0
+- **More Home pages:** the wall tablet's Home slide now spills onto extra pages with the same layout when there are more tiles than fit. A page holds a 3×3 grid of tiles on square screens, 3×4 on portrait, 4×3 on landscape and 5×3 on very wide screens (an AC tile counts as 2×2). Each page gets its own dot; swipe or tap to move between them. The limit of nine favourites is gone, and by default all devices and scenes are included (circuit breakers aside).
+- **Room picker:** the Home pages' top bar shows the room names in small, dim text, with the chosen one white on a faint capsule. **All** shows your favourites; a room shows every device in that room (ACs first). The choice is remembered on the tablet.
+
+## 2.84.0
+- Wall tablet: removed the fourth slide (All controls), which repeated the Home slide. There are now three: **Clock**, **Weather** and **Home**. Anything you want on the wall tablet goes on the Home slide (press and hold it to choose up to nine devices and scenes). A tablet that was left on the old fourth slide opens on the Clock.
+
+## 2.83.1
+- Wall tablet Home face tiles restyled after HomeView's: the symbol sits near the top, the name is larger and can wrap onto two lines, and Room · State sits underneath. Off tiles are clearer glass that picks up the wallpaper's colours; on tiles stay cream with dark text.
+- The large AC tiles go back to the HomeView layout: the set temperature large in the middle, with ⌄, the name and room, and ⌃ along the bottom.
+
 ## 2.83.0
 - **Wall tablet Home face, uniform big tiles:** every favourite other than the ACs is the same size, and the grid picks the columns and rows that give the biggest tiles for the screen (landscape, portrait or wide), letting them stretch a little so the grid fills it. Symbols, temperatures, names and rooms line up across the grid.
 - **ACs keep their large 2×2 tiles:** the set temperature large with ⌄ and ⌃ either side of it, and the full name and room underneath. Tap the number or name for the full control.

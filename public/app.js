@@ -5,6 +5,28 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.85.0",
+      "items": [
+        "Wall tablet: when there are more devices than fit, more Home pages appear with the same layout; swipe or tap the dots to move between them",
+        "A subtle room picker on the Home pages: small room names in the top bar; All shows your favourites, a room shows every device in it",
+        "No more limit of nine favourites"
+      ]
+    },
+    {
+      "v": "2.84.0",
+      "items": [
+        "Wall tablet now has three slides: Clock, Weather and Home. The fourth slide (All controls) is gone; press and hold the Home slide to choose which devices and scenes it shows"
+      ]
+    },
+    {
+      "v": "2.83.1",
+      "items": [
+        "Wall tablet Home face tiles now match HomeView's: the icon near the top, a bigger name that can wrap to two lines, and Room · State underneath",
+        "Off tiles are clear glass that takes the wallpaper's colours; on tiles stay cream",
+        "AC tiles: the temperature large in the middle, with ⌄ name ⌃ along the bottom"
+      ]
+    },
+    {
       "v": "2.83.0",
       "items": [
         "Wall tablet Home face is a uniform grid of big tiles that fills the screen; every other favourite is the same size, names and rooms lined up",
@@ -1010,7 +1032,8 @@
     key: store.get('appKey') || '',
     homeId: store.get('homeId') || '',
     kRoom: store.get('kRoom') || 'All',
-    kFace: ['clock', 'weather', 'mod', 'home'].includes(store.get('kFace')) ? store.get('kFace') : 'clock',  // wall tablet face: Clock, Home (favourites) or All controls
+    kFace: /^(clock|weather|mod\d*)$/.test(store.get('kFace') || '') ? store.get('kFace') : 'clock',
+    kHomeRoom: store.get('kHomeRoom') || 'All',  // room shown on the Home pages (All = favourites)  // wall tablet face: Clock, Home (favourites) or All controls
     kModEdit: false,  // choosing the Home face's favourites  // wall tablet mode's room (separate from the Home tab)
     data: null,
     loading: false,
@@ -5248,14 +5271,39 @@
   }
   // Faces, like HomeView: Clock, Home (a 3×3 grid of favourites, like its Home Modular face) and
   // All controls (the full dashboard).
-  const K_FACES = ['clock', 'weather', 'mod', 'home'];
-  const K_FACE_NAME = { clock: 'Clock', weather: 'Weather', mod: 'Home', home: 'All controls' };
+  // Faces: Clock, Weather, then as many Home pages as the tiles need ('mod', 'mod1', 'mod2', …).
+  // How many tile cells a page holds (an AC tile takes 4, as 2×2): a 3×3 grid on square and portrait
+  // screens 3×3 (square) or 3×4 (portrait), 4×3 on landscape, 5×3 on very wide ones, so pages stay full.
+  const kPageCells = () => { const r = innerWidth / innerHeight; return r > 1.9 ? 15 : r > 1.25 ? 12 : r < 0.8 ? 12 : 9; };
+  function kHomeItems(data) {
+    const room = S.kHomeRoom;
+    if (!room || room === 'All') return kModPicks(data);
+    // A room: every device in it, ACs first.
+    const ds = kModCandidates(data).devs.filter((d) => (d.room || 'Other') === room);
+    return ds.filter(isKioskAc).concat(ds.filter((d) => !isKioskAc(d))).map((d) => 'dev:' + d.id);
+  }
+  function kHomePages(data) {
+    const pages = [];
+    let cur = [], used = 0;
+    for (const p of kHomeItems(data)) {
+      const w = p.indexOf('dev:') === 0 && isKioskAc(findDevice(p.slice(4))) ? 4 : 1;
+      if (cur.length && used + w > kPageCells()) { pages.push(cur); cur = []; used = 0; }
+      cur.push(p); used += w;
+    }
+    pages.push(cur);
+    return pages;
+  }
+  function kFaces() {
+    const n = S.data ? kHomePages(S.data).length : 1;
+    return ['clock', 'weather'].concat(Array.from({ length: n }, (_, i) => (i ? 'mod' + i : 'mod')));
+  }
+  const isModFace = (f) => /^mod\d*$/.test(f || '');
+  const kFaceName = (f) => (f === 'clock' ? 'Clock' : f === 'weather' ? 'Weather' : 'Home, page ' + (Number(f.slice(3) || 0) + 1));
   function kDots() {
-    return '<div class="k-dots" role="group" aria-label="Faces">' + K_FACES.map((f) =>
-      '<button class="k-dot" data-act="kface" data-face="' + f + '" data-key="kdot-' + f + '" aria-pressed="' + (S.kFace === f) + '" aria-label="' + K_FACE_NAME[f] + ' face"></button>').join('') + '</div>';
+    return '<div class="k-dots" role="group" aria-label="Faces">' + kFaces().map((f) =>
+      '<button class="k-dot" data-act="kface" data-face="' + f + '" data-key="kdot-' + f + '" aria-pressed="' + (S.kFace === f) + '" aria-label="' + kFaceName(f) + '"></button>').join('') + '</div>';
   }
   // ---- Home face: up to nine favourites (accessories and scenes), chosen by pressing and holding ----
-  const K_MOD_MAX = 9;
   const isKRemoteDev = (d) => d.ir && !isKioskAc(d) && qcKind(d) === 'remote';
   function kModCandidates(data) {
     const devs = sortByOrder(data.devices.filter((d) => !isHidden(d) && (isKioskAc(d) || (hasToggle(d) && !d.ir) || isKRemoteDev(d))), data.homeId);
@@ -5272,9 +5320,9 @@
       const acs = c.devs.filter(isKioskAc), rest = c.devs.filter((d) => !isKioskAc(d) && !isBreaker(d));
       ids = acs.concat(rest).map((d) => 'dev:' + d.id).concat(c.scenes.map((x) => 'scene:' + x.id));
     }
-    return ids.filter(valid).slice(0, K_MOD_MAX);
+    return ids.filter(valid);
   }
-  function kModSave(ids) { store.set('kMod', JSON.stringify(ids.slice(0, K_MOD_MAX))); }
+  function kModSave(ids) { store.set('kMod', JSON.stringify(ids)); }
   // ---- Home face, after HomeView's Home face: a 2×2 thermostat, a minimal analog clock, and tiles
   // with a big icon, the name and "Room · State". On = cream with dark text; off = frosted glass. ----
   function kHandAngles(now) {
@@ -5313,21 +5361,20 @@
     const sub = [d.room || '', d.online ? (on ? (cur != null ? fmtReading(cur) : '') : 'Off') : 'Offline'].filter(Boolean).join(' · ');
     const act = ir ? 'irtemp' : 'temp', dis = d.online ? '' : ' disabled';
     return '<div class="k-mt km-big' + (on ? ' on' : '') + '" data-key="km-' + esc('dev:' + d.id) + '" role="group" aria-label="' + esc(d.name) + '">' +
-      '<div class="km-big-row"><button class="km-step" data-act="' + act + '" data-id="' + esc(d.id) + '" data-delta="-1" data-key="km-dn-' + esc(d.id) + '" aria-label="Lower temperature"' + dis + '>' + icon('chevron', 30) + '</button>' +
       '<button class="km-big-open" data-act="k-open" data-id="' + esc(d.id) + '" data-key="km-bo-' + esc(d.id) + '" aria-label="' + esc(d.name + ', set to ' + num + '°, ' + (d.online ? statusText(d) : 'Offline') + ', open controls') + '">' +
       '<span class="km-big-temp">' + esc(num) + '</span></button>' +
-      '<button class="km-step up" data-act="' + act + '" data-id="' + esc(d.id) + '" data-delta="1" data-key="km-up-' + esc(d.id) + '" aria-label="Raise temperature"' + dis + '>' + icon('chevron', 30) + '</button></div>' +
-      '<button class="km-big-name" data-act="k-open" data-id="' + esc(d.id) + '" data-key="km-bn-' + esc(d.id) + '" tabindex="-1" aria-hidden="true"><span class="km-name">' + esc(d.name) + '</span><span class="km-sub">' + esc(sub) + '</span></button></div>';
+      '<div class="km-big-row"><button class="km-step" data-act="' + act + '" data-id="' + esc(d.id) + '" data-delta="-1" data-key="km-dn-' + esc(d.id) + '" aria-label="Lower temperature"' + dis + '>' + icon('chevron', 30) + '</button>' +
+      '<button class="km-big-name" data-act="k-open" data-id="' + esc(d.id) + '" data-key="km-bn-' + esc(d.id) + '" tabindex="-1" aria-hidden="true"><span class="km-name">' + esc(d.name) + '</span><span class="km-sub">' + esc(sub) + '</span></button>' +
+      '<button class="km-step up" data-act="' + act + '" data-id="' + esc(d.id) + '" data-delta="1" data-key="km-up-' + esc(d.id) + '" aria-label="Raise temperature"' + dis + '>' + icon('chevron', 30) + '</button></div></div>';
   }
-  function kModFace(data, now) {
+  function kModFace(data, now, picks) {
     // Uniform big tiles: every favourite the same size (ACs as thermostat tiles), filling the screen.
-    const picks = kModPicks(data);
     let grid = '';
     picks.forEach((p) => {
       const d = p.indexOf('dev:') === 0 ? findDevice(p.slice(4)) : null;
       grid += d && isKioskAc(d) ? kModThermo(d) : kModTile(data, p);
     });
-    const showAdd = picks.length === 0;
+    const showAdd = picks.length === 0 && (!S.kHomeRoom || S.kHomeRoom === 'All');
     if (showAdd) grid += '<button class="k-mt k-madd" data-act="kmod-edit" data-key="km-add" aria-label="Choose favourites">' + icon('plus', 34) + '</button>';
     // Pick the columns × rows that give the biggest tiles, letting tiles stretch a little (not too
     // far from square) so the grid fills the screen.
@@ -5347,7 +5394,7 @@
     }
     const cell = Math.floor(Math.min(best.cw, best.ch));
     return '<section class="k-modface" style="--cols:' + best.cols + ';--cw:' + Math.floor(best.cw) + 'px;--ch:' + Math.floor(best.ch) + 'px;--cell:' + cell + 'px;--gap:' + gap + 'px" aria-label="Home">' +
-      kTopBar(data, now) +
+      kTopBar(data, now, kRoomPicker(data)) +
       '<div class="k-modgrid" role="group" aria-label="Favourites. Press and hold to choose.">' + grid + '</div></section>';
   }
 
@@ -5360,7 +5407,17 @@
   }
   // Top bar shared by the Weather and All controls faces, like HomeView: the condition with today's
   // high/low at the top left, the time at the top right, both small.
-  function kTopBar(data, now) {
+  // Room picker for the Home pages: just the room names in small, dim text in the top bar; the
+  // chosen one is white. All = your favourites.
+  function kRoomPicker(data) {
+    const devs = kModCandidates(data).devs, rooms = [];
+    devs.forEach((d) => { const r = d.room || 'Other'; if (!rooms.includes(r)) rooms.push(r); });
+    if (rooms.length < 2) return '';
+    const cur = rooms.includes(S.kHomeRoom) ? S.kHomeRoom : 'All';
+    return '<nav class="k-hrooms" aria-label="Rooms">' + ['All'].concat(rooms).map((r) =>
+      '<button class="k-hroom" data-act="khroom" data-room="' + esc(r) + '" data-key="khr-' + esc(r) + '" aria-pressed="' + (r === cur) + '">' + esc(r) + '</button>').join('') + '</nav>';
+  }
+  function kTopBar(data, now, mid) {
     const w = S.weather, ok = w && w.available && w.homeId === data.homeId && w.unit === S.tempUnit;
     let left = '';
     if (ok) {
@@ -5368,7 +5425,7 @@
       left = '<div class="kw-cond">' + icon(ic, 20) + '<span>' + esc(desc) + '</span></div>' +
         (w.hi != null && w.lo != null ? '<div class="kw-hl">H:' + w.hi + '° L:' + w.lo + '°</div>' : '');
     }
-    return '<header class="kw-top"><div>' + left + '</div><div class="kw-time" data-kclock="time">' + kTime(now) + '</div></header>';
+    return '<header class="kw-top"><div class="kw-l-side">' + left + '</div>' + (mid || '') + '<div class="kw-time" data-kclock="time">' + kTime(now) + '</div></header>';
   }
   // ---- Clouds, the way Apple's Weather app draws them: pre-lit cloud textures in tiled layers that
   // scroll in seamless loops (each slide is exactly one tile wide), at different depths and speeds,
@@ -5545,7 +5602,7 @@
         '<span class="k-pick-n">' + (n >= 0 ? n + 1 : '') + '</span></button>';
     };
     return '<div class="k-modedit" role="dialog" aria-modal="true" aria-label="Choose favourites"><div class="k-modedit-card">' +
-      '<header><div><h2>Home face</h2><p>Choose up to ' + K_MOD_MAX + ', in the order you tap them · ' + picks.length + ' of ' + K_MOD_MAX + '</p></div>' +
+      '<header><div><h2>Home favourites</h2><p>Shown in the order you tap them · ' + picks.length + ' chosen' + (picks.length > 9 ? ' · more pages appear as needed' : '') + '</p></div>' +
       '<button class="k-modedit-done" data-act="kmod-done" data-key="kmod-done">Done</button></header>' +
       '<div class="k-modedit-list">' +
       (c.devs.length ? '<h3>Accessories</h3><div class="k-pick-grid">' + c.devs.map((d) => item('dev:' + d.id, deviceIcon(d, 20), d.name, d.room || '')).join('') + '</div>' : '') +
@@ -5554,7 +5611,7 @@
   }
   // Press and hold the Home face to choose its favourites (like editing a face on HomeView).
   let kResizeT = 0;
-  window.addEventListener('resize', () => { clearTimeout(kResizeT); kResizeT = setTimeout(() => { if (route().view === 'kiosk' && S.kFace === 'mod') render(); }, 150); });
+  window.addEventListener('resize', () => { clearTimeout(kResizeT); kResizeT = setTimeout(() => { if (route().view === 'kiosk' && isModFace(S.kFace)) render(); }, 150); });
   let kHold = null, kHoldFired = false;
   document.addEventListener('pointerdown', (e) => {
     const g = e.target.closest && e.target.closest('.k-modgrid');
@@ -5573,8 +5630,9 @@
   }, true);
   document.addEventListener('contextmenu', (e) => { if (e.target.closest && e.target.closest('.k-modgrid')) e.preventDefault(); });
   function kSetFace(f) {
-    if (!K_FACES.includes(f) || f === S.kFace) return;
-    const dir = K_FACES.indexOf(f) > K_FACES.indexOf(S.kFace) ? 'l' : 'r';
+    const faces = kFaces();
+    if (!faces.includes(f) || f === S.kFace) return;
+    const dir = faces.indexOf(f) > faces.indexOf(S.kFace) ? 'l' : 'r';
     S.kFace = f; store.set('kFace', f);
     if (f === 'weather') loadWeather();
     render();
@@ -5596,9 +5654,9 @@
     const dx = x - kSw.x, dy = y - kSw.y, quick = Date.now() - kSw.at < 900;
     kSw = null;
     if (quick && Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      const i = K_FACES.indexOf(S.kFace) + (dx < 0 ? 1 : -1);
+      const faces = kFaces(), i = faces.indexOf(S.kFace) + (dx < 0 ? 1 : -1);
       if (kHold) { clearTimeout(kHold.t); kHold = null; }
-      if (i >= 0 && i < K_FACES.length) { kSwiped = true; setTimeout(() => { kSwiped = false; }, 400); kSetFace(K_FACES[i]); }
+      if (i >= 0 && i < faces.length) { kSwiped = true; setTimeout(() => { kSwiped = false; }, 400); kSetFace(faces[i]); }
     }
   };
   document.addEventListener('touchstart', (e) => { const t = e.touches[0]; if (e.touches.length === 1) kSwStart(t.clientX, t.clientY, e.target); else kSw = null; }, { passive: true });
@@ -5632,7 +5690,13 @@
       '<svg class="k-exit-ring" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="20"/></svg>' + icon('close', 18) + '</button>';
     const tail = () => kDots() + kNightFace(data, now) + (S.kModEdit ? kModEditor(data) : '') +
       '<button class="k-dim" data-act="kiosk-wake" data-key="k-dim" aria-label="Wake the screen" tabindex="-1"></button></div>';
-    if (S.kFace === 'mod') return '<div class="kiosk-wrap k26 k-face-mod">' + kModFace(data, now) + exitBtn.replace('class="k-exit"', 'class="k-exit km-exit"') + tail();
+    if (S.kFace === 'home') S.kFace = 'mod';
+    if (isModFace(S.kFace)) {
+      const pages = kHomePages(data);
+      let pi = Number(S.kFace.slice(3) || 0);
+      if (pi >= pages.length) { pi = pages.length - 1; S.kFace = pi ? 'mod' + pi : 'mod'; }
+      return '<div class="kiosk-wrap k26 k-face-mod">' + kModFace(data, now, pages[pi]) + exitBtn.replace('class="k-exit"', 'class="k-exit km-exit"') + tail();
+    }
     if (S.kFace === 'weather') return '<div class="kiosk-wrap k26 k-face-weather">' + kWeatherFace(data, now) + exitBtn.replace('class="k-exit"', 'class="k-exit km-exit"') + tail();
     // Clock face: a very large clock with the date and glanceable readings, nothing to press.
     if (S.kFace === 'clock') {
@@ -6255,12 +6319,16 @@
       case 'hide-toggle': { const hd = findDevice(id); if (hd) { const h = !isHidden(hd); setHidden(id, h); render(); toast(h ? hd.name + ' hidden from Home' : hd.name + ' is back on Home'); } break; }
       case 'kiosk-enter': kioskStart(); break;
       case 'kface': kSetFace(el.dataset.face); break;
+      case 'khroom': {
+        S.kHomeRoom = el.dataset.room; store.set('kHomeRoom', S.kHomeRoom);
+        S.kFace = 'mod'; store.set('kFace', 'mod');
+        render(); break;
+      }
       case 'kmod-edit': S.kModEdit = true; render(); break;
       case 'kmod-done': S.kModEdit = false; render(); break;
       case 'kmod-pick': {
         const ids = kModPicks(S.data), k = el.dataset.pick, i = ids.indexOf(k);
         if (i >= 0) ids.splice(i, 1);
-        else if (ids.length >= K_MOD_MAX) { toast('Up to ' + K_MOD_MAX + ' favourites. Remove one first.'); break; }
         else ids.push(k);
         kModSave(ids); render(); break;
       }
