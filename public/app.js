@@ -5,6 +5,14 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.76.0",
+      "items": [
+        "Wall tablet: a new Clock face, like Apple's HomeView. Swipe sideways or tap the dots to switch between it and the Home face; it remembers your choice",
+        "The Clock face shows a huge clock, the date, the weather, indoor temperature and humidity, and air quality",
+        "New night look (22:00–06:00): dim warm amber with the clock, date and the same readings, instead of only a red clock. Tap to wake for a minute"
+      ]
+    },
+    {
       "v": "2.75.1",
       "items": [
         "Tablets and laptops: the Save bar in the scene and automation editors sits at the bottom of the screen again, instead of floating over the controls"
@@ -881,7 +889,8 @@
     mode: new URLSearchParams(location.search).has('demo') ? 'demo' : (store.get('mode') || 'live'),
     key: store.get('appKey') || '',
     homeId: store.get('homeId') || '',
-    kRoom: store.get('kRoom') || 'All',  // wall tablet mode's room (separate from the Home tab)
+    kRoom: store.get('kRoom') || 'All',
+    kFace: store.get('kFace') === 'clock' ? 'clock' : 'home',  // wall tablet face: the dashboard, or the big Clock face  // wall tablet mode's room (separate from the Home tab)
     data: null,
     loading: false,
     gate: null,          // null | 'login' | 'setup'
@@ -5015,6 +5024,67 @@
     clearTimeout(el._t); el._t = setTimeout(() => tdCommit(el, v), 400);
   });
 
+  // Glanceable readings for the Clock face and the night look: weather, the home's indoor temperature
+  // and humidity (average of live sensors), and air quality (a sensor's, else outdoor).
+  function kGlance(data) {
+    const out = [];
+    const w = S.weather;
+    if (w && w.available && w.homeId === data.homeId && w.unit === S.tempUnit) {
+      const [ic, desc] = weatherInfo(w.code, w.isDay);
+      out.push({ ic, v: w.temp + '°', l: desc, k: 'wx' });
+    }
+    const live = data.devices.filter((d) => d.online && isReadingDevice(d)).map(readingsOf);
+    const ts = live.map((r) => r.temp).filter((v) => v != null), hs = live.map((r) => r.hum).filter((v) => v != null);
+    if (ts.length) out.push({ ic: 'thermo', v: fmtReading(ts.reduce((a, b) => a + b, 0) / ts.length), l: 'Inside', k: 'temp' });
+    if (hs.length) out.push({ ic: 'drop', v: Math.round(hs.reduce((a, b) => a + b, 0) / hs.length) + '%', l: 'Humidity', k: 'hum' });
+    const airs = data.devices.filter((d) => d.online && isAirDevice(d)).map(aqiInfo).filter(Boolean);
+    const rank = (a) => AQI_BANDS.findIndex((b) => b[2] === a.key) * 1000 + (a.aqi || 0);
+    const air = airs.length ? airs.reduce((m, a) => (rank(a) > rank(m) ? a : m)) : outdoorAirInfo();
+    if (air) out.push({ ic: 'air', v: air.aqi != null ? String(air.aqi) : air.label, l: (airs.length ? 'Air · ' : 'Outdoor air · ') + air.label, k: 'aq aq-' + air.key });
+    return out;
+  }
+  const kGlanceHtml = (items, cls) => '<div class="' + cls + '">' + items.map((g) =>
+    '<span class="kc-chip kc-' + g.k + '">' + icon(g.ic, 20) + '<span class="kc-txt"><span class="kc-v">' + esc(g.v) + '</span><span class="kc-l">' + esc(g.l) + '</span></span></span>').join('') + '</div>';
+  // Night look: dim and warm, only the clock, the date and the readings. Shown over either face.
+  function kNightFace(data, now) {
+    return '<div class="k-nightface" aria-hidden="true"><div class="kn-time" data-kclock="time">' + kTime(now) + '</div>' +
+      '<div class="kn-date" data-kclock="date">' + kDate(now) + '</div>' + kGlanceHtml(kGlance(data), 'kn-info') + '</div>';
+  }
+  const K_FACES = ['home', 'clock'];
+  function kDots() {
+    return '<div class="k-dots" role="group" aria-label="Faces">' + K_FACES.map((f) =>
+      '<button class="k-dot" data-act="kface" data-face="' + f + '" data-key="kdot-' + f + '" aria-pressed="' + (S.kFace === f) + '" aria-label="' + (f === 'home' ? 'Home face' : 'Clock face') + '"></button>').join('') + '</div>';
+  }
+  function kSetFace(f) {
+    if (!K_FACES.includes(f) || f === S.kFace) return;
+    const dir = K_FACES.indexOf(f) > K_FACES.indexOf(S.kFace) ? 'l' : 'r';
+    S.kFace = f; store.set('kFace', f);
+    render();
+    const k = document.querySelector('.k26');
+    if (k && qcMotion()) { k.classList.remove('k-swap-l', 'k-swap-r'); void k.offsetWidth; k.classList.add('k-swap-' + dir); setTimeout(() => k.classList.remove('k-swap-' + dir), 500); }
+  }
+  // Swipe sideways to change face (like HomeView). Starts on controls and sideways-scrolling rows
+  // don't count on the Home face, so dials, sliders and capsule rows behave as before.
+  let kSw = null;
+  const kSwStart = (x, y, t) => {
+    if (route().view !== 'kiosk' || qc || document.documentElement.classList.contains('k-night')) return;
+    if (t.closest && t.closest('.k-exit, .k-dots, input, .qc, .qc-sheet')) return;
+    if (S.kFace === 'home' && t.closest && t.closest('.k-ac, .k-ctl, .k-scenes26, .k-rooms, .k-climate, button')) return;
+    kSw = { x, y, at: Date.now() };
+  };
+  const kSwEnd = (x, y) => {
+    if (!kSw) return;
+    const dx = x - kSw.x, dy = y - kSw.y, quick = Date.now() - kSw.at < 900;
+    kSw = null;
+    if (quick && Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      const i = K_FACES.indexOf(S.kFace) + (dx < 0 ? 1 : -1);
+      if (i >= 0 && i < K_FACES.length) kSetFace(K_FACES[i]);
+    }
+  };
+  document.addEventListener('touchstart', (e) => { const t = e.touches[0]; if (e.touches.length === 1) kSwStart(t.clientX, t.clientY, e.target); else kSw = null; }, { passive: true });
+  document.addEventListener('touchend', (e) => { const t = e.changedTouches[0]; if (t) kSwEnd(t.clientX, t.clientY); }, { passive: true });
+  document.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse' && e.button === 0) kSwStart(e.clientX, e.clientY, e.target); });
+  document.addEventListener('pointerup', (e) => { if (e.pointerType === 'mouse') kSwEnd(e.clientX, e.clientY); });
   function kioskView() {
     const data = S.data;
     if (!data) return '<div class="kiosk-wrap k26"><div class="k-lock"><div class="k-time">…</div></div></div>';
@@ -5038,6 +5108,16 @@
     const wx = w && w.available && w.homeId === data.homeId && w.unit === S.tempUnit
       ? (() => { const [ic, desc] = weatherInfo(w.code, w.isDay); return '<span class="k-wx" aria-label="' + esc(desc + ', ' + w.temp + w.unitLabel) + '">' + icon(ic, 20) + '<span>' + w.temp + '°</span></span>'; })()
       : '';
+    const exitBtn = '<button class="k-exit" data-key="k-exit" aria-label="Leave wall tablet mode (press and hold)" title="Press and hold to leave">' +
+      '<svg class="k-exit-ring" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="20"/></svg>' + icon('close', 18) + '</button>';
+    // Clock face: a very large clock with the date and glanceable readings, nothing to press.
+    if (S.kFace === 'clock') {
+      return '<div class="kiosk-wrap k26 k-face-clock"><section class="k-clockface" aria-label="Clock">' + exitBtn +
+        '<div class="kc-date" data-kclock="date">' + kDate(now) + '</div>' +
+        '<div class="k-time kc-time" data-kclock="time">' + kTime(now) + '</div>' +
+        kGlanceHtml(kGlance(data), 'kc-info') + '</section>' + kDots() + kNightFace(data, now) +
+        '<button class="k-dim" data-act="kiosk-wake" data-key="k-dim" aria-label="Wake the screen" tabindex="-1"></button></div>';
+    }
     // Like the Lock Screen: date (with the weather) above a large clock.
     let html = '<div class="kiosk-wrap k26">' +
       '<header class="k-lock"><div class="k-dateline"><span data-kclock="date">' + kDate(now) + '</span>' + wx + '</div>' +
@@ -5062,6 +5142,7 @@
     html += '<div class="k-grid" role="group" aria-label="' + esc(S.kRoom === 'All' ? 'Home' : S.kRoom) + '">' +
       acs.map(kioskAcCard).join('') + devices.map(kioskTile).join('') + '</div>' +
       (acs.length || devices.length ? '' : '<p class="k-empty">Nothing to control in ' + esc(S.kRoom) + '.</p>');
+    html += kDots() + kNightFace(data, now);
     html += '<button class="k-dim" data-act="kiosk-wake" data-key="k-dim" aria-label="Wake the screen" tabindex="-1"></button></div>';
     return html;
   }
@@ -5642,6 +5723,7 @@
       case 'reorder': S.reorder = !S.reorder; render(); break;
       case 'hide-toggle': { const hd = findDevice(id); if (hd) { const h = !isHidden(hd); setHidden(id, h); render(); toast(h ? hd.name + ' hidden from Home' : hd.name + ' is back on Home'); } break; }
       case 'kiosk-enter': kioskStart(); break;
+      case 'kface': kSetFace(el.dataset.face); break;
       case 'kiosk-wake': kiosk.wokeUntil = Date.now() + 60000; kioskTick(); break;
       case 'toggle': {
         if (!d) return;

@@ -2,6 +2,12 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.76.0
+Inspired by Apple's HomeView smart display.
+- **Clock face (wall tablet):** a second face beside the Home face (the controls). Swipe sideways, or tap the dots at the bottom, to switch. It shows a very large clock, the date, and glanceable readings: weather, the home's indoor temperature and humidity (averaged across live sensors), and air quality (a sensor's, otherwise outdoor). The wall tablet remembers which face you left it on.
+- **Night look (wall tablet):** from 22:00 to 06:00 the screen goes black with a dim, warm amber clock, the date and the same readings, on either face. It replaces the red clock that showed only the time and date. Tap anywhere to wake it for a minute, as before.
+- Swipes that start on controls (AC dials, tiles, scene and room rows, climate chips) don't change face, so they work as before. In a normal browser tab, sideways swipes no longer trigger the browser's back/forward gesture in wall tablet mode.
+
 ## 2.75.1
 - Tablets and laptops: in the scene and automation editors, the Save / Cancel bar floated about 130 px above the bottom of the screen, covering the buttons under it. It now sits at the bottom (16 px from the edge) while you scroll, and after the last item at the end of the page. Phones are unchanged.
 

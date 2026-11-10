@@ -1978,17 +1978,55 @@ html.kiosk:not([data-bg])::before {
 .k26 .k-ac-fan input[type="range"] { accent-color: #fff; }
 .k26 .k-ac-fan .ends { color: var(--muted); }
 
-/* Night: StandBy-style, only a dim red clock and date; tap anywhere to wake */
+/* Sideways swipes change face: stop the browser treating them as back/forward navigation */
+html.kiosk, html.kiosk body { overscroll-behavior-x: none; }
+/* Clock face (swipe from the Home face): a very large clock, the date and glanceable readings */
+.k26.k-face-clock { min-height: calc(100dvh - 60px); justify-content: center; }
+.k26 .k-clockface { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 6px; min-height: calc(100dvh - 140px); }
+.k26 .k-clockface .k-exit { position: absolute; top: 0; right: 0; }
+.k26 .kc-date { font-size: clamp(20px, 2.8vw, 34px); font-weight: 600; color: rgba(255, 255, 255, 0.86); text-shadow: 0 1px 10px rgba(0, 0, 0, 0.25); }
+.k26 .kc-time { font-size: min(30vw, 46vh); line-height: .9; letter-spacing: -0.045em; margin: 0; }
+.k26 .kc-info, .k26 .kn-info { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 18px; }
+.k26 .kc-chip { display: inline-flex; align-items: center; gap: 10px; height: 58px; padding: 0 20px 0 16px; border-radius: 999px; text-align: left;
+  background: var(--kg); -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%); box-shadow: var(--kg-shadow), var(--kg-rim); }
+.k26 .kc-chip svg { flex: none; width: 24px; height: 24px; }
+.k26 .kc-txt { display: flex; flex-direction: column; line-height: 1.12; }
+.k26 .kc-v { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.k26 .kc-l { font-size: 13px; font-weight: 600; color: var(--muted); }
+.k26 .kc-temp svg { color: #64d2ff; } .k26 .kc-hum svg { color: #0a84ff; } .k26 .kc-wx svg { color: #ffd60a; }
+.k26 .kc-aq svg { color: var(--aq-c, #30d158); }
+.k26 .kc-aq.aq-moderate { --aq-c: #ffd60a; } .k26 .kc-aq.aq-usg { --aq-c: #ff9f0a; } .k26 .kc-aq.aq-unhealthy { --aq-c: #ff453a; }
+.k26 .kc-aq.aq-very { --aq-c: #bf5af2; } .k26 .kc-aq.aq-hazard { --aq-c: #a2845e; }
+
+/* Face dots: tap (or swipe sideways) to change face */
+.k26 .k-dots { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 10px); z-index: 20; transform: translateX(-50%);
+  display: flex; gap: 4px; padding: 6px 8px; border-radius: 999px; background: rgba(0, 0, 0, 0.22); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+.k26 .k-dot { width: 22px; height: 22px; padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: center; -webkit-tap-highlight-color: transparent; }
+.k26 .k-dot::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, 0.4); transition: background .25s ease, width .25s ease; }
+.k26 .k-dot[aria-pressed="true"]::before { background: #fff; width: 18px; border-radius: 4px; }
+.k26.k-swap-l > :not(.k-dots):not(.k-dim):not(.k-nightface) { animation: kSwapL .42s cubic-bezier(.2, .8, .2, 1); }
+.k26.k-swap-r > :not(.k-dots):not(.k-dim):not(.k-nightface) { animation: kSwapR .42s cubic-bezier(.2, .8, .2, 1); }
+@keyframes kSwapL { from { opacity: 0; transform: translateX(40px); } }
+@keyframes kSwapR { from { opacity: 0; transform: translateX(-40px); } }
+
+/* Night look: dim and warm (like HomeView winding down), only the clock, date and readings. Tap to wake. */
+.k26 .k-nightface { display: none; }
 html.k-night.kiosk::before { opacity: 0; }
 html.k-night.kiosk, html.k-night.kiosk body { background: #000 !important; }
-html.k-night .k26 > :not(.k-lock):not(.k-dim) { visibility: hidden; }
-html.k-night .k26 .k-exit { visibility: hidden; }
-html.k-night .k26 .k-time { background: none; -webkit-text-fill-color: rgba(255, 45, 35, 0.78); color: rgba(255, 45, 35, 0.78); filter: none; }
-html.k-night .k26 .k-ampm { -webkit-text-fill-color: rgba(255, 45, 35, 0.6); }
-html.k-night .k26 .k-dateline { color: rgba(255, 45, 35, 0.6); }
-html.k-night .k26 .k-lock { margin-top: 18vh; }
+html.k-night .k26 > :not(.k-nightface):not(.k-dim) { display: none; }
+html.k-night .k26 .k-nightface { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-height: calc(100dvh - 80px); gap: 4px;
+  --kn: 255, 168, 92; color: rgba(var(--kn), 0.62); animation: knIn 1.2s ease; }
+.k26 .kn-time { font-size: min(26vw, 40vh); font-weight: 700; line-height: .9; letter-spacing: -0.045em; font-variant-numeric: tabular-nums; color: rgba(var(--kn), 0.7); }
+.k26 .kn-time .k-ampm { font-size: .2em; margin-left: .12em; vertical-align: .9em; -webkit-text-fill-color: currentColor; color: rgba(var(--kn), 0.5); }
+.k26 .kn-date { font-size: clamp(18px, 2.4vw, 28px); font-weight: 600; color: rgba(var(--kn), 0.5); }
+html.k-night .k26 .kn-info { margin-top: 26px; gap: 34px; }
+html.k-night .k26 .k-nightface .kc-chip { background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; height: auto; padding: 0; gap: 8px; }
+html.k-night .k26 .k-nightface .kc-chip svg { color: rgba(var(--kn), 0.5); width: 22px; height: 22px; }
+html.k-night .k26 .k-nightface .kc-v { color: rgba(var(--kn), 0.68); font-size: 20px; }
+html.k-night .k26 .k-nightface .kc-l { color: rgba(var(--kn), 0.42); }
+@keyframes knIn { from { opacity: 0; } }
 .k26 .k-dim { background: transparent; }
-html.k-night .k26 .k-dim { opacity: 1; pointer-events: auto; background: transparent; }
+html.k-night .k26 .k-dim { display: block; opacity: 1; pointer-events: auto; background: transparent; }
 
 @media (max-width: 600px) {
   .k26 .k-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(156px, auto); gap: 12px; }
