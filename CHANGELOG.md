@@ -2,6 +2,11 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.83.0
+- **Wall tablet Home face, uniform big tiles:** every favourite other than the ACs is the same size, and the grid picks the columns and rows that give the biggest tiles for the screen (landscape, portrait or wide), letting them stretch a little so the grid fills it. Symbols, temperatures, names and rooms line up across the grid.
+- **ACs keep their large 2×2 tiles:** the set temperature large with ⌄ and ⌃ either side of it, and the full name and room underneath. Tap the number or name for the full control.
+- The analog clock widget is removed (the Clock face shows the time), and the small condition / high-low / time bar from the Weather and All controls faces sits on top, so all four faces match.
+
 ## 2.82.2
 Clouds on the wall tablet's Weather face, rebuilt after how Apple's Weather app renders them (per a reverse-engineering of the app's scene files: tiled cloud images scrolling in seamless loops, some under a perspective transform so they recede toward the horizon, and cloud textures pre-lit in lit/shadowed variants blended by sun angle).
 - **Pre-lit cloud textures:** generated once on the device from layered noise (a seamless band), with the lighting baked in from the sun's real position (from today's sunrise and sunset): bright tops and shaded bases by day, warm highlights and mauve shadows at golden hour, dim grey at night. Overcast, rain and storm clouds are thicker and darker.

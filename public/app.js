@@ -5,6 +5,14 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.83.0",
+      "items": [
+        "Wall tablet Home face is a uniform grid of big tiles that fills the screen; every other favourite is the same size, names and rooms lined up",
+        "ACs keep their large 2×2 tiles, now with ⌄ and ⌃ either side of the temperature and the full name underneath",
+        "The analog clock widget is gone (the Clock face has the time); the small weather and time bar from the other faces sits on top"
+      ]
+    },
+    {
       "v": "2.82.2",
       "items": [
         "Weather face clouds are now drawn the way Apple's Weather app does it: pre-lit cloud textures in layers that scroll in seamless loops at different depths, the nearest one receding toward the horizon",
@@ -5273,19 +5281,7 @@
     const m = now.getMinutes() + now.getSeconds() / 60, h = (now.getHours() % 12) + m / 60;
     return { h: h * 30, m: m * 6 };
   }
-  function kAnalog(now) {
-    const a = kHandAngles(now);
-    let ticks = '';
-    for (let i = 0; i < 12; i++) {
-      const ang = i * 30 * Math.PI / 180, r1 = 70, r2 = 92;
-      ticks += '<line x1="' + (100 + Math.sin(ang) * r1).toFixed(1) + '" y1="' + (100 - Math.cos(ang) * r1).toFixed(1) + '" x2="' + (100 + Math.sin(ang) * r2).toFixed(1) + '" y2="' + (100 - Math.cos(ang) * r2).toFixed(1) + '"/>';
-    }
-    return '<div class="km-analog" data-key="km-analog" role="img" aria-label="' + esc(now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })) + '"><svg viewBox="0 0 200 200" aria-hidden="true">' +
-      '<circle cx="100" cy="100" r="98" class="km-face"/><g class="km-ticks">' + ticks + '</g>' +
-      '<line x1="100" y1="100" x2="100" y2="52" class="km-hh" data-khand="h" style="transform:rotate(' + a.h.toFixed(2) + 'deg)"/>' +
-      '<line x1="100" y1="100" x2="100" y2="26" class="km-mh" data-khand="m" style="transform:rotate(' + a.m.toFixed(2) + 'deg)"/>' +
-      '<circle cx="100" cy="100" r="4" class="km-pin"/></svg></div>';
-  }
+
   function kModTile(data, pick) {
     if (pick.indexOf('scene:') === 0) {
       const sc = (data.scenes || []).find((x) => 'scene:' + x.id === pick), st = S.sceneState[sc.id];
@@ -5316,36 +5312,45 @@
     const cur = ir ? null : scaled(d, 'temp_current', false);
     const sub = [d.room || '', d.online ? (on ? (cur != null ? fmtReading(cur) : '') : 'Off') : 'Offline'].filter(Boolean).join(' · ');
     const act = ir ? 'irtemp' : 'temp', dis = d.online ? '' : ' disabled';
-    return '<div class="k-mt km-big' + (on ? ' on' : '') + '" data-key="km-big-' + esc(d.id) + '" role="group" aria-label="' + esc(d.name) + '">' +
+    return '<div class="k-mt km-big' + (on ? ' on' : '') + '" data-key="km-' + esc('dev:' + d.id) + '" role="group" aria-label="' + esc(d.name) + '">' +
+      '<div class="km-big-row"><button class="km-step" data-act="' + act + '" data-id="' + esc(d.id) + '" data-delta="-1" data-key="km-dn-' + esc(d.id) + '" aria-label="Lower temperature"' + dis + '>' + icon('chevron', 30) + '</button>' +
       '<button class="km-big-open" data-act="k-open" data-id="' + esc(d.id) + '" data-key="km-bo-' + esc(d.id) + '" aria-label="' + esc(d.name + ', set to ' + num + '°, ' + (d.online ? statusText(d) : 'Offline') + ', open controls') + '">' +
       '<span class="km-big-temp">' + esc(num) + '</span></button>' +
-      '<div class="km-big-row"><button class="km-step" data-act="' + act + '" data-id="' + esc(d.id) + '" data-delta="-1" data-key="km-dn-' + esc(d.id) + '" aria-label="Lower temperature"' + dis + '>' + icon('chevron', 30) + '</button>' +
-      '<button class="km-big-name" data-act="k-open" data-id="' + esc(d.id) + '" data-key="km-bn-' + esc(d.id) + '" tabindex="-1" aria-hidden="true"><span class="km-name">' + esc(d.name) + '</span><span class="km-sub">' + esc(sub) + '</span></button>' +
-      '<button class="km-step up" data-act="' + act + '" data-id="' + esc(d.id) + '" data-delta="1" data-key="km-up-' + esc(d.id) + '" aria-label="Raise temperature"' + dis + '>' + icon('chevron', 30) + '</button></div></div>';
+      '<button class="km-step up" data-act="' + act + '" data-id="' + esc(d.id) + '" data-delta="1" data-key="km-up-' + esc(d.id) + '" aria-label="Raise temperature"' + dis + '>' + icon('chevron', 30) + '</button></div>' +
+      '<button class="km-big-name" data-act="k-open" data-id="' + esc(d.id) + '" data-key="km-bn-' + esc(d.id) + '" tabindex="-1" aria-hidden="true"><span class="km-name">' + esc(d.name) + '</span><span class="km-sub">' + esc(sub) + '</span></button></div>';
   }
   function kModFace(data, now) {
+    // Uniform big tiles: every favourite the same size (ACs as thermostat tiles), filling the screen.
     const picks = kModPicks(data);
-    const bigIdx = picks.findIndex((p) => p.indexOf('dev:') === 0 && isKioskAc(findDevice(p.slice(4))));
     let grid = '';
-    if (bigIdx >= 0) grid += kModThermo(findDevice(picks[bigIdx].slice(4)));
-    grid += kAnalog(now);
-    picks.forEach((p, i) => { if (i !== bigIdx) grid += kModTile(data, p); });
-    // The + only shows when there are no favourites yet; otherwise press and hold the face to edit.
+    picks.forEach((p) => {
+      const d = p.indexOf('dev:') === 0 ? findDevice(p.slice(4)) : null;
+      grid += d && isKioskAc(d) ? kModThermo(d) : kModTile(data, p);
+    });
     const showAdd = picks.length === 0;
     if (showAdd) grid += '<button class="k-mt k-madd" data-act="kmod-edit" data-key="km-add" aria-label="Choose favourites">' + icon('plus', 34) + '</button>';
-    // Fit on one screen: try column counts and keep the one giving the biggest square tiles.
-    const n = (bigIdx >= 0 ? 4 : 0) + 1 + picks.length - (bigIdx >= 0 ? 1 : 0) + (showAdd ? 1 : 0);
-    // Everything scales with the screen: the gap is ~2.2% of the shorter side.
-    const gap = Math.round(Math.max(8, Math.min(innerWidth, innerHeight) * 0.022)), W = innerWidth - 48, H = innerHeight - 96;
-    let best = { cols: 3, cell: 100 };
-    for (let cols = bigIdx >= 0 ? 2 : 1; cols <= 8; cols++) {
-      const rows = Math.max(bigIdx >= 0 ? 2 : 1, Math.ceil(n / cols) + (bigIdx >= 0 && cols === 2 ? 1 : 0));
-      const cell = Math.min((W - (cols - 1) * gap) / cols, (H - (rows - 1) * gap) / rows);
-      if (cell > best.cell) best = { cols, cell };
+    // Pick the columns × rows that give the biggest tiles, letting tiles stretch a little (not too
+    // far from square) so the grid fills the screen.
+    // ACs stay large (2×2); everything else is one uniform tile.
+    const nAc = picks.filter((p) => p.indexOf('dev:') === 0 && isKioskAc(findDevice(p.slice(4)))).length;
+    const n = Math.max(1, picks.length - nAc + nAc * 4 + (showAdd ? 1 : 0));
+    const gap = Math.round(Math.max(8, Math.min(innerWidth, innerHeight) * 0.022));
+    const W = innerWidth - 48, H = innerHeight - 96 - Math.min(innerWidth, innerHeight) * 0.07;
+    let best = { cols: 3, rows: 3, cw: 100, ch: 100, score: 0 };
+    for (let cols = nAc ? 2 : 1; cols <= 7; cols++) {
+      const rows = Math.max(nAc ? 2 : 1, Math.ceil(n / cols) + (nAc && cols % 2 ? 1 : 0));
+      let cw = (W - (cols - 1) * gap) / cols, ch = (H - (rows - 1) * gap) / rows;
+      if (cw > ch * 1.45) cw = ch * 1.45;
+      if (ch > cw * 1.2) ch = cw * 1.2;
+      const score = Math.min(cw, ch) - (cols * rows - n) * 4;
+      if (score > best.score) best = { cols, rows, cw, ch, score };
     }
-    return '<section class="k-modface" style="--cols:' + best.cols + ';--cell:' + Math.floor(best.cell) + 'px;--gap:' + gap + 'px" aria-label="Home">' +
+    const cell = Math.floor(Math.min(best.cw, best.ch));
+    return '<section class="k-modface" style="--cols:' + best.cols + ';--cw:' + Math.floor(best.cw) + 'px;--ch:' + Math.floor(best.ch) + 'px;--cell:' + cell + 'px;--gap:' + gap + 'px" aria-label="Home">' +
+      kTopBar(data, now) +
       '<div class="k-modgrid" role="group" aria-label="Favourites. Press and hold to choose.">' + grid + '</div></section>';
   }
+
   // ---- Weather face, after HomeView's: the temperature huge in frosted glass on a sky that matches
   // the conditions; condition and high/low top left, the time top right; sun, wind and humidity below. ----
   function kSky(code, isDay) {
