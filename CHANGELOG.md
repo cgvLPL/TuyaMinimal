@@ -2,6 +2,17 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.82.0
+- **Animated Weather face (wall tablet):** the sky now moves with the conditions. Clear days get a glowing sun with slowly turning rays; clear nights get twinkling stars; partly cloudy and overcast skies have soft clouds drifting across (darker when overcast); rain falls at a slant, heavier in downpours; storms add dark clouds and lightning flashes; snow drifts down; fog rolls slowly past.
+- It sits behind the temperature and readings, uses only smooth GPU-friendly animation, stops when the device's Reduce Motion setting is on, and is hidden during the night look. A background refresh keeps the same clouds and drops, so nothing jumps.
+- Demo: `/?demo&wx=95#kiosk` (or 0, 3, 45, 61, 71; add `&night`) previews other weather.
+
+## 2.81.9
+- Tablets and computers: opening an air conditioner, IR remote or air quality monitor full-screen also loaded its controls into the side panel on the right, so a second copy showed behind the blur and during the animation. The side panel now keeps showing the device it was on (or the first other device) and never shows these full-screen devices.
+
+## 2.81.8
+- Tablets and computers (900 px and wider): the person button at the top right of Home, next to the weather, is gone; it opened the same Me page as **Me** in the sidebar. Phones already used Me in the tab bar.
+
 ## 2.81.7
 - Wall tablet **Weather** and **All controls** faces share a smaller top bar, like HomeView's: the weather symbol and condition with today's high/low under it at the top left, and just the time (no AM/PM) at the top right. The date is no longer shown there.
 

@@ -5,6 +5,25 @@
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
     {
+      "v": "2.82.0",
+      "items": [
+        "Wall tablet Weather face is animated: drifting clouds, falling rain, storms with lightning flashes, snowfall, rolling fog, a glowing sun with slowly turning rays, or twinkling stars at night",
+        "The animation follows the current conditions and stays behind the temperature; it stops when Reduce Motion is on"
+      ]
+    },
+    {
+      "v": "2.81.9",
+      "items": [
+        "Tablets and computers: opening an AC (or IR remote, or air monitor) full-screen no longer loads a second copy of its controls into the side panel"
+      ]
+    },
+    {
+      "v": "2.81.8",
+      "items": [
+        "Tablets and computers: removed the person button next to the weather on Home, which repeated Me in the sidebar"
+      ]
+    },
+    {
       "v": "2.81.7",
       "items": [
         "Wall tablet Weather and All controls faces: a smaller top bar like HomeView's, with the condition and today's high/low at the top left and just the time at the top right; the date is gone"
@@ -5331,6 +5350,45 @@
     }
     return '<header class="kw-top"><div>' + left + '</div><div class="kw-time" data-kclock="time">' + kTime(now) + '</div></header>';
   }
+  // Weather animation for the Weather face: drifting clouds, rain, storm lightning, snow, fog,
+  // sun rays or twinkling stars, matching the conditions. Positions come from a fixed pseudo-random
+  // sequence, so redraws keep the same elements and the animations never restart.
+  function kWeatherFx(code, isDay) {
+    let seed = 7;
+    const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+    const sky = kSky(code, isDay).split(' ')[0].replace('sky-', '');
+    const heavy = code === 65 || code === 67 || code === 82 || code >= 95;
+    let h = '';
+    const clouds = (n, dark) => {
+      for (let i = 0; i < n; i++) {
+        const top = (rnd() * 45 - 5).toFixed(1), w = (35 + rnd() * 30).toFixed(1), dur = (70 + rnd() * 70).toFixed(0), del = (-rnd() * 140).toFixed(1), op = (0.35 + rnd() * 0.35).toFixed(2);
+        h += '<i class="kfx-cloud' + (dark ? ' dark' : '') + '" style="top:' + top + '%;width:' + w + 'vw;opacity:' + op + ';animation-duration:' + dur + 's;animation-delay:' + del + 's"></i>';
+      }
+    };
+    if (sky === 'clear') {
+      if (isDay) h += '<i class="kfx-sun"></i><i class="kfx-rays"></i>';
+      else for (let i = 0; i < 46; i++) h += '<i class="kfx-star" style="left:' + (rnd() * 100).toFixed(1) + '%;top:' + (rnd() * 70).toFixed(1) + '%;animation-delay:-' + (rnd() * 5).toFixed(1) + 's;animation-duration:' + (3 + rnd() * 4).toFixed(1) + 's"></i>';
+    }
+    if (sky === 'partly') { if (isDay) h += '<i class="kfx-sun"></i>'; clouds(4, false); }
+    if (sky === 'overcast') clouds(6, true);
+    if (sky === 'fog') for (let i = 0; i < 4; i++) h += '<i class="kfx-fog" style="top:' + (20 + i * 18) + '%;animation-duration:' + (50 + i * 17) + 's;animation-delay:-' + (i * 13) + 's"></i>';
+    if (sky === 'rain' || sky === 'storm') {
+      clouds(sky === 'storm' ? 6 : 4, true);
+      const n = sky === 'storm' || heavy ? 90 : 55;
+      let drops = '';
+      for (let i = 0; i < n; i++) drops += '<i class="kfx-drop" style="left:' + (rnd() * 110 - 5).toFixed(1) + '%;animation-delay:-' + (rnd() * 2).toFixed(2) + 's;animation-duration:' + (0.55 + rnd() * 0.45).toFixed(2) + 's;opacity:' + (0.35 + rnd() * 0.5).toFixed(2) + '"></i>';
+      h += '<div class="kfx-rain">' + drops + '</div>';
+      if (sky === 'storm') h += '<i class="kfx-flash"></i>';
+    }
+    if (sky === 'snow') {
+      clouds(3, false);
+      for (let i = 0; i < 60; i++) {
+        const z = (3 + rnd() * 6).toFixed(1);
+        h += '<i class="kfx-flake" style="left:' + (rnd() * 100).toFixed(1) + '%;width:' + z + 'px;height:' + z + 'px;animation-delay:-' + (rnd() * 12).toFixed(1) + 's;animation-duration:' + (8 + rnd() * 8).toFixed(1) + 's"></i>';
+      }
+    }
+    return '<div class="kw-fx" aria-hidden="true" data-key="kw-fx-' + sky + (isDay ? '-d' : '-n') + '">' + h + '</div>';
+  }
   function kWeatherFace(data, now) {
     const w = S.weather;
     const t = (ms) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -5347,7 +5405,7 @@
     }
     const stat = (icn, v, l) => '<div class="kw-stat">' + icon(icn, 26) + '<span class="kw-v">' + esc(v) + '</span><span class="kw-l">' + esc(l) + '</span></div>';
     const stats = (ev ? stat(ev[0], ev[1], ev[2]) : '') + (w.wind != null ? stat('air', w.wind + ' ' + (w.windUnit || 'km/h'), 'Wind') : '') + (w.humidity != null ? stat('drop', w.humidity + '%', 'Humidity') : '');
-    return '<section class="k-wxface ' + kSky(w.code, w.isDay) + '" aria-label="Weather">' + kTopBar(data, now) +
+    return '<section class="k-wxface ' + kSky(w.code, w.isDay) + '" aria-label="Weather">' + kWeatherFx(w.code, w.isDay) + kTopBar(data, now) +
       '<div class="kw-big" role="img" aria-label="' + esc(w.temp + ' degrees, ' + desc) + '"><span>' + esc(String(w.temp)) + '</span><span class="kw-deg">°</span></div>' +
       (stats ? '<div class="kw-stats">' + stats + '</div>' : '') + '</section>';
   }
@@ -5885,8 +5943,15 @@
     } else if (activeTab === 'devices') {
       if (r.view === 'device' && r.id && S.data && !S.specs[r.id]) loadSpec(r.id, true);
       const devices = S.data ? S.data.devices : [];
-      const firstCard = devices.find((d) => !isReadingDevice(d)) || devices[0];
-      const selId = (r.view === 'device' && r.id) || (firstCard && firstCard.id);
+      // ACs, IR remotes and air monitors open full-screen on big screens, so the side panel never
+      // shows them too: it keeps the device it was showing (or the first other one).
+      const opensFull = (d) => !!d && ['ac', 'remote', 'air'].includes(qcKind(d));
+      const firstCard = devices.find((d) => !isReadingDevice(d) && !opensFull(d)) || devices.find((d) => !isReadingDevice(d)) || devices[0];
+      let selId = (r.view === 'device' && r.id) || (firstCard && firstCard.id);
+      if (isWide && opensFull(findDevice(selId))) {
+        const prev = S.panelId && findDevice(S.panelId);
+        selId = prev && !opensFull(prev) ? prev.id : (firstCard && firstCard.id);
+      } else if (isWide && selId) S.panelId = selId;
       mainHtml = devicesView(isWide ? selId : null);
       if (isWide) {
         panelHtml = S.data ? detailView(findDevice(selId), true) : '';
@@ -7104,7 +7169,9 @@
       }
       if (path.startsWith('weather')) {
         const f = /unit=f/.test(path);
-        return { available: true, temp: f ? 75 : 24, code: 2, isDay: true, unit: f ? '°F' : '°C', place: 'Demo', lat: 51.5074, lon: -0.1278,
+        // Demo: ?demo&wx=<WMO code> previews other weather (e.g. 0 clear, 3 overcast, 45 fog, 61 rain, 71 snow, 95 storm), &night for night.
+        const q = new URLSearchParams(location.search), wxq = q.get('wx');
+        return { available: true, temp: f ? 75 : 24, code: wxq != null && wxq !== '' ? Number(wxq) : 2, isDay: !q.has('night'), unit: f ? '°F' : '°C', place: 'Demo', lat: 51.5074, lon: -0.1278,
           air: { aqi: 42, pm25: 9.8, pm10: 16.4, o3: 61, no2: 18.2, time: null },
           hi: f ? 79 : 26, lo: f ? 64 : 18, humidity: 72, wind: f ? 6 : 10, windUnit: f ? 'mph' : 'km/h',
           sun: [0, 1].map((i) => { const b = new Date(); b.setHours(0, 0, 0, 0); const day = b.getTime() + i * 864e5; return { rise: day + 5.9 * 36e5, set: day + 17.8 * 36e5 }; }) };
