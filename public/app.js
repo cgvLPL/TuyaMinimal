@@ -1309,8 +1309,14 @@
         S.key = ''; store.del('appKey');
       } else if (e.code === 'not_configured') {
         S.gate = 'setup'; S.gateError = e.message;
-      } else if (!opts.silent) {
-        toast(e.message);
+      } else {
+        if ((e.code === 'network' || e.code === 'timeout') && S.data && S.data.devices) {
+          // Connection lost: every device shows as offline, like Apple
+          // Home's "No Response", instead of keeping last-known states.
+          // The next successful refresh restores them from the server.
+          S.data.devices.forEach((d) => { d.online = false; });
+        }
+        if (!opts.silent) toast(e.message);
       }
     } finally {
       S.loading = false;

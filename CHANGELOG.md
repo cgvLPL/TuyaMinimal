@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.4
+
+- When the connection drops, every device now shows as offline — "No Response" on the wall tablet, like Apple Home — instead of keeping its last-known state. They come back on their own when the connection returns.
+
 ## 2.91.3
 
 - Wall tablet: swiping between faces now follows your finger, like HomeView — the face moves with the drag and springs to the next face (or back) when you let go.
