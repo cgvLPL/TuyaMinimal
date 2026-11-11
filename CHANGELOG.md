@@ -2,6 +2,11 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.5
+
+- The app now updates itself when a new version is deployed: it checks for a new version every 5 minutes and reloads with fresh files, so a long-running wall tablet no longer stays a version behind.
+- The version shown in Me → About is fixed: 2.91.4's entry was missing from the app's own changelog, so it still showed 2.91.3.
+
 ## 2.91.4
 
 - When the connection drops, every device now shows as offline — "No Response" on the wall tablet, like Apple Home — instead of keeping its last-known state. They come back on their own when the connection returns.

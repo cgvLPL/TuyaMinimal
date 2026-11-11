@@ -4,6 +4,8 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.5", "items": ["The app now updates itself when a new version is deployed: it checks for a new version every 5 minutes and reloads with fresh files, so a long-running wall tablet no longer stays a version behind."]},
+  {"v": "2.91.4", "items": ["When the connection drops, every device now shows as offline — 'No Response' on the wall tablet, like Apple Home — instead of keeping its last-known state. They come back on their own when the connection returns."]},
   {"v": "2.91.3", "items": ["Wall tablet: swiping between faces now follows your finger, like HomeView — the face moves with the drag and springs to the next face (or back) when you let go.", "A slow drag past halfway also changes face, and swiping past the first or last face resists instead of moving freely."]},
   {"v": "2.91.2", "items": ["Weather symbols are now filled silhouettes like Apple's Weather app: a solid sun and moon, a plump cloud, and the sun or moon peeking from behind the cloud when it's partly cloudy.", "Partly cloudy nights now show the moon behind the cloud instead of the sun."]},
   {"v": "2.91.1", "items": ["Wall tablet: the face dots at the bottom fade out after 3 seconds without a touch, and come back on the next touch."]},
@@ -7709,7 +7711,36 @@ function kClockPicker() {
     });
     const hadController = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) tryReload(); });
-    setInterval(() => { if (waitingReload) tryReload(); }, 3000);
+    // The worker only installs a new version when sw.js itself changes,
+    // so an app.js-only release would never reach a long-running page:
+    // the worker keeps serving its cached copy, and a reload serves the
+    // same copy again. Poll version.json instead — when the live version
+    // differs from the running one (APP_VERSION), drop the worker and
+    // its caches and reload, so the reload serves fresh files.
+    let pendingUpdate = false;
+    const applyUpdate = async () => {
+      if (reloading) return;
+      if (!calm()) { pendingUpdate = true; return; }
+      reloading = true;
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      } catch (_) { /* best effort — the reload still revalidates */ }
+      location.reload();
+    };
+    const checkAppVersion = async () => {
+      try {
+        const res = await fetch('/version.json', { cache: 'no-store' });
+        if (!res.ok) return;
+        const { version } = await res.json();
+        if (version && version !== APP_VERSION) applyUpdate();
+      } catch (_) { /* offline: try again next cycle */ }
+    };
+    setInterval(checkAppVersion, 5 * 60 * 1000);
+    setInterval(() => { if (waitingReload) tryReload(); if (pendingUpdate) applyUpdate(); }, 3000);
+    checkAppVersion();
   }
 
   // ---------- Demo backend (sample data, no server needed) ----------
