@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.7", "items": ["Temperature and humidity sensors now have a card on Home — hidden by default, so Home stays clean. Tap Arrange and the eye on a sensor's card to show it; shown sensors stay shown on your other devices too. The Climate and Humidity chips at the top are unchanged."]},
   {"v": "2.91.6", "items": ["Wall tablet: the night always-on display now follows the clock style — on the numerals clock, the numerals stay on at night in warm amber on black, with white hands, like the dim digital night clock. The digital clock keeps the dim digital time, which already matches it.", "Device cards no longer show live power — a plug or switch card just says On. Electric usage stays on the device's own screen, in the Energy section (live watts, volts, amps and the 7-day chart)."]},
   {"v": "2.91.5", "items": ["The app now updates itself when a new version is deployed: it checks for a new version every 5 minutes and reloads with fresh files, so a long-running wall tablet no longer stays a version behind."]},
   {"v": "2.91.4", "items": ["When the connection drops, every device now shows as offline — 'No Response' on the wall tablet, like Apple Home — instead of keeping its last-known state. They come back on their own when the connection returns."]},
@@ -1108,6 +1109,7 @@
     tempUnit: store.get('tempUnit') || 'c',  // Celsius unless changed in Me         // deviceId -> time of the last local command (avoid flicker)          // remoteId + key -> true briefly after a button is sent   // deviceId whose icon picker is open
     order: (() => { try { return JSON.parse(store.get('order') || '{}') || {}; } catch (e) { return {}; } })(),  // homeId -> [deviceId]
     hidden: (() => { try { return JSON.parse(store.get('hidden') || '{}') || {}; } catch (e) { return {}; } })(),  // homeId -> [deviceId] hidden from Home
+    shown: (() => { try { return JSON.parse(store.get('shown') || '{}') || {}; } catch (e) { return {}; } })(),  // homeId -> [deviceId] reading devices made visible on Home
     reorder: false,       // true while arranging device cards
     icons: readIcons(),  // deviceId -> icon key, saved on this device      // { id, code } while an outlet name is being edited
     installPrompt: null
@@ -1297,6 +1299,9 @@
       }
       if (data.settings && data.settings.hidden && data.homeId && Array.isArray(data.settings.hidden[data.homeId])) {
         S.hidden = Object.assign({}, S.hidden, { [data.homeId]: data.settings.hidden[data.homeId] }); store.set('hidden', JSON.stringify(S.hidden));
+      }
+      if (data.settings && data.settings.shown && data.homeId && Array.isArray(data.settings.shown[data.homeId])) {
+        S.shown = Object.assign({}, S.shown, { [data.homeId]: data.settings.shown[data.homeId] }); store.set('shown', JSON.stringify(S.shown));
       }
       if (data.homeId) { S.homeId = data.homeId; store.set('homeId', data.homeId); }
       loadWeather();
@@ -2988,7 +2993,7 @@
   function saveOrder(visibleIds) {
     const homeId = S.data && S.data.homeId;
     if (!homeId) return;
-    const all = sortByOrder(S.data.devices.filter((d) => !isReadingDevice(d)), homeId).map((d) => d.id);
+    const all = sortByOrder(S.data.devices, homeId).map((d) => d.id);
     const set = new Set(visibleIds), merged = all.slice();
     let k = 0;
     all.forEach((id, i) => { if (set.has(id)) merged[i] = visibleIds[k++]; });
@@ -3005,7 +3010,18 @@
   // ---------- Hidden devices (Arrange → eye) ----------
   // Hidden tiles leave Home and the wall tablet; they stay in Arrange (faded) so they can come back,
   // and in scenes, automations and "turn everything off".
-  const isHidden = (d) => { const h = S.hidden && S.data && S.hidden[S.data.homeId]; return !!(h && h.includes(d.id)); };
+  // Reading devices (temperature, humidity and air sensors) are hidden from Home by default:
+  // they only show once the eye in Arrange has made them visible. That choice lives in S.shown
+  // (synced like S.hidden); anything in S.hidden stays hidden either way.
+  const isHidden = (d) => {
+    const h = S.hidden && S.data && S.hidden[S.data.homeId];
+    if (h && h.includes(d.id)) return true;
+    if (isReadingDevice(d)) {
+      const s = S.shown && S.data && S.shown[S.data.homeId];
+      return !(s && s.includes(d.id));
+    }
+    return false;
+  };
   function setHidden(id, hide) {
     const homeId = S.data && S.data.homeId;
     if (!homeId) return;
@@ -3018,6 +3034,21 @@
       setHidden.t = setTimeout(() => {
         api('settings', { method: 'POST', body: { hidden: { homeId, ids: S.hidden[homeId] } } })
           .catch(() => toast('Hidden devices are saved on this device but couldn\'t sync.'));
+      }, 600);
+    }
+  }
+  function setShown(id, show) {
+    const homeId = S.data && S.data.homeId;
+    if (!homeId) return;
+    const cur = new Set((S.shown && S.shown[homeId]) || []);
+    if (show) cur.add(id); else cur.delete(id);
+    S.shown = Object.assign({}, S.shown, { [homeId]: Array.from(cur) });
+    store.set('shown', JSON.stringify(S.shown));
+    if (S.sync && S.mode === 'live') {
+      clearTimeout(setShown.t);
+      setShown.t = setTimeout(() => {
+        api('settings', { method: 'POST', body: { shown: { homeId, ids: S.shown[homeId] } } })
+          .catch(() => toast("Shown sensors are saved on this device but couldn't sync."));
       }, 600);
     }
   }
@@ -3328,7 +3359,7 @@
       return html + '</div><div class="dv-scroll"><div class="empty"><strong>No devices found</strong><p>Link your Tuya app account to your cloud project (see the README), then tap Refresh in Me.</p></div></div>';
     }
     const readings = shown.filter(isReadingDevice);
-    const allCards = sortByOrder(shown.filter((d) => !isReadingDevice(d)), data.homeId);
+    const allCards = sortByOrder(shown, data.homeId);
     const hiddenN = allCards.filter(isHidden).length;
     const cards = S.reorder ? allCards : allCards.filter((d) => !isHidden(d));
     if (readings.length || (S.room === 'All' && outdoorAirInfo())) html += climateSummaries(readings);
@@ -6070,7 +6101,7 @@ function kClockPicker() {
     const inRoom = (d) => S.kRoom === 'All' || (S.kRoom === 'Other' ? !d.room : d.room === S.kRoom);
     const readings = data.devices.filter((d) => isReadingDevice(d) && inRoom(d));
     const acs = sortByOrder(data.devices.filter((d) => isKioskAc(d) && inRoom(d) && !isHidden(d)), data.homeId);
-    const devices = sortByOrder(data.devices.filter((d) => !isReadingDevice(d) && !isKioskAc(d) && ((hasToggle(d) && !d.ir) || isKRemote(d)) && inRoom(d) && !isHidden(d)), data.homeId).slice(0, 12);
+    const devices = sortByOrder(data.devices.filter((d) => !isKioskAc(d) && ((hasToggle(d) && !d.ir) || isKRemote(d) || isReadingDevice(d)) && inRoom(d) && !isHidden(d)), data.homeId).slice(0, 12);
     const scenes = data.scenes || [];
     const w = S.weather;
     const wx = w && w.available && w.homeId === data.homeId && w.unit === S.tempUnit
@@ -6742,7 +6773,22 @@ function kClockPicker() {
       case 'open': go('device/' + encodeURIComponent(id)); break;
       case 'back': go('devices'); break;
       case 'reorder': S.reorder = !S.reorder; render(); break;
-      case 'hide-toggle': { const hd = findDevice(id); if (hd) { const h = !isHidden(hd); setHidden(id, h); render(); toast(h ? hd.name + ' hidden from Home' : hd.name + ' is back on Home'); } break; }
+      case 'hide-toggle': {
+        const hd = findDevice(id);
+        if (hd) {
+          if (isReadingDevice(hd)) {
+            // Sensors are hidden by default: the eye flips the explicit "shown" choice.
+            if (isHidden(hd)) {
+              const h = S.hidden && S.data && S.hidden[S.data.homeId];
+              if (h && h.includes(id)) setHidden(id, false);
+              setShown(id, true);
+              toast(hd.name + ' is back on Home');
+            } else { setShown(id, false); toast(hd.name + ' hidden from Home'); }
+          } else { const h = !isHidden(hd); setHidden(id, h); toast(h ? hd.name + ' hidden from Home' : hd.name + ' is back on Home'); }
+          render();
+        }
+        break;
+      }
       case 'kiosk-enter': kioskStart(); break;
       case 'kface': kSetFace(el.dataset.face); break;
       case 'ksize': {

@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.7
+
+- Temperature and humidity sensors now have a card on Home — hidden by default, so Home stays clean. Tap Arrange and the eye on a sensor's card to show it; shown sensors stay shown on your other devices too. The Climate and Humidity chips at the top are unchanged.
+
 ## 2.91.6
 
 - Wall tablet: the night always-on display now follows the clock style — on the numerals clock, the numerals stay on at night in warm amber on black, with white hands, like the dim digital night clock. The digital clock keeps the dim digital time, which already matches it.

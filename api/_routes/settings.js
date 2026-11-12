@@ -2,6 +2,7 @@
 // POST /api/settings { icons: { deviceId: iconKey | null } }   → merge and save
 // POST /api/settings { order: { homeId, ids: [deviceId, ...] } } → save the card order for one home
 // POST /api/settings { hidden: { homeId, ids: [deviceId, ...] } } → devices hidden from Home in one home
+// POST /api/settings { shown: { homeId, ids: [deviceId, ...] } } → reading devices made visible on Home in one home
 // POST /api/settings { floors: { homeId, list: [{ id, name }], room: { roomName: floorId } } } → the home's floors
 const { handler } = require('../_lib/http');
 const { TuyaError } = require('../_lib/tuya');
@@ -16,6 +17,7 @@ module.exports = handler(['GET', 'POST'], async (req, body) => {
   settings.icons = settings.icons || {};
   settings.order = settings.order || {};
   settings.hidden = settings.hidden || {};
+  settings.shown = settings.shown || {};
   settings.floors = settings.floors || {};
   if (req.method === 'GET') return settings;
   if (body.order && typeof body.order === 'object') {
@@ -33,6 +35,14 @@ module.exports = handler(['GET', 'POST'], async (req, body) => {
     const ids = Array.isArray(body.hidden.ids) ? body.hidden.ids.filter((x) => typeof x === 'string' && DEV.test(x)) : null;
     if (!ids || ids.length > 500) throw new TuyaError('Bad list of hidden devices.', 'bad_request', 400);
     if (ids.length) settings.hidden[homeId] = Array.from(new Set(ids)); else delete settings.hidden[homeId];
+  }
+  if (body.shown && typeof body.shown === 'object') {
+    const homeId = String(body.shown.homeId || '');
+    if (!DEV.test(homeId)) throw new TuyaError('Unknown home.', 'bad_request', 400);
+    access.requireHome(req.user, homeId);
+    const ids = Array.isArray(body.shown.ids) ? body.shown.ids.filter((x) => typeof x === 'string' && DEV.test(x)) : null;
+    if (!ids || ids.length > 500) throw new TuyaError('Bad list of shown sensors.', 'bad_request', 400);
+    if (ids.length) settings.shown[homeId] = Array.from(new Set(ids)); else delete settings.shown[homeId];
   }
   if (body.floors && typeof body.floors === 'object') {
     // Floors of one home: [{ id, name }] and which floor each room is on.
