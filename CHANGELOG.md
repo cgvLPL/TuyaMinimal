@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.8
+
+- The 'N hidden devices' link under the Devices heading is gone — hidden devices are no longer announced on Home. You can still see and unhide them in Arrange, where hidden tiles stay faded with the eye badge.
+
 ## 2.91.7
 
 - Temperature and humidity sensors now have a card on Home — hidden by default, so Home stays clean. Tap Arrange and the eye on a sensor's card to show it; shown sensors stay shown on your other devices too. The Climate and Humidity chips at the top are unchanged.
@@ -247,7 +251,7 @@ Inspired by Apple's HomeView smart display.
 
 ## 2.64.0
 
-- Hide devices from Home: tap the Arrange button and each tile gets an eye badge in its corner. Tap it to hide that device; hidden tiles stay faded in Arrange so you can bring them back. Hidden devices leave Home and the wall tablet but still work in scenes, automations and 'turn everything off'. A '2 hidden devices' link under the Devices heading takes you back to Arrange. Hidden devices sync between your devices like the tile order.
+- Hide devices from Home: tap the Arrange button and each tile gets an eye badge in its corner. Tap it to hide that device; hidden tiles stay faded in Arrange so you can bring them back. Hidden devices leave Home and the wall tablet but still work in scenes, automations and 'turn everything off'. Hidden devices sync between your devices like the tile order.
 
 ## 2.63.2
 

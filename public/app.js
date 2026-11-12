@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.8", "items": ["The 'N hidden devices' link under the Devices heading is gone — hidden devices are no longer announced on Home. You can still see and unhide them in Arrange, where hidden tiles stay faded with the eye badge."]},
   {"v": "2.91.7", "items": ["Temperature and humidity sensors now have a card on Home — hidden by default, so Home stays clean. Tap Arrange and the eye on a sensor's card to show it; shown sensors stay shown on your other devices too. The Climate and Humidity chips at the top are unchanged."]},
   {"v": "2.91.6", "items": ["Wall tablet: the night always-on display now follows the clock style — on the numerals clock, the numerals stay on at night in warm amber on black, with white hands, like the dim digital night clock. The digital clock keeps the dim digital time, which already matches it.", "Device cards no longer show live power — a plug or switch card just says On. Electric usage stays on the device's own screen, in the Energy section (live watts, volts, amps and the 7-day chart)."]},
   {"v": "2.91.5", "items": ["The app now updates itself when a new version is deployed: it checks for a new version every 5 minutes and reloads with fresh files, so a long-running wall tablet no longer stays a version behind."]},
@@ -307,7 +308,7 @@
     {
       "v": "2.64.0",
       "items": [
-        "Hide devices from Home: tap the Arrange button and each tile gets an eye badge in its corner. Tap it to hide that device; hidden tiles stay faded in Arrange so you can bring them back. Hidden devices leave Home and the wall tablet but still work in scenes, automations and 'turn everything off'. A '2 hidden devices' link under the Devices heading takes you back to Arrange. Hidden devices sync between your devices like the tile order."
+        "Hide devices from Home: tap the Arrange button and each tile gets an eye badge in its corner. Tap it to hide that device; hidden tiles stay faded in Arrange so you can bring them back. Hidden devices leave Home and the wall tablet but still work in scenes, automations and 'turn everything off'. Hidden devices sync between your devices like the tile order."
       ]
     },
     {
@@ -3369,7 +3370,6 @@
           ' aria-label="' + (S.reorder ? 'Done arranging' : 'Arrange devices') + '" title="' + (S.reorder ? 'Done' : 'Arrange devices') + '">' + icon(S.reorder ? 'check' : 'arrange', 20) + '</button>' : '';
       html += '<div class="section-head"><h2>Devices</h2><span class="section-count">' + cards.length + '</span>' + arrange + (S.reorder ? '' : allOffButton()) + '</div>';
       if (S.reorder) html += '<p class="reorder-hint">Drag the handles to move devices. Tap the eye to hide a device from Home' + (hiddenN ? ' (' + hiddenN + ' hidden)' : '') + '. Tap ✓ when you\'re done.</p>';
-      else if (hiddenN) html += '<p class="hidden-hint"><button class="link-btn" data-act="reorder" data-key="hidden-hint">' + hiddenN + ' hidden ' + (hiddenN === 1 ? 'device' : 'devices') + '</button></p>';
       // Inside a room, devices are grouped like the Home app: Climate, Lights, Shades, Security,
       // Speakers & TVs, Switches & Outlets. "All" (and Arrange, which drags across the whole list) stays one grid.
       const grouped = S.room && S.room !== 'All' && !S.reorder;
