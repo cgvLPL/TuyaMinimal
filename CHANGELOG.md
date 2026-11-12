@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.9
+
+- The wall tablet AC tile now shows the degree symbol on its big temperature — 24° instead of 24 — on the Home face and on the AC's full-screen page, including while you drag the dial. The phone's AC tile already showed it.
+
 ## 2.91.8
 
 - The 'N hidden devices' link under the Devices heading is gone — hidden devices are no longer announced on Home. You can still see and unhide them in Arrange, where hidden tiles stay faded with the eye badge.

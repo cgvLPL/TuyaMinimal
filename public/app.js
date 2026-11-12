@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.9", "items": ["The wall tablet AC tile now shows the degree symbol on its big temperature — 24° instead of 24 — on the Home face and on the AC's full-screen page, including while you drag the dial. The phone's AC tile already showed it."]},
   {"v": "2.91.8", "items": ["The 'N hidden devices' link under the Devices heading is gone — hidden devices are no longer announced on Home. You can still see and unhide them in Arrange, where hidden tiles stay faded with the eye badge."]},
   {"v": "2.91.7", "items": ["Temperature and humidity sensors now have a card on Home — hidden by default, so Home stays clean. Tap Arrange and the eye on a sensor's card to show it; shown sensors stay shown on your other devices too. The Climate and Humidity chips at the top are unchanged."]},
   {"v": "2.91.6", "items": ["Wall tablet: the night always-on display now follows the clock style — on the numerals clock, the numerals stay on at night in warm amber on black, with white hands, like the dim digital night clock. The digital clock keeps the dim digital time, which already matches it.", "Device cards no longer show live power — a plug or switch card just says On. Electric usage stays on the device's own screen, in the Energy section (live watts, volts, amps and the 7-day chart)."]},
@@ -5305,7 +5306,7 @@
       '<path class="ka-track" d="' + kaPath(KARC.from, KARC.from + KARC.sweep) + '"/>' +
       '<path class="ka-fill" stroke="url(#kag-' + id + sfx + ')" d="' + kaPath(KARC.from, Math.max(KARC.from + 0.5, a)) + '"/>' + curDot +
       '<circle class="ka-thumb" cx="' + tx.toFixed(1) + '" cy="' + ty.toFixed(1) + '" r="17"/></svg>' +
-      '<span class="ka-center"><span class="ka-label">' + (on ? 'Set to' : 'Off') + '</span><span class="ka-num">' + tdFmt(set) + '</span></span></div>' +
+      '<span class="ka-center"><span class="ka-label">' + (on ? 'Set to' : 'Off') + '</span><span class="ka-num">' + tdFmt(set) + '°</span></span></div>' +
       '<div class="ka-side">' + menu + (fan ? '<div class="k-ac-fan">' + fan + '</div>' : '') + '</div></div>';
     return { theme, on: on && d.online, fan: !!fan, sub, body };
   }
@@ -5336,7 +5337,7 @@
     const m = tdModel(el), a = kaAngle(v, m.min, m.max), [x, y] = kaPoint(a);
     el.querySelector('.ka-fill').setAttribute('d', kaPath(KARC.from, Math.max(KARC.from + 0.5, a)));
     const th = el.querySelector('.ka-thumb'); th.setAttribute('cx', x.toFixed(1)); th.setAttribute('cy', y.toFixed(1));
-    el.querySelector('.ka-num').textContent = tdFmt(v);
+    el.querySelector('.ka-num').textContent = tdFmt(v) + '°';
     el.setAttribute('aria-valuenow', v); el.setAttribute('aria-valuetext', tdFmt(v) + m.unit);
   }
   document.addEventListener('pointerdown', (e) => {
