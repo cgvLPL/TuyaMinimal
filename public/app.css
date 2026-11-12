@@ -3385,6 +3385,20 @@ html:not([data-bg]) .ios-pin .keypad .key:active:not(:disabled) { background: co
 .k26 .kn-day { position: fixed; left: 6.5vmin; bottom: 6.5vmin; font-size: 4.2vmin; font-weight: 500; letter-spacing: .02em; color: var(--kn-day, #1d6890); }
 .k26.k-numerals .k-dots { background: var(--kn-dot); }
 html.k-night .k26.k-numerals::before { display: none; }
+/* Night AOD follows the clock style: on the numerals clock the numerals themselves stay on,
+   dimmed in the night look's warm amber on black, instead of the generic dim digital night
+   clock. The digital style keeps that dim digital time, which already matches it. The
+   liquid-glass wallpaper falls back to the same plain amber numerals at night. */
+html.k-night.kiosk .k26.k-face-clock.k-numerals > .k-numface { display: grid; }
+html.k-night .k26.k-face-clock.k-numerals .k-nightface { display: none; }
+html.k-night .k26.k-numerals .kn-nums text { fill: rgba(255, 168, 92, .65); }
+html.k-night .k26.k-numerals .kn-nums.kn-glass text { fill: rgba(255, 168, 92, .65); stroke: rgba(255, 168, 92, .3); }
+html.k-night .k26.k-numerals .kn-nums.kn-edge, html.k-night .k26.k-numerals .kn-nums.kn-shade { display: none; }
+html.k-night .k26.k-numerals .kn-svg image { display: none; }
+html.k-night .k26.k-numerals .kn-hand line { stroke: #fff; }
+html.k-night .k26.k-numerals .kn-sec { stroke: #fff; }
+html.k-night .k26.k-numerals .kn-pin { fill: #fff; }
+html.k-night .k26.k-numerals .kn-day { color: rgba(255, 168, 92, .5); text-shadow: none; }
 
 /* Weather face like HomeView: a huge, wide temperature, then sunrise/wind/humidity floating below
    (symbol, value, label), with no card */

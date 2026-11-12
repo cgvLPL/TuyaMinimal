@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.6", "items": ["Wall tablet: the night always-on display now follows the clock style — on the numerals clock, the numerals stay on at night in warm amber on black, with white hands, like the dim digital night clock. The digital clock keeps the dim digital time, which already matches it.", "Device cards no longer show live power — a plug or switch card just says On. Electric usage stays on the device's own screen, in the Energy section (live watts, volts, amps and the 7-day chart)."]},
   {"v": "2.91.5", "items": ["The app now updates itself when a new version is deployed: it checks for a new version every 5 minutes and reloads with fresh files, so a long-running wall tablet no longer stays a version behind."]},
   {"v": "2.91.4", "items": ["When the connection drops, every device now shows as offline — 'No Response' on the wall tablet, like Apple Home — instead of keeping its last-known state. They come back on their own when the connection returns."]},
   {"v": "2.91.3", "items": ["Wall tablet: swiping between faces now follows your finger, like HomeView — the face moves with the drag and springs to the next face (or back) when you let go.", "A slow drag past halfway also changes face, and swiping past the first or last face resists instead of moving freely."]},
@@ -2074,15 +2075,10 @@
     if (k === 'irremote') return 'Remote control';
     if (k === 'multi') {
       const codes = channelCodes(d), n = codes.filter((c) => st[c]).length;
-      const w = n ? liveWatts(d) : null;
-      return (n === 0 ? 'Off' : n === codes.length ? 'All on' : n + ' of ' + codes.length + ' on') + (w != null && w > 0 ? ', ' + fmtWatts(w) : '');
+      return n === 0 ? 'Off' : n === codes.length ? 'All on' : n + ' of ' + codes.length + ' on';
     }
     const faults = isBreaker(d) ? faultsOf(d) : [];
     if (faults.length) return 'Tripped: ' + faults[0];
-    if (hasEnergy(d) && powerCode(d) && on) {
-      const w = liveWatts(d);
-      if (w != null) return 'On, ' + fmtWatts(w);
-    }
     if (k === 'sensor') return sensorReading(d);
     if (k === 'camera') return 'Online';
     const p = powerCode(d);

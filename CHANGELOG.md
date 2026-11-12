@@ -2,6 +2,11 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.6
+
+- Wall tablet: the night always-on display now follows the clock style — on the numerals clock, the numerals stay on at night in warm amber on black, with white hands, like the dim digital night clock. The digital clock keeps the dim digital time, which already matches it.
+- Device cards no longer show live power — a plug or switch card just says On. Electric usage stays on the device's own screen, in the Energy section (live watts, volts, amps and the 7-day chart).
+
 ## 2.91.5
 
 - The app now updates itself when a new version is deployed: it checks for a new version every 5 minutes and reloads with fresh files, so a long-running wall tablet no longer stays a version behind.
