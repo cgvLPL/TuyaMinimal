@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.10", "items": ["The AC thermostat now scales with the screen: the dial's big number grows and shrinks with the dial itself, the mode buttons, labels and gaps grow with the tile, and the full-screen dial fills the screen height instead of stopping at a fixed size. The Home-face thermostat tile also gains the degree symbol it was missing (24°)."]},
   {"v": "2.91.9", "items": ["The wall tablet AC tile now shows the degree symbol on its big temperature — 24° instead of 24 — on the Home face and on the AC's full-screen page, including while you drag the dial. The phone's AC tile already showed it."]},
   {"v": "2.91.8", "items": ["The 'N hidden devices' link under the Devices heading is gone — hidden devices are no longer announced on Home. You can still see and unhide them in Arrange, where hidden tiles stay faded with the eye badge."]},
   {"v": "2.91.7", "items": ["Temperature and humidity sensors now have a card on Home — hidden by default, so Home stays clean. Tap Arrange and the eye on a sensor's card to show it; shown sensors stay shown on your other devices too. The Climate and Humidity chips at the top are unchanged."]},
@@ -5500,7 +5501,7 @@
     const act = ir ? 'irtemp' : 'temp', dis = d.online ? '' : ' disabled';
     return '<div class="k-mt km-big' + (on ? ' on' : '') + '" data-key="km-' + esc('dev:' + d.id) + '" role="group" aria-label="' + esc(d.name) + '">' +
       '<button class="km-big-open" data-act="k-open" data-id="' + esc(d.id) + '" data-key="km-bo-' + esc(d.id) + '" aria-label="' + esc(d.name + ', set to ' + num + '°, ' + (d.online ? statusText(d) : 'Offline') + ', open controls') + '">' +
-      '<span class="km-big-temp">' + esc(num) + '</span></button>' +
+      '<span class="km-big-temp">' + esc(num) + '°</span></button>' +
       '<div class="km-big-row"><button class="km-step" data-act="' + act + '" data-id="' + esc(d.id) + '" data-delta="-1" data-key="km-dn-' + esc(d.id) + '" aria-label="Lower temperature"' + dis + '>' + icon('chevron', 30) + '</button>' +
       '<button class="km-big-name" data-act="k-open" data-id="' + esc(d.id) + '" data-key="km-bn-' + esc(d.id) + '" tabindex="-1" aria-hidden="true"><span class="km-name">' + esc(d.name) + '</span><span class="km-sub">' + esc(sub) + '</span></button>' +
       '<button class="km-step up" data-act="' + act + '" data-id="' + esc(d.id) + '" data-delta="1" data-key="km-up-' + esc(d.id) + '" aria-label="Raise temperature"' + dis + '>' + icon('chevron', 30) + '</button></div></div>';

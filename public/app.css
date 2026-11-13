@@ -2460,9 +2460,9 @@ html[data-bg] .grid > .card:not(.active) .icon-dot { background: rgba(255, 255, 
 /* =========================================================
    Wall tablet: AC widget in the Home app thermostat style
    ========================================================= */
-.k26 .ka { grid-row: span 5; display: flex; flex-direction: column; gap: 8px; padding: 18px 20px 20px; }
+.k26 .ka { grid-row: span 5; display: flex; flex-direction: column; gap: 8px; padding: 18px 20px 20px; container-type: inline-size; }
 .k26 .ka .ka-head { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; }
-.k26 .ka .ka-head .k-name { font-size: 20px; font-weight: 700; }
+.k26 .ka .ka-head .k-name { font-size: clamp(16px, 5.5cqw, 22px); font-weight: 700; }
 /* The AC's name opens its full-screen control */
 .k26 .ka-open { display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%; padding: 4px 8px; margin: -4px -8px; border: 0; border-radius: 10px; background: none;
   font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background .2s ease, transform .3s var(--spring, ease); }
@@ -2470,11 +2470,11 @@ html[data-bg] .grid > .card:not(.active) .icon-dot { background: rgba(255, 255, 
 .k26 .ka-open svg { flex: none; opacity: .55; }
 .k26 .ka-open:active { background: rgba(255, 255, 255, 0.12); transform: scale(.97); }
 .k26 .ka-open:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
-.k26 .ka .ka-sub { font-size: 15px; font-weight: 600; color: #64d2ff; }
+.k26 .ka .ka-sub { font-size: clamp(12px, 3.2cqw, 18px); font-weight: 600; color: #64d2ff; }
 :is(.k26, .ka-page) .ka-heat .ka-sub { color: #ffb340; }
 :is(.k26, .ka-page) .ka-off .ka-sub { color: var(--muted); }
-.k26 .ka-body { flex: 1; display: flex; align-items: center; gap: 18px; min-height: 0; }
-:is(.k26, .ka-page) .ka-dial { position: relative; flex: 0 0 auto; width: min(250px, 52%); aspect-ratio: 1; touch-action: none; cursor: grab; outline: none; border-radius: 50%; }
+.k26 .ka-body { flex: 1; display: flex; align-items: center; gap: clamp(10px, 4cqw, 20px); min-height: 0; }
+:is(.k26, .ka-page) .ka-dial { position: relative; flex: 0 0 auto; width: min(250px, 52%); aspect-ratio: 1; touch-action: none; cursor: grab; outline: none; border-radius: 50%; container-type: inline-size; }
 :is(.k26, .ka-page) .ka-dial.dragging { cursor: grabbing; }
 :is(.k26, .ka-page) .ka-dial:focus-visible { box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.7); }
 :is(.k26, .ka-page) .ka-dial[aria-disabled="true"] { opacity: .5; cursor: default; }
@@ -2490,12 +2490,12 @@ html[data-bg] .grid > .card:not(.active) .icon-dot { background: rgba(255, 255, 
 :is(.k26, .ka-page) .ka-dial.dragging .ka-fill, :is(.k26, .ka-page) .ka-dial.dragging .ka-thumb { transition: none; }
 :is(.k26, .ka-page) .ka-cur { fill: #fff; opacity: .9; }
 :is(.k26, .ka-page) .ka-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
-:is(.k26, .ka-page) .ka-label { font-size: 15px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #64d2ff; }
+:is(.k26, .ka-page) .ka-label { font-size: clamp(11px, 7cqw, 18px); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #64d2ff; }
 :is(.k26, .ka-page) .ka-heat .ka-label { color: #ffb340; }
 :is(.k26, .ka-page) .ka-off .ka-label { color: var(--muted); }
-:is(.k26, .ka-page) .ka-num { font-size: clamp(56px, 6vw, 78px); font-weight: 600; line-height: 1; color: #fff; font-variant-numeric: tabular-nums; }
+:is(.k26, .ka-page) .ka-num { font-size: clamp(44px, 38cqw, 160px); font-weight: 600; line-height: 1; color: #fff; font-variant-numeric: tabular-nums; }
 :is(.k26, .ka-page) .ka-off .ka-num { color: rgba(255, 255, 255, 0.55); }
-.k26 .ka-side { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.k26 .ka-side { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: clamp(8px, 3cqw, 16px); }
 :is(.k26, .ka-page) .ka-menu { display: flex; flex-direction: column; border-radius: 20px; background: rgba(0, 0, 0, 0.22); padding: 6px; }
 .k26 .ka-row {
   display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 12px 0 6px; border: 0; border-radius: 14px;
@@ -2528,7 +2528,7 @@ html[data-bg] .grid > .card:not(.active) .icon-dot { background: rgba(255, 255, 
 .k26 .ka.has-fan .k-ac-fan { gap: 6px; }
 /* 2.45: AC modes as symbols in wall tablet mode */
 :is(.k26, .ka-page) .ka-menu.ka-icons, .k26 .ka.has-fan .ka-menu.ka-icons { display: grid; grid-template-columns: repeat(3, 52px); justify-content: center; gap: 12px; padding: 0; background: none; border-radius: 0; }
-:is(.k26, .ka-page) .ka-mi { width: 52px; height: 52px; border-radius: 50%; border: 0; display: inline-flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.85); cursor: pointer; transition: background .2s ease, color .2s ease, transform .15s ease; }
+:is(.k26, .ka-page) .ka-mi { width: clamp(44px, 11cqw, 64px); height: clamp(44px, 11cqw, 64px); border-radius: 50%; border: 0; display: inline-flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.85); cursor: pointer; transition: background .2s ease, color .2s ease, transform .15s ease; }
 :is(.k26, .ka-page) .ka-mi:active { transform: scale(.92); }
 :is(.k26, .ka-page) .ka-mi:disabled { opacity: .45; }
 :is(.k26, .ka-page) .ka-mi:focus-visible { outline: 2px solid #64d2ff; outline-offset: 2px; }
@@ -2537,7 +2537,7 @@ html[data-bg] .grid > .card:not(.active) .icon-dot { background: rgba(255, 255, 
 :is(.k26, .ka-page) .ka-mi-automode[aria-pressed="true"] { background: linear-gradient(135deg, #0a84ff, #ff9f0a); }
 :is(.k26, .ka-page) .ka-mi-fan[aria-pressed="true"], :is(.k26, .ka-page) .ka-mi-drop[aria-pressed="true"] { background: #30b0c7; }
 :is(.k26, .ka-page) .ka-mi-off[aria-pressed="true"] { background: #fff; color: #111; }
-:is(.k26, .ka-page) .ka-mode-name { text-align: center; font-size: 15px; font-weight: 600; color: var(--muted); margin-top: -4px; }
+:is(.k26, .ka-page) .ka-mode-name { text-align: center; font-size: clamp(12px, 3.2cqw, 18px); font-weight: 600; color: var(--muted); margin-top: -4px; }
 .k26 .ka-side { justify-content: center; }
 :is(.k26, .ka-page) .ka-menu.ka-icons, .k26 .ka.has-fan .ka-menu.ka-icons { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; width: 180px; max-width: 100%; align-self: center; }
 /* 2.46: room pills in wall tablet mode — one slim row that scrolls sideways if needed */
@@ -2585,21 +2585,21 @@ html[data-bg] .grid > .card:not(.active) .icon-dot { background: rgba(255, 255, 
 .cw-bar-val { position: absolute; right: 18px; top: 50%; transform: translateY(-50%); font-size: 15px; font-weight: 700; color: var(--text); pointer-events: none; font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) { .seg26-thumb, .cw-thumb { transition: none; } }
 /* 2.50: the wall tablet's thermostat on every AC screen (phone, tablet panel), in light and dark */
-.ka-page { width: 100%; }
+.ka-page { width: 100%; container-type: inline-size; }
 .ka-page .ka { display: flex; flex-direction: column; align-items: center; gap: 14px; }
-.ka-page .ka-sub { font-size: 15px; font-weight: 600; color: #0a84ff; text-align: center; margin-bottom: -6px; }
+.ka-page .ka-sub { font-size: clamp(12px, 3.2cqw, 18px); font-weight: 600; color: #0a84ff; text-align: center; margin-bottom: -6px; }
 .ka-page .ka-heat .ka-sub, .ka-page .ka-heat.ka-sub { color: #e8700a; }
 .ka-page .ka-off .ka-sub { color: var(--muted); }
-.ka-page .ka-body { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 18px; }
-.ka-page .ka-dial { width: min(290px, 82%); }
-.ka-page .ka-side { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.ka-page .ka-body { width: 100%; display: flex; flex-direction: column; align-items: center; gap: clamp(10px, 4cqw, 20px); }
+.ka-page .ka-dial { width: min(82%, 62vh); }
+.ka-page .ka-side { width: 100%; display: flex; flex-direction: column; align-items: center; gap: clamp(8px, 3cqw, 16px); }
 .ka-page .ka-track { stroke: var(--track-off); }
 .ka-page .ka-off .ka-fill { stroke: rgba(120, 120, 128, 0.35); }
 .ka-page .ka-cur { fill: #fff; stroke: rgba(0, 0, 0, 0.25); stroke-width: 1.5; }
 .ka-page .ka-label { color: #0a84ff; }
 .ka-page .ka-heat .ka-label { color: #e8700a; }
 .ka-page .ka-off .ka-label { color: var(--muted); }
-.ka-page .ka-num { color: var(--text); font-size: clamp(64px, 18vw, 84px); }
+.ka-page .ka-num { color: var(--text); }
 .ka-page .ka-off .ka-num { color: var(--muted); }
 .ka-page .ka-menu.ka-icons { width: auto; max-width: 100%; flex-wrap: nowrap; gap: 10px; }
 .ka-page .ka-mi { background: var(--chip); color: var(--text); }
@@ -2620,14 +2620,14 @@ html[data-bg] .grid > .card:not(.active) .icon-dot { background: rgba(255, 255, 
   overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: none; padding: 4px 16px; margin: -4px 0;
   -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%); }
 .ka-page .ka-menu.ka-icons::-webkit-scrollbar { display: none; }
-.ka-page .ka-mi { flex: 0 0 52px; width: 52px; height: 52px; scroll-snap-align: center; }
+.ka-page .ka-mi { flex: 0 0 clamp(44px, 11cqw, 64px); width: clamp(44px, 11cqw, 64px); height: clamp(44px, 11cqw, 64px); scroll-snap-align: center; }
 .ka-page .ka-mi:first-child { margin-left: auto; } .ka-page .ka-mi:last-child { margin-right: auto; }
 /* 2.51: AC tiles like the Home app's thermostat — two rows tall, the room temperature in large coloured numbers */
 .grid { grid-auto-flow: row dense; }
 .grid > .card.compact.ac-big { grid-row: span 2; height: auto; padding: 14px 16px; flex-direction: column; align-items: stretch; }
 .grid > .card.compact.ac-big .card-open { flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .grid > .card.compact.ac-big .card-text { flex: 0 0 auto; width: 100%; }
-.ac-big-num { font-size: 46px; font-weight: 600; line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; color: var(--muted); }
+.ac-big-num { font-size: clamp(40px, 11vw, 56px); font-weight: 600; line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; color: var(--muted); }
 .ac-big-icon { width: 46px; height: 46px; border-radius: 999px; display: flex; align-items: center; justify-content: center; background: rgba(127, 127, 140, 0.16); color: var(--text); }
 .ac-big-icon svg { width: 24px; height: 24px; }
 html .grid > .card.ac-cool.active .ac-big-num { color: #0a84ff; }
@@ -2646,7 +2646,7 @@ html .grid > .card.ac-tile.active .card-status { color: rgba(0, 0, 0, 0.55); }
   width: 100%; max-width: 100%; align-self: stretch; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: none; padding: 4px 14px; margin: -4px 0;
   -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%); }
 .k26 .k-ac .ka-side .ka-menu.ka-icons::-webkit-scrollbar { display: none; }
-.k26 .k-ac .ka-side .ka-mi { flex: 0 0 52px; width: 52px; height: 52px; scroll-snap-align: center; }
+.k26 .k-ac .ka-side .ka-mi { flex: 0 0 clamp(44px, 11cqw, 64px); width: clamp(44px, 11cqw, 64px); height: clamp(44px, 11cqw, 64px); scroll-snap-align: center; }
 .k26 .k-ac .ka-side .ka-mi:first-child { margin-left: auto; } .k26 .k-ac .ka-side .ka-mi:last-child { margin-right: auto; }
 .k26 .k-ac .ka-side { min-width: 0; }
 /* Let a 4th symbol peek in at the edge, so it's clear the row slides */
@@ -2655,7 +2655,9 @@ html .grid > .card.ac-tile.active .card-status { color: rgba(0, 0, 0, 0.55); }
 @media (max-width: 600px) { .k26 .k-ac .ka-dial { width: min(260px, 80%); } }
 /* 2.52.2: the fan's Auto button is a round symbol */
 .fan-row .chip.fan-auto-ico, .k26 .k-ac-fan .chip.fan-auto-ico { width: 46px; min-width: 46px; height: 46px; padding: 0; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center; }
+.k26 .k-ac-fan .chip.fan-auto-ico, .ka-page .k-ac-fan .chip.fan-auto-ico { width: clamp(40px, 10cqw, 56px); min-width: clamp(40px, 10cqw, 56px); height: clamp(40px, 10cqw, 56px); }
 .fan-row .chip.fan-auto-ico svg, .k26 .k-ac-fan .chip.fan-auto-ico svg { width: 26px; height: 26px; }
+.k26 .k-ac-fan .chip.fan-auto-ico svg, .ka-page .k-ac-fan .chip.fan-auto-ico svg { width: 55%; height: 55%; }
 /* 2.52.6: no white outline around the bottom navigation pill (glass and shadow stay).
    With Increase Contrast on, the edge comes back so the bar stays visible. */
 @media not (prefers-contrast: more) {
@@ -2844,11 +2846,11 @@ html input, html textarea, html select, html [contenteditable], html [contentedi
 @media (min-width: 601px) {
   .k26 .k-grid .k-ac.ka { grid-row: span 3; padding: 14px 18px; gap: 4px; }
   .k26 .k-grid .k-ac.ka .ka-head { flex-direction: row; align-items: baseline; justify-content: space-between; text-align: left; gap: 10px; }
-  .k26 .k-grid .k-ac.ka .ka-head .k-name { font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-  .k26 .k-grid .k-ac.ka .ka-sub { font-size: 14px; white-space: nowrap; }
-  .k26 .k-grid .k-ac.ka .ka-body { gap: 14px; align-items: center; }
+  .k26 .k-grid .k-ac.ka .ka-head .k-name { font-size: clamp(15px, 4cqw, 22px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .k26 .k-grid .k-ac.ka .ka-sub { white-space: nowrap; }
+  .k26 .k-grid .k-ac.ka .ka-body { gap: clamp(8px, 3cqw, 18px); align-items: center; }
   .k26 .k-grid .k-ac.ka .ka-dial { width: min(204px, 45%); }
-  .k26 .k-grid .k-ac.ka .ka-side { justify-content: center; gap: 6px; }
+  .k26 .k-grid .k-ac.ka .ka-side { justify-content: center; gap: clamp(4px, 1.5cqw, 10px); }
   .k26 .k-grid .k-ac.ka .ka-mode-name { margin-top: 0; font-size: 14px; }
   .k26 .k-grid .k-ac.ka .k-ac-fan { gap: 2px; }
   .k26 .k-grid .k-ac.ka .k-ac-fan .fan-row { margin-top: 0; }

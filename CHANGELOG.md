@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.10
+
+- The AC thermostat now scales with the screen: the dial's big number grows and shrinks with the dial itself, the mode buttons, labels and gaps grow with the tile, and the full-screen dial fills the screen height instead of stopping at a fixed size. The Home-face thermostat tile also gains the degree symbol it was missing (24°).
+
 ## 2.91.9
 
 - The wall tablet AC tile now shows the degree symbol on its big temperature — 24° instead of 24 — on the Home face and on the AC's full-screen page, including while you drag the dial. The phone's AC tile already showed it.
