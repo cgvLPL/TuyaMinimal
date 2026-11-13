@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.12
+
+- Colour lights that report both colour codes now use the one that's actually current: some LED strips keep the older colour value up to date and let the newer one go stale, so the app showed blue while the strip was orange. The pill, the ring and the wheel now follow the strip's real colour.
+
 ## 2.91.11
 
 - Wall tablet mode is now called HomeView: the Me row reads 'HomeView' and the exit button says 'Leave HomeView'. Nothing else changes — same faces, same controls.

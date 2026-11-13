@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.12", "items": ["Colour lights that report both colour codes now use the one that's actually current: some LED strips keep the older colour value up to date and let the newer one go stale, so the app showed blue while the strip was orange. The pill, the ring and the wheel now follow the strip's real colour."]},
   {"v": "2.91.11", "items": ["Wall tablet mode is now called HomeView: the Me row reads 'HomeView' and the exit button says 'Leave HomeView'. Nothing else changes — same faces, same controls."]},
   {"v": "2.91.10", "items": ["The AC thermostat now scales with the screen: the dial's big number grows and shrinks with the dial itself, the mode buttons, labels and gaps grow with the tile, and the full-screen dial fills the screen height instead of stopping at a fixed size. The Home-face thermostat tile also gains the degree symbol it was missing (24°)."]},
   {"v": "2.91.9", "items": ["The wall tablet AC tile now shows the degree symbol on its big temperature — 24° instead of 24 — on the Home face and on the AC's full-screen page, including while you drag the dial. The phone's AC tile already showed it."]},
@@ -1422,7 +1423,18 @@
   function brightCode(d) { return ['bright_value_v2', 'bright_value'].find((c) => typeof d.status[c] === 'number') || null; }
   function warmCode(d) { return ['temp_value_v2', 'temp_value'].find((c) => typeof d.status[c] === 'number') || null; }
   // RGB colour: Tuya stores it as {h: 0-360, s, v} (0-1000 for *_v2, 0-255 for the older code).
-  function colourCode(d) { return ['colour_data_v2', 'colour_data'].find((c) => c in d.status) || null; }
+  // Some strips report both codes and let the v2 value go stale: the Tuya app sets orange and the
+  // strip stays orange, but colour_data_v2 still says blue. When the two disagree, trust the older
+  // code, like the Tuya app does; when they agree (or only one is there) keep preferring v2.
+  function colourCode(d) {
+    const v2 = 'colour_data_v2' in d.status, v1 = 'colour_data' in d.status;
+    if (v2 && v1) {
+      const a = parseColour(d.status.colour_data_v2), b = parseColour(d.status.colour_data);
+      if (a && b) { const dh = Math.abs(a.h - b.h); if (Math.min(dh, 360 - dh) > 10) return 'colour_data'; }
+      else if (!a && b) return 'colour_data';
+    }
+    return v2 ? 'colour_data_v2' : v1 ? 'colour_data' : null;
+  }
   function parseColour(v) {
     if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { return null; } }
     return v && typeof v.h === 'number' ? { h: v.h, s: Number(v.s) || 0, v: Number(v.v) || 0 } : null;
