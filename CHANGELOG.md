@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.11
+
+- Wall tablet mode is now called HomeView: the Me row reads 'HomeView' and the exit button says 'Leave HomeView'. Nothing else changes — same faces, same controls.
+
 ## 2.91.10
 
 - The AC thermostat now scales with the screen: the dial's big number grows and shrinks with the dial itself, the mode buttons, labels and gaps grow with the tile, and the full-screen dial fills the screen height instead of stopping at a fixed size. The Home-face thermostat tile also gains the degree symbol it was missing (24°).

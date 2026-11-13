@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.11", "items": ["Wall tablet mode is now called HomeView: the Me row reads 'HomeView' and the exit button says 'Leave HomeView'. Nothing else changes — same faces, same controls."]},
   {"v": "2.91.10", "items": ["The AC thermostat now scales with the screen: the dial's big number grows and shrinks with the dial itself, the mode buttons, labels and gaps grow with the tile, and the full-screen dial fills the screen height instead of stopping at a fixed size. The Home-face thermostat tile also gains the degree symbol it was missing (24°)."]},
   {"v": "2.91.9", "items": ["The wall tablet AC tile now shows the degree symbol on its big temperature — 24° instead of 24 — on the Home face and on the AC's full-screen page, including while you drag the dial. The phone's AC tile already showed it."]},
   {"v": "2.91.8", "items": ["The 'N hidden devices' link under the Devices heading is gone — hidden devices are no longer announced on Home. You can still see and unhide them in Arrange, where hidden tiles stay faded with the eye badge."]},
@@ -5136,7 +5137,7 @@
     else if (y - prev > 6) root.classList.add('tab-min');
   }, true);
 
-  // ---------- Wall tablet mode (kiosk) ----------
+  // ---------- HomeView mode (kiosk) ----------
   // A full-screen dashboard for a tablet on the wall: clock, weather, sensor gauges, scenes and
   // device buttons. Keeps the screen awake, dims itself at night, and needs a press-and-hold to leave.
   const kiosk = { on: false, lock: null, timer: null, wokeUntil: 0, hold: null };
@@ -6109,7 +6110,7 @@ function kClockPicker() {
     const wx = w && w.available && w.homeId === data.homeId && w.unit === S.tempUnit
       ? (() => { const [ic, desc] = weatherInfo(w.code, w.isDay); return '<span class="k-wx" aria-label="' + esc(desc + ', ' + w.temp + w.unitLabel) + '">' + icon(ic, 20) + '<span>' + w.temp + '°</span></span>'; })()
       : '';
-    const exitBtn = '<button class="k-exit" data-act="k-exit-tap" data-key="k-exit" aria-label="Leave wall tablet mode (press and hold)" title="Press and hold to leave">' +
+    const exitBtn = '<button class="k-exit" data-act="k-exit-tap" data-key="k-exit" aria-label="Leave HomeView (press and hold)" title="Press and hold to leave">' +
       '<svg class="k-exit-ring" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="20"/></svg>' + icon('close', 18) + '</button>';
     const editBar = '<div class="k-editbar"><button class="k-eb-add" data-act="kedit-add" aria-label="Add or remove favourites">' + icon('plus', 20) + '</button>' +
       '<button class="k-eb-add" data-act="kwall-open" aria-label="Change the wallpaper">' + icon('wallpaper', 20) + '</button>' +
@@ -6140,7 +6141,7 @@ function kClockPicker() {
     // right; the ✕ sits in the bottom corner like on the other faces.
     let html = '<div class="kiosk-wrap k26">' +
       kTopBar(data, now) +
-      '<button class="k-exit km-exit" data-key="k-exit" aria-label="Leave wall tablet mode (press and hold)" title="Press and hold to leave">' +
+      '<button class="k-exit km-exit" data-key="k-exit" aria-label="Leave HomeView (press and hold)" title="Press and hold to leave">' +
       '<svg class="k-exit-ring" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="20"/></svg>' + icon('close', 18) + '</button>';
     // Temperature and humidity as Home app summaries.
     if (readings.length || outdoorAirInfo()) html += '<div class="k-climate">' + climateSummaries(readings, true) + '</div>';
@@ -6218,7 +6219,7 @@ function kClockPicker() {
     }
     html += chevRow('tab', 'icons', 'icons-open', 'Device icons', '');
     if (data && (data.rooms || []).length) { const fl = floorCfg(data.homeId).list.length; html += chevRow('tab', 'floors', 'floors-open', 'Floors', fl ? fl + (fl === 1 ? ' floor' : ' floors') : 'Off'); }
-    html += chevRow('kiosk-enter', null, 'kiosk-open', 'Wall tablet mode', 'Clock, scenes, devices');
+    html += chevRow('kiosk-enter', null, 'kiosk-open', 'HomeView', 'Clock, scenes, devices');
     html += '</div>';
 
     html += '<div class="list">' +
