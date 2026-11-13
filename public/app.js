@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.13", "items": ["Temporary diagnostic for the LED strip colour: a small line under a colour light's swatches now shows both colour codes the strip reports, so the wrong read can be traced. Nothing else changes."]},
   {"v": "2.91.12", "items": ["Colour lights that report both colour codes now use the one that's actually current: some LED strips keep the older colour value up to date and let the newer one go stale, so the app showed blue while the strip was orange. The pill, the ring and the wheel now follow the strip's real colour."]},
   {"v": "2.91.11", "items": ["Wall tablet mode is now called HomeView: the Me row reads 'HomeView' and the exit button says 'Leave HomeView'. Nothing else changes — same faces, same controls."]},
   {"v": "2.91.10", "items": ["The AC thermostat now scales with the screen: the dial's big number grows and shrinks with the dial itself, the mode buttons, labels and gaps grow with the tile, and the full-screen dial fills the screen height instead of stopping at a fixed size. The Home-face thermostat tile also gains the degree symbol it was missing (24°)."]},
@@ -1450,6 +1451,20 @@
     const code = colourCode(d), m = colourMax(code), c = currentColour(d);
     return hsvCss(c.h, (c.s / m.s) * 100);
   }
+  // Temporary diagnostic (2.91.13): the strip's colour still reads blue on 2.91.12, so show both
+  // raw colour codes under the swatches — which hues each reports and which one the app trusts.
+  // Remove once the colour read is fixed.
+  function colourDbg(d) {
+    const fmt = (code, label) => {
+      if (!(code in d.status)) return label + ' \u2014';
+      const raw = d.status[code], c = parseColour(raw);
+      if (c) return label + ' h' + Math.round(c.h) + ' s' + c.s + ' v' + c.v;
+      const s = typeof raw === 'string' ? raw : JSON.stringify(raw);
+      return label + ' ' + String(s).slice(0, 28) + ' ?';
+    };
+    const code = colourCode(d);
+    return fmt('colour_data_v2', 'v2') + ' \u00b7 ' + fmt('colour_data', 'v1') + (code ? ' \u2192 uses ' + (code === 'colour_data_v2' ? 'v2' : 'v1') : '');
+  }
   function lightRange(d, code, isWarmth) {
     const v2 = code && code.endsWith('_v2');
     const fallback = isWarmth
@@ -2664,6 +2679,7 @@
         : dim
         ? '<div class="qc-pill qc-slider" role="slider" tabindex="0" aria-label="' + esc(d.name) + ' ' + qcSliderFor(d).label + '" aria-valuemin="0" aria-valuemax="100"><span class="qc-fill"></span><span class="qc-ico">' + glyph(iconKeyOf(d), 34) + '</span></div>' +
           (swatches ? '<div class="qc-swatches" role="group" aria-label="Colors"></div>' : '') +
+          (colourCode(d) ? '<div class="qc-colour-dbg"></div>' : '') +
           (kind === 'cover' ? '<div class="qc-cover-btns" role="group" aria-label="Move">' + coverButtons(d, '-qc') + '</div>' : '')
         : '<button class="qc-pill qc-switch" role="switch" aria-label="' + esc(d.name) + '" data-act="toggle" data-id="' + esc(d.id) + '"><span class="qc-knob">' + glyph(iconKeyOf(d), 34) + '</span></button>') +
       '<button class="qc-gear" aria-label="All controls for ' + esc(d.name) + '">' + GEAR + '</button>';
@@ -2807,6 +2823,8 @@
     if (acBody && !S.dragging) patchHtml(acBody, acPage(d, '-qa'));
     const sws = el.querySelector('.qc-swatches');
     if (sws) patchHtml(sws, qcSwatches(d));
+    const dbg = el.querySelector('.qc-colour-dbg');
+    if (dbg) dbg.textContent = colourDbg(d);
     const cbs = el.querySelector('.qc-cover-btns');
     if (cbs) { patchHtml(cbs, coverButtons(d, '-qc')); el.classList.toggle('moving', !!coverMotion(d)); }
     // A colour light fills its pill with the colour it's showing.

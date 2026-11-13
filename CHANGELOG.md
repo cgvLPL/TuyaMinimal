@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.13
+
+- Temporary diagnostic for the LED strip colour: a small line under a colour light's swatches now shows both colour codes the strip reports (e.g. `v2 h240 · v1 — → uses v2`) so the wrong read can be traced. Nothing else changes.
+
 ## 2.91.12
 
 - Colour lights that report both colour codes now use the one that's actually current: some LED strips keep the older colour value up to date and let the newer one go stale, so the app showed blue while the strip was orange. The pill, the ring and the wheel now follow the strip's real colour.
