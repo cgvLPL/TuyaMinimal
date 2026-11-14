@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.20
+
+- The bottom navigation is now a dark frosted-glass pill, like the reference: the bar is a darker tinted glass over your wallpaper, the current tab sits in a darker capsule with an amber icon, and the whole pill sits lower — closer to the bottom edge.
+
 ## 2.91.19
 
 - The HomeView face is now truly edge to edge: the face was sitting inside the page container's padding (28px at the top, up to 48px at the sides), so it never actually reached the screen edges — the old pinned background layer was just hiding that. The container padding is gone and the face carries that padding itself, so the face fills the whole screen and its background with it, while the content keeps the same margins. This also fixes the same inset on the Weather face's sky.
