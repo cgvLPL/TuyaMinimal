@@ -1667,8 +1667,7 @@ html[data-bg] { --photo-stage: linear-gradient(180deg, #DCDBD6 0%, #CBCAC4 100%)
 /* ---------- Wall tablet mode (kiosk) ---------- */
 html.kiosk .tabbar, html.kiosk .rail, html.kiosk .panel { display: none !important; }
 html.kiosk .app { display: block; padding: 0; }
-html.kiosk .main { max-width: none; margin: 0; height: auto; overflow: visible;
-  padding: calc(var(--safe-top) + 28px) clamp(20px, 4vw, 48px) calc(var(--safe-bottom) + 32px); }
+html.kiosk .main { max-width: none; margin: 0; height: auto; overflow: visible; padding: 0; }
 .kiosk-wrap { display: flex; flex-direction: column; gap: 18px; min-height: 100dvh; }
 .k-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
 .k-clock { display: flex; flex-direction: column; gap: 6px; }
@@ -1916,6 +1915,7 @@ html.kiosk:not([data-bg])::before {
   --kfill: rgba(255, 255, 255, 0.14);       /* controls inside a widget: a plain fill, not more glass */
   --kr: 30px; --kpad: 18px;
   color: var(--text); gap: 22px; min-height: 100dvh;  /* full viewport: no inset while dragging */
+  padding: calc(var(--safe-top) + 28px) clamp(20px, 4vw, 48px) calc(var(--safe-bottom) + 32px);  /* face content keeps its margins; the background (on .k26) still covers the whole screen */
   touch-action: pan-y;  /* vertical scroll stays the browser's; horizontal swipes are ours */
 }
 .k26 .k-w, .k26 .k-cap, .k26 .k-exit {

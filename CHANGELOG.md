@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.19
+
+- The HomeView face is now truly edge to edge: the face was sitting inside the page container's padding (28px at the top, up to 48px at the sides), so it never actually reached the screen edges — the old pinned background layer was just hiding that. The container padding is gone and the face carries that padding itself, so the face fills the whole screen and its background with it, while the content keeps the same margins. This also fixes the same inset on the Weather face's sky.
+
 ## 2.91.18
 
 - The numerals clock's background no longer pulls in from the edges while you swipe: it was painted on a layer pinned to the screen, which the browser re-anchors once the face starts moving — it's now painted on the face itself, so it slides away with the face and stays edge to edge. The night look is unchanged (amber numerals on black).
