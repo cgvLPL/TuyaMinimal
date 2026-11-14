@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.18
+
+- The numerals clock's background no longer pulls in from the edges while you swipe: it was painted on a layer pinned to the screen, which the browser re-anchors once the face starts moving — it's now painted on the face itself, so it slides away with the face and stays edge to edge. The night look is unchanged (amber numerals on black).
+
 ## 2.91.17
 
 - The HomeView face now fills the whole screen: it no longer shrinks to a smaller card while you drag it, so there is no dark strip at the top and bottom mid-swipe. The face dots sit on top of the face, so the face does not need the space they used to take.

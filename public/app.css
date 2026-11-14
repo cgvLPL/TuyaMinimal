@@ -3359,15 +3359,14 @@ html:not([data-bg]) .ios-pin .keypad .key:active:not(:disabled) { background: co
 @media (max-aspect-ratio: 1/1) { .k26 .kw-hr:nth-child(n+7) { display: none; } }
 
 /* ---- Numerals clock face (HomeView's big-numeral analog clock), drawn to its proportions ---- */
-.k26.k-numerals { --kn-bg: #7fd5ee; --kn-ink: #0a1229; --kn-day: #1d6890; --kn-dot: rgba(10, 40, 70, 0.16); }
+.k26.k-numerals { --kn-bg: #7fd5ee; --kn-ink: #0a1229; --kn-day: #1d6890; --kn-dot: rgba(10, 40, 70, 0.16); background: var(--kn-bg); }
 .k26.kn-bg-mint { --kn-bg: #9fe3c4; --kn-ink: #0b2a1e; --kn-day: #24785a; --kn-dot: rgba(10, 60, 40, 0.16); }
 .k26.kn-bg-peach { --kn-bg: #ffc3a6; --kn-ink: #3a1408; --kn-day: #b0522c; --kn-dot: rgba(80, 30, 10, 0.16); }
 .k26.kn-bg-lavender { --kn-bg: #c9b8f5; --kn-ink: #1b1240; --kn-day: #5a43a8; --kn-dot: rgba(40, 20, 90, 0.16); }
 .k26.kn-bg-sun { --kn-bg: #ffd95e; --kn-ink: #2d2000; --kn-day: #96700a; --kn-dot: rgba(70, 50, 0, 0.16); }
 .k26.kn-bg-graphite { --kn-bg: #1c1c1e; --kn-ink: #f2f2f7; --kn-day: #8e8e93; --kn-dot: rgba(255, 255, 255, 0.18); }
 .k26.kn-bg-photo { --kn-day: #fff; --kn-dot: rgba(255, 255, 255, 0.22); }
-.k26.k-numerals::before { content: ''; position: fixed; inset: 0; z-index: -1; background: var(--kn-bg); }
-.k26.kn-bg-photo::before { background: #000 var(--kn-img) center / cover no-repeat; }
+.k26.kn-bg-photo { background: #000 var(--kn-img) center / cover no-repeat; }
 .k26.kn-bg-photo .kn-day { text-shadow: 0 1px 10px rgba(0, 0, 0, .35); }
 /* Liquid glass numerals over the wallpaper */
 .k26 .kn-nums.kn-shade text { fill: #000; fill-opacity: .001; }
@@ -3393,7 +3392,7 @@ html:not([data-bg]) .ios-pin .keypad .key:active:not(:disabled) { background: co
 @keyframes kSec { to { transform: rotate(360deg); } }
 .k26 .kn-day { position: fixed; left: 6.5vmin; bottom: 6.5vmin; font-size: 4.2vmin; font-weight: 500; letter-spacing: .02em; color: var(--kn-day, #1d6890); }
 .k26.k-numerals .k-dots { background: var(--kn-dot); }
-html.k-night .k26.k-numerals::before { display: none; }
+html.k-night .k26.k-numerals { background: #000; }
 /* Night AOD follows the clock style: on the numerals clock the numerals themselves stay on,
    dimmed in the night look's warm amber on black, instead of the generic dim digital night
    clock. The digital style keeps that dim digital time, which already matches it. The

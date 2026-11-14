@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.18", "items": ["The numerals clock's background no longer pulls in from the edges while you swipe: it was painted on a layer pinned to the screen, which the browser re-anchors once the face starts moving — it's now painted on the face itself, so it slides away with the face and stays edge to edge. The night look is unchanged (amber numerals on black)."]},
   {"v": "2.91.17", "items": ["The HomeView face now fills the whole screen: it no longer shrinks while you drag it, so there is no dark strip at the top and bottom mid-swipe.", "Swiping on a touch screen is easier: the face leaves horizontal swipes to the app, and a small vertical wobble at the start no longer cancels the swipe."]},
   {"v": "2.91.16", "items": ["The LED strip colour diagnostic line is gone (quick control and device page), now that the colour read is fixed.", "HomeView swiping is now a direct slide: the face follows the finger with a plain sideways move instead of shrinking as you drag, and the face change is a plain slide with no scale or rounded-card animation, so it stays smooth."]},
   {"v": "2.91.15", "items": ["Fixed the LED strip's brightness pill going black: the strip reports its older colour code on the 0-1000 scale, so the saturation percentage reached 392% and the pill's lightness went negative. Saturation is now clamped to 100%, so the pill shows the strip's real colour (orange) instead of black. The hue already followed the strip correctly."]},
