@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.26", "items": ["Fixed the Firmware section: it was calling the old firmware API that needs a separate subscription, so Tuya refused it. It now uses the current firmware API, which is part of the standard device service. If Tuya still refuses, the section says so plainly instead of showing an error on every device page.", "Fixed the Firmware section showing the same version twice: a device can report the same firmware on two modules, so identical rows are now collapsed into one; genuinely different modules are labelled with their module name."]},
   {"v": "2.91.25", "items": ["Smart door locks get their own section on the device page: unlock or lock remotely, see the last few unlocks with how they were opened (fingerprint, PIN, guest code) and when, and see your guest codes with their validity. Remote locking only works on all-in-one Wi-Fi locks.", "Every device page now has a Firmware section: it shows the current firmware version, and when an update is available, an Update button to install it."]},
   {"v": "2.91.24", "items": ["The Energy section's all-time total no longer needs the data statistics service: when Tuya refuses the statistics total, the app now reads the plug's own live cumulative counter instead, so the All time row shows up without any subscription."]},
   {"v": "2.91.23", "items": ["Fixed the Energy section showing a \"Tuya refused\" error for a plug that simply hasn't been used: when the power log answers but finds no reports, the section now shows 0 kWh for the last 7 days instead of an error, and a successful daily-statistics call is shown even when every day is 0 kWh. The all-time total still needs the data statistics service authorized in your Tuya cloud project."]},
@@ -2153,6 +2154,8 @@
     let html = '<h2 class="section-title">Firmware</h2><div class="list">';
     if (f === 'loading' || !f) {
       html += '<div class="list-row"><span class="meta">Checking firmware\u2026</span></div>';
+    } else if (f.notSubscribed) {
+      html += '<div class="list-row"><span class="meta">Firmware updates aren\u2019t available \u2014 the firmware service isn\u2019t authorized in your Tuya project.</span></div>';
     } else if (f.available === false) {
       html += '<div class="list-row"><span class="meta">' + esc(f.error || 'Could not check the firmware.') + '</span></div>' +
         '<button class="list-row" data-act="firmware-retry" data-id="' + esc(d.id) + '" data-key="firmware-retry"><span class="label">Try again</span>' + icon('chevron', 16) + '</button>';
@@ -2160,7 +2163,8 @@
       html += '<div class="list-row"><span class="meta">No firmware information for this device.</span></div>';
     } else {
       f.channels.forEach((c) => {
-        html += '<div class="list-row"><span class="label">Version</span><span class="value">' + esc(c.current || '\u2014') + '</span></div>';
+        const label = f.channels.length > 1 && c.module ? 'Version \u00b7 ' + c.module : 'Version';
+        html += '<div class="list-row"><span class="label">' + esc(label) + '</span><span class="value">' + esc(c.current || '\u2014') + '</span></div>';
         if (c.upgrading) {
           html += '<div class="list-row"><span class="meta">Updating to ' + esc(c.target) + '\u2026</span></div>';
         } else if (c.available) {

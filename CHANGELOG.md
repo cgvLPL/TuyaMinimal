@@ -2,6 +2,11 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.26
+
+- Fixed the Firmware section: it was calling the old firmware API that needs a separate subscription, so Tuya refused it. It now uses the current firmware API, which is part of the standard device service. If Tuya still refuses, the section says so plainly instead of showing an error on every device page.
+- Fixed the Firmware section showing the same version twice: a device can report the same firmware on two modules, so identical rows are now collapsed into one; genuinely different modules are labelled with their module name.
+
 ## 2.91.25
 
 - Smart door locks get their own section on the device page: unlock or lock remotely, see the last few unlocks with how they were opened (fingerprint, PIN, guest code) and when, and see your guest codes with their validity. Remote locking only works on all-in-one Wi-Fi locks.
