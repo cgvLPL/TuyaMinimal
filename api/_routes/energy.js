@@ -61,16 +61,17 @@ module.exports = handler(['GET'], async (req) => {
   return cached('energy:' + deviceId + ':' + today + ':' + tzo, 5 * 60 * 1000, async () => {
     const reasons = [];
     let total = null;
+    let logsOk = false; // set when the power log answers, even if it finds nothing
     try { total = num((await call('GET', `/v1.0/devices/${deviceId}/statistics/total?code=add_ele`)).total); }
     catch (e) { reasons.push('Total: ' + e.message); }
 
-    // 1. Daily statistics
+    // 1. Daily statistics — a successful call is the answer even when every day is 0 kWh
+    // (an unused plug genuinely used nothing); only a refused call falls through.
     try {
       const r = await call('GET', `/v1.0/devices/${deviceId}/statistics/days?code=add_ele&end_day=${today}&start_day=${first}`);
       const map = (r && r.days) || {};
       const days = emptyDays(first).map((d) => ({ day: d.day, kwh: num(map[d.day]) || 0 }));
-      if (days.some((d) => d.kwh > 0)) return summary(days, total, 'statistics');
-      reasons.push('Daily statistics: no data');
+      return summary(days, total, 'statistics');
     } catch (e) { reasons.push('Daily statistics: ' + e.message); }
 
     const start = startOf(first, tzo), end = Math.min(Date.now(), startOf(today, tzo) + DAY);
@@ -99,6 +100,7 @@ module.exports = handler(['GET'], async (req) => {
       const sp = spec.cur_power || {};
       const scale = typeof sp.scale === 'number' ? sp.scale : 1;
       const logs = await reportLogs(deviceId, 'cur_power', start - DAY, end); // a day earlier for the starting level
+      logsOk = true; // the log service answered — an empty result means no power drawn, not a refusal
       if (logs.length) {
         const days = emptyDays(first);
         for (let i = 0; i < logs.length; i++) {
@@ -123,6 +125,10 @@ module.exports = handler(['GET'], async (req) => {
     } catch (e) { reasons.push('Power log: ' + e.message); }
 
     if (total != null) return { available: true, source: 'total', today: null, week: null, days: null, total, reasons };
+    // The power log answered but found no reports: the plug genuinely drew nothing in the
+    // last 7 days, so show zeros instead of an error. (The statistics refusals above only
+    // block the all-time total, not the daily view.)
+    if (logsOk) return summary(emptyDays(first), total, 'none');
     return { available: false, reasons };
   });
 });
