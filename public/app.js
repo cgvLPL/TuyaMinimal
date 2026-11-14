@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.17", "items": ["The HomeView face now fills the whole screen: it no longer shrinks while you drag it, so there is no dark strip at the top and bottom mid-swipe.", "Swiping on a touch screen is easier: the face leaves horizontal swipes to the app, and a small vertical wobble at the start no longer cancels the swipe."]},
   {"v": "2.91.16", "items": ["The LED strip colour diagnostic line is gone (quick control and device page), now that the colour read is fixed.", "HomeView swiping is now a direct slide: the face follows the finger with a plain sideways move instead of shrinking as you drag, and the face change is a plain slide with no scale or rounded-card animation, so it stays smooth."]},
   {"v": "2.91.15", "items": ["Fixed the LED strip's brightness pill going black: the strip reports its older colour code on the 0-1000 scale, so the saturation percentage reached 392% and the pill's lightness went negative. Saturation is now clamped to 100%, so the pill shows the strip's real colour (orange) instead of black. The hue already followed the strip correctly."]},
   {"v": "2.91.14", "items": ["The LED strip colour diagnostic now also shows on the strip's device page, under the colour wheel and swatches — it was only in the quick control, so it didn't appear in the view the strip's page opens. Nothing else changes."]},
@@ -6058,7 +6059,10 @@ function kClockPicker() {
   const kSwMove = (x, y) => {
     if (!kSw) return;
     const dx0 = x - kSw.x, dy = y - kSw.y;
-    if (Math.abs(dy) > Math.abs(dx0)) {
+    // Only call it vertical once the finger has clearly moved that way: a touch drag
+    // wobbles a few px vertically at the start, and the old "any vertical beats
+    // horizontal" check killed the swipe before it began.
+    if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx0) * 1.5) {
       // A vertical gesture, not a face swipe: stop tracking (springing back if already moving).
       kSw = null;
       if (kDrag) { const el = document.querySelector('.k26'); if (el) kSwSnapBack(el); kDrag = null; }

@@ -2,6 +2,11 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.17
+
+- The HomeView face now fills the whole screen: it no longer shrinks to a smaller card while you drag it, so there is no dark strip at the top and bottom mid-swipe. The face dots sit on top of the face, so the face does not need the space they used to take.
+- Swiping on a touch screen is easier: the face now tells the browser to leave horizontal swipes to the app (it was treating a drag as a possible scroll and fighting it), and a swipe is only cancelled as "vertical" once your finger has clearly moved that way — a small wobble at the start no longer kills it.
+
 ## 2.91.16
 
 - The LED strip colour diagnostic line is gone (quick control and device page), now that the colour read is fixed.

@@ -1669,7 +1669,7 @@ html.kiosk .tabbar, html.kiosk .rail, html.kiosk .panel { display: none !importa
 html.kiosk .app { display: block; padding: 0; }
 html.kiosk .main { max-width: none; margin: 0; height: auto; overflow: visible;
   padding: calc(var(--safe-top) + 28px) clamp(20px, 4vw, 48px) calc(var(--safe-bottom) + 32px); }
-.kiosk-wrap { display: flex; flex-direction: column; gap: 18px; min-height: calc(100dvh - 60px); }
+.kiosk-wrap { display: flex; flex-direction: column; gap: 18px; min-height: 100dvh; }
 .k-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
 .k-clock { display: flex; flex-direction: column; gap: 6px; }
 .k-time { font-size: clamp(64px, 12vw, 148px); font-weight: 300; line-height: .9; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
@@ -1915,7 +1915,8 @@ html.kiosk:not([data-bg])::before {
   --kg-shadow: 0 12px 34px rgba(0, 0, 0, 0.35);
   --kfill: rgba(255, 255, 255, 0.14);       /* controls inside a widget: a plain fill, not more glass */
   --kr: 30px; --kpad: 18px;
-  color: var(--text); gap: 22px; min-height: calc(100dvh - 60px);
+  color: var(--text); gap: 22px; min-height: 100dvh;  /* full viewport: no inset while dragging */
+  touch-action: pan-y;  /* vertical scroll stays the browser's; horizontal swipes are ours */
 }
 .k26 .k-w, .k26 .k-cap, .k26 .k-exit {
   background: var(--kg);
@@ -2008,7 +2009,7 @@ html.kiosk:not([data-bg])::before {
 /* Sideways swipes change face: stop the browser treating them as back/forward navigation */
 html.kiosk, html.kiosk body { overscroll-behavior-x: none; }
 /* Clock face (swipe from the Home face): a very large clock, the date and glanceable readings */
-.k26.k-face-clock { min-height: calc(100dvh - 60px); justify-content: center; }
+.k26.k-face-clock { min-height: 100dvh; justify-content: center; }
 .k26 .k-clockface { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 6px; min-height: calc(100dvh - 140px); }
 .k26 .k-clockface .k-exit { position: absolute; top: 0; right: 0; }
 .k26 .kc-date { font-size: calc(4.4 * var(--vu)); font-weight: 600; color: rgba(255, 255, 255, 0.86); text-shadow: 0 1px 10px rgba(0, 0, 0, 0.25); }
@@ -2027,7 +2028,7 @@ html.kiosk, html.kiosk body { overscroll-behavior-x: none; }
 
 /* Home face, after HomeView's: square tiles (big icon, name, "Room · State"); on = cream with dark
    text, off = frosted glass tinted by the wallpaper; a 2×2 thermostat; a minimal analog clock. */
-.k26.k-face-mod { min-height: calc(100dvh - 60px); }
+.k26.k-face-mod { min-height: 100dvh; }
 .k26 .k-modface { display: flex; flex-direction: column; min-height: calc(100dvh - 90px); }
 .k26 .k-modface > .kw-top { flex: none; }
 .k26 .k-modgrid { flex: 1; display: grid; grid-template-columns: repeat(var(--cols, 3), var(--cw)); grid-auto-rows: var(--ch); grid-auto-flow: row dense; gap: var(--gap);
@@ -2091,7 +2092,7 @@ html.kiosk, html.kiosk body { overscroll-behavior-x: none; }
 .k26 .k-hroom:active { color: #fff; }
 
 /* Weather face, after HomeView's: a sky for the conditions, the temperature huge in frosted glass */
-.k26.k-face-weather { min-height: calc(100dvh - 60px); }
+.k26.k-face-weather { min-height: 100dvh; }
 .k26 .k-wxface { position: relative; display: flex; flex-direction: column; justify-content: space-between; min-height: calc(100dvh - 90px); color: #fff; }
 .k26 .k-wxface::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background: radial-gradient(60% 40% at 30% 20%, rgba(255, 255, 255, 0.28), transparent 70%), radial-gradient(50% 35% at 75% 35%, rgba(255, 255, 255, 0.22), transparent 70%),
