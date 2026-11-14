@@ -452,7 +452,6 @@ h1, h2, h3, p { margin: 0; }
 
 /* ---------- RGB colour ---------- */
 .colour-ctl { display: flex; flex-direction: column; gap: 14px; width: 100%; align-items: stretch; }
-.colour-dbg { font-size: 11px; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
 .colour-preview { width: 96px; height: 96px; border-radius: 48px; align-self: center; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06); transition: background-color .15s ease; }
 .swatches { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; }
 .swatch { aspect-ratio: 1; min-height: 32px; border-radius: 50%; border: 0; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08); }
@@ -2919,7 +2918,6 @@ html:not([data-bg]) :is(.grid > .card, .room-box, .summary, .list, .hero, .readi
   background: rgba(255, 255, 255, 0.16); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
 .qc-swatches { position: relative; display: flex; gap: 14px; overflow-x: auto; scrollbar-width: none; max-width: min(360px, 92vw); padding: 6px 4px; margin-top: -10px; }
 .qc-swatches::-webkit-scrollbar { display: none; }
-.qc-colour-dbg { font-size: 11px; color: rgba(255, 255, 255, 0.5); text-align: center; margin-top: 2px; font-variant-numeric: tabular-nums; }
 .qc-sw { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; background: var(--sw);
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.25); transition: transform .2s ease, box-shadow .2s ease; }
 .qc-sw[aria-pressed="true"] { box-shadow: 0 0 0 3px rgba(20, 16, 24, 0.6), 0 0 0 5px #fff; }
@@ -3319,15 +3317,21 @@ html:not([data-bg]) .ios-pin .keypad .key:active:not(:disabled) { background: co
 .k26 .k-eb-hint { color: rgba(255, 255, 255, 0.75); font-size: 14px; font-weight: 600; padding: 0 4px; white-space: nowrap; }
 
 /* ---- Face carousel: faces slide as rounded cards ---- */
-.k26.k-car-in-l, .k26.k-car-in-r, .k26.k-zoom-in, .k-ghost { border-radius: 44px; overflow: hidden; will-change: transform; }
-.k26.k-car-in-l { animation: kCarInL .55s cubic-bezier(.3, .8, .2, 1); }
-.k26.k-car-in-r { animation: kCarInR .55s cubic-bezier(.3, .8, .2, 1); }
-.k-ghost.k-car-out-l { animation: kCarOutL .55s cubic-bezier(.3, .8, .2, 1) forwards; }
-.k-ghost.k-car-out-r { animation: kCarOutR .55s cubic-bezier(.3, .8, .2, 1) forwards; }
-@keyframes kCarInL { from { transform: translateX(106%) scale(.86); } 30% { transform: translateX(70%) scale(.86); } to { transform: none; border-radius: 0; } }
-@keyframes kCarInR { from { transform: translateX(-106%) scale(.86); } 30% { transform: translateX(-70%) scale(.86); } to { transform: none; border-radius: 0; } }
-@keyframes kCarOutL { from { transform: none; border-radius: 0; } 70% { transform: translateX(-70%) scale(.86); } to { transform: translateX(-106%) scale(.86); } }
-@keyframes kCarOutR { from { transform: none; border-radius: 0; } 70% { transform: translateX(70%) scale(.86); } to { transform: translateX(106%) scale(.86); } }
+.k26.k-car-in-l, .k26.k-car-in-r, .k-ghost.k-car-out-l, .k-ghost.k-car-out-r { will-change: transform; }
+.k26.k-zoom-in, .k-ghost.k-zoom-out { border-radius: 44px; overflow: hidden; will-change: transform; }
+/* The outgoing ghost is only on screen while it slides away: flatten its expensive paint
+   (backdrop blur, clock filters, wallpaper image) so the slide stays smooth. */
+.k-ghost .k-w, .k-ghost .k-cap, .k-ghost .k-exit, .k-ghost .kw-card { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.k-ghost [filter] { filter: none; }
+.k-ghost image { display: none; }
+.k26.k-car-in-l { animation: kCarInL .38s cubic-bezier(.3, .8, .2, 1); }
+.k26.k-car-in-r { animation: kCarInR .38s cubic-bezier(.3, .8, .2, 1); }
+.k-ghost.k-car-out-l { animation: kCarOutL .38s cubic-bezier(.3, .8, .2, 1) forwards; }
+.k-ghost.k-car-out-r { animation: kCarOutR .38s cubic-bezier(.3, .8, .2, 1) forwards; }
+@keyframes kCarInL { from { transform: translateX(106%); } to { transform: none; } }
+@keyframes kCarInR { from { transform: translateX(-106%); } to { transform: none; } }
+@keyframes kCarOutL { from { transform: none; } to { transform: translateX(-106%); } }
+@keyframes kCarOutR { from { transform: none; } to { transform: translateX(106%); } }
 /* Opening the weather from a widget: it grows out of the tap point */
 .k26.k-zoom-in { animation: kZoomIn .5s cubic-bezier(.3, 1.1, .3, 1); }
 .k-ghost.k-zoom-out { animation: kZoomOut .5s ease forwards; }

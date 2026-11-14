@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.16", "items": ["The LED strip colour diagnostic line is gone (quick control and device page), now that the colour read is fixed.", "HomeView swiping is now a direct slide: the face follows the finger with a plain sideways move instead of shrinking as you drag, and the face change is a plain slide with no scale or rounded-card animation, so it stays smooth."]},
   {"v": "2.91.15", "items": ["Fixed the LED strip's brightness pill going black: the strip reports its older colour code on the 0-1000 scale, so the saturation percentage reached 392% and the pill's lightness went negative. Saturation is now clamped to 100%, so the pill shows the strip's real colour (orange) instead of black. The hue already followed the strip correctly."]},
   {"v": "2.91.14", "items": ["The LED strip colour diagnostic now also shows on the strip's device page, under the colour wheel and swatches — it was only in the quick control, so it didn't appear in the view the strip's page opens. Nothing else changes."]},
   {"v": "2.91.13", "items": ["Temporary diagnostic for the LED strip colour: a small line under a colour light's swatches now shows both colour codes the strip reports, so the wrong read can be traced. Nothing else changes."]},
@@ -1455,20 +1456,6 @@
     const code = colourCode(d), m = colourMax(code), c = currentColour(d);
     return hsvCss(c.h, (c.s / m.s) * 100);
   }
-  // Temporary diagnostic (2.91.13): the strip's colour still reads blue on 2.91.12, so show both
-  // raw colour codes under the swatches — which hues each reports and which one the app trusts.
-  // Remove once the colour read is fixed.
-  function colourDbg(d) {
-    const fmt = (code, label) => {
-      if (!(code in d.status)) return label + ' \u2014';
-      const raw = d.status[code], c = parseColour(raw);
-      if (c) return label + ' h' + Math.round(c.h) + ' s' + c.s + ' v' + c.v;
-      const s = typeof raw === 'string' ? raw : JSON.stringify(raw);
-      return label + ' ' + String(s).slice(0, 28) + ' ?';
-    };
-    const code = colourCode(d);
-    return fmt('colour_data_v2', 'v2') + ' \u00b7 ' + fmt('colour_data', 'v1') + (code ? ' \u2192 uses ' + (code === 'colour_data_v2' ? 'v2' : 'v1') : '');
-  }
   function lightRange(d, code, isWarmth) {
     const v2 = code && code.endsWith('_v2');
     const fallback = isWarmth
@@ -2683,7 +2670,6 @@
         : dim
         ? '<div class="qc-pill qc-slider" role="slider" tabindex="0" aria-label="' + esc(d.name) + ' ' + qcSliderFor(d).label + '" aria-valuemin="0" aria-valuemax="100"><span class="qc-fill"></span><span class="qc-ico">' + glyph(iconKeyOf(d), 34) + '</span></div>' +
           (swatches ? '<div class="qc-swatches" role="group" aria-label="Colors"></div>' : '') +
-          (colourCode(d) ? '<div class="qc-colour-dbg"></div>' : '') +
           (kind === 'cover' ? '<div class="qc-cover-btns" role="group" aria-label="Move">' + coverButtons(d, '-qc') + '</div>' : '')
         : '<button class="qc-pill qc-switch" role="switch" aria-label="' + esc(d.name) + '" data-act="toggle" data-id="' + esc(d.id) + '"><span class="qc-knob">' + glyph(iconKeyOf(d), 34) + '</span></button>') +
       '<button class="qc-gear" aria-label="All controls for ' + esc(d.name) + '">' + GEAR + '</button>';
@@ -2827,8 +2813,6 @@
     if (acBody && !S.dragging) patchHtml(acBody, acPage(d, '-qa'));
     const sws = el.querySelector('.qc-swatches');
     if (sws) patchHtml(sws, qcSwatches(d));
-    const dbg = el.querySelector('.qc-colour-dbg');
-    if (dbg) dbg.textContent = colourDbg(d);
     const cbs = el.querySelector('.qc-cover-btns');
     if (cbs) { patchHtml(cbs, coverButtons(d, '-qc')); el.classList.toggle('moving', !!coverMotion(d)); }
     // A colour light fills its pill with the colour it's showing.
@@ -3673,7 +3657,6 @@
       '<span class="cw-bar-icon" aria-hidden="true">' + icon('sun', 18) + '</span>' +
       '<span class="cw-bar-val" data-colour-label="v" aria-hidden="true">' + vPct + '%</span></div>' +
       '<span class="sr-only" data-colour-label="sat">' + sPct + '%</span>' +
-      (colourCode(d) ? '<div class="colour-dbg">' + colourDbg(d) + '</div>' : '') +
       '</div>';
   }
   // Wheel geometry: hue 0 points right and runs clockwise; saturation is the distance from the centre.
@@ -5937,9 +5920,11 @@
     if (l.pct != null && l.pct !== l.pct0) qcSliderFor(l.d).commit(l.d, l.pct);
     setTimeout(() => { l.cell.classList.remove('km-leveling'); const v = l.cell.querySelector('.km-lvl'); if (v) v.remove(); render(); }, 450);
   }));
-  // ---- Face carousel: the old face slides away as a rounded card while the new one slides in ----
+  // ---- Face carousel: the old face slides away while the new one slides in, edge to edge ----
   // A swipe hands its drag offset over (kDragX) so the faces continue from where the finger left
-  // them instead of jumping back to centre first; taps still use the CSS card animation.
+  // them instead of jumping back to centre first; taps still use the CSS slide animation.
+  // The slide is transform-only (no scale, no rounded card): scaling and animating the corner
+  // radius forced the face to re-rasterise every frame, which is what made swiping feel laggy.
   function kCarousel(dir, origin) {
     const old = document.querySelector('.k26');
     let ghost = null;
@@ -5955,11 +5940,10 @@
       document.body.appendChild(ghost);
       if (dragX != null) {
         const w = r.width || innerWidth, outX = dir === 'l' ? -w : w;
-        const s = 1 - Math.min(Math.abs(dragX) / w, 1) * 0.05;
         ghost.animate([
-          { transform: 'translateX(' + dragX + 'px) scale(' + s.toFixed(3) + ')' },
-          { transform: 'translateX(' + outX + 'px) scale(.86)' },
-        ], { duration: 350, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'forwards' });
+          { transform: 'translateX(' + dragX + 'px)' },
+          { transform: 'translateX(' + outX + 'px)' },
+        ], { duration: 320, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'forwards' });
       }
     }
     return () => {
@@ -5969,17 +5953,17 @@
           const cls = origin ? 'k-zoom-in' : 'k-car-in-' + dir;
           if (origin) k.style.transformOrigin = origin.x + 'px ' + origin.y + 'px';
           k.classList.add(cls);
-          setTimeout(() => { k.classList.remove(cls); k.style.transformOrigin = ''; }, 560);
+          setTimeout(() => { k.classList.remove(cls); k.style.transformOrigin = ''; }, 400);
         } else {
           const w = k.getBoundingClientRect().width || innerWidth;
           const inX = dragX + (dir === 'l' ? w : -w);
           k.animate([
-            { transform: 'translateX(' + inX + 'px) scale(.86)', borderRadius: '44px' },
-            { transform: 'translateX(0px) scale(1)', borderRadius: '0px' },
-          ], { duration: 350, easing: 'cubic-bezier(.2,.7,.2,1)' });
+            { transform: 'translateX(' + inX + 'px)' },
+            { transform: 'translateX(0px)' },
+          ], { duration: 320, easing: 'cubic-bezier(.2,.7,.2,1)' });
         }
       }
-      if (ghost) setTimeout(() => ghost.remove(), dragX == null ? 560 : 380);
+      if (ghost) setTimeout(() => ghost.remove(), dragX == null ? 400 : 340);
     };
   }
   // ---- Numerals clock (HomeView's big-numeral analog face): 12, 3, 6 and 9 huge and overlapping,
@@ -6086,11 +6070,13 @@ function kClockPicker() {
     const faces = kFaces(), i = faces.indexOf(S.kFace);
     let dx = dx0;
     if ((i <= 0 && dx > 0) || (i >= faces.length - 1 && dx < 0)) dx = dx0 * 0.35;
-    const w = el.offsetWidth || innerWidth;
-    const s = 1 - Math.min(Math.abs(dx) / w, 1) * 0.05;
+    // Pure translate: scaling the face while dragging forced the browser to re-rasterise
+    // the whole face (backdrop blur, clock filters) every frame, which is what made the
+    // swipe feel laggy. The compositor can move a translated layer for free.
+    const w = (kDrag && kDrag.w) || el.offsetWidth || innerWidth;
     el.style.transition = 'none';
     el.style.willChange = 'transform';
-    el.style.transform = 'translateX(' + dx + 'px) scale(' + s.toFixed(3) + ')';
+    el.style.transform = 'translateX(' + dx + 'px)';
     kDrag = { dx, w };
   };
   const kSwEnd = (x, y) => {

@@ -2,6 +2,11 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.16
+
+- The LED strip colour diagnostic line is gone (quick control and device page), now that the colour read is fixed.
+- HomeView swiping is now a direct slide: the face follows the finger with a plain sideways move instead of shrinking as you drag, and the face change is a plain slide with no scale or rounded-card animation. Scaling and animating the corner radius forced the whole face (backdrop blur, clock filters) to re-rasterise every frame, which is what made swiping feel laggy. The slide is also shorter (0.38s), and the outgoing face is flattened while it slides away so it costs less to paint.
+
 ## 2.91.15
 
 - Fixed the LED strip's brightness pill going black: the strip reports its older colour code on the 0-1000 scale, so the saturation percentage reached 392% and the pill's lightness went negative. Saturation is now clamped to 100%, so the pill shows the strip's real colour (orange) instead of black. The hue already followed the strip correctly.
