@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.22", "items": ["Fixed the Room row on a device page: the room name was sitting in the middle of the row because the value and the chevron were separate items in the row — they're now grouped together, so the room name sits right-aligned next to the chevron, like the Model row below it."]},
   {"v": "2.91.21", "items": ["You can now move a device to another room right from its own page: tap Room, pick the new room, and it's moved in Tuya too — no need to open the Tuya app. The room also shows in the Tuya app, since the move is written to Tuya's own room data."]},
   {"v": "2.91.20", "items": ["The bottom navigation is now a dark frosted-glass pill: the bar is a darker tinted glass over your wallpaper, the current tab sits in a darker capsule with an amber icon, and the whole pill sits lower — closer to the bottom edge."]},
   {"v": "2.91.19", "items": ["The HomeView face is now truly edge to edge: the face was sitting inside the page container's padding (28px at the top, up to 48px at the sides), so it never actually reached the screen edges — the old pinned background layer was just hiding that. The container padding is gone and the face carries that padding itself, so the face fills the whole screen and its background with it, while the content keeps the same margins."]},
@@ -4249,7 +4250,7 @@
     const roomOpen = S.roomPicking === d.id;
     if (roomList.length) {
       rows.push('<button class="list-row" data-act="room-open" data-id="' + esc(d.id) + '" data-key="room-open-' + esc(d.id) + '" aria-expanded="' + roomOpen + '">' +
-        '<span class="label">Room</span><span class="value">' + esc(d.room || 'No room') + '</span>' + icon(roomOpen ? 'down' : 'chevron', 16) + '</button>');
+        '<span class="label">Room</span><span class="value icon-value">' + esc(d.room || 'No room') + icon(roomOpen ? 'down' : 'chevron', 16) + '</span></button>');
       if (roomOpen) {
         for (const r of roomList) {
           rows.push('<button class="list-row room-pick-row" data-act="room-set" data-id="' + esc(d.id) + '" data-room="' + esc(r.id) + '" data-roomname="' + esc(r.name) + '" data-key="room-set-' + esc(r.id) + '">' +

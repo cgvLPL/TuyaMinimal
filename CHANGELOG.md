@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.22
+
+- Fixed the Room row on a device page: the room name was sitting in the middle of the row because the value and the chevron were separate items in the row — they're now grouped together, so the room name sits right-aligned next to the chevron, like the Model row below it.
+
 ## 2.91.21
 
 - You can now move a device to another room right from its own page: tap Room, pick the new room, and it's moved in Tuya too — no need to open the Tuya app. The room also shows in the Tuya app, since the move is written to Tuya's own room data.
