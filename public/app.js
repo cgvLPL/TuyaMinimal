@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.15", "items": ["Fixed the LED strip's brightness pill going black: the strip reports its older colour code on the 0-1000 scale, so the saturation percentage reached 392% and the pill's lightness went negative. Saturation is now clamped to 100%, so the pill shows the strip's real colour (orange) instead of black. The hue already followed the strip correctly."]},
   {"v": "2.91.14", "items": ["The LED strip colour diagnostic now also shows on the strip's device page, under the colour wheel and swatches — it was only in the quick control, so it didn't appear in the view the strip's page opens. Nothing else changes."]},
   {"v": "2.91.13", "items": ["Temporary diagnostic for the LED strip colour: a small line under a colour light's swatches now shows both colour codes the strip reports, so the wrong read can be traced. Nothing else changes."]},
   {"v": "2.91.12", "items": ["Colour lights that report both colour codes now use the one that's actually current: some LED strips keep the older colour value up to date and let the newer one go stale, so the app showed blue while the strip was orange. The pill, the ring and the wheel now follow the strip's real colour."]},
@@ -1447,7 +1448,9 @@
     const code = colourCode(d), m = colourMax(code);
     return parseColour(d.status[code]) || { h: 30, s: m.s, v: m.v };
   }
-  function hsvCss(h, sPct) { return 'hsl(' + Math.round(h) + ', ' + Math.round(sPct) + '%, ' + Math.round(50 + (100 - sPct) * 0.4) + '%)'; }
+  // Some strips report the older colour code on the 0-1000 scale, so the saturation
+  // percentage can exceed 100 and the lightness below goes negative (black pill).
+  function hsvCss(h, sPct) { sPct = Math.max(0, Math.min(100, sPct)); return 'hsl(' + Math.round(h) + ', ' + Math.round(sPct) + '%, ' + Math.round(50 + (100 - sPct) * 0.4) + '%)'; }
   function colourCss(d) {
     const code = colourCode(d), m = colourMax(code), c = currentColour(d);
     return hsvCss(c.h, (c.s / m.s) * 100);
@@ -2406,7 +2409,7 @@
     if (kindOf(d) === 'light') {
       if (inColour(d)) {
         const m = colourMax(colourCode(d)), c = currentColour(d);
-        return 'hsla(' + Math.round(c.h) + ', ' + Math.max(60, Math.round((c.s / m.s) * 100)) + '%, 60%, 0.6)';
+        return 'hsla(' + Math.round(c.h) + ', ' + Math.min(100, Math.max(60, Math.round((c.s / m.s) * 100))) + '%, 60%, 0.6)';
       }
       const bc = brightCode(d);
       if (bc && specReady(d)) return 'rgba(255, 206, 140, ' + (0.25 + 0.5 * toPct(d.status[bc], lightRange(d, bc)) / 100).toFixed(2) + ')';
@@ -2649,7 +2652,7 @@
         '<button class="qc-sw" style="--sw:' + col + '" data-act="warmth" data-pct="' + p + '" data-id="' + esc(d.id) + '" aria-label="' + n + '" aria-pressed="' + (!colour && isOn(d) && Math.abs(w - p) <= 12) + '"></button>').join('');
     }
     if (cc) {
-      const sPct = Math.round((c.s / m.s) * 100);
+      const sPct = Math.min(100, Math.round((c.s / m.s) * 100));
       html += SWATCHES.map(([n, h]) => '<button class="qc-sw" style="--sw:' + hsvCss(h, 100) + '" data-act="swatch" data-h="' + h + '" data-id="' + esc(d.id) + '" aria-label="' + n + '" aria-pressed="' + (colour && isOn(d) && sPct >= 85 && Math.min(Math.abs(c.h - h), 360 - Math.abs(c.h - h)) <= 10) + '"></button>').join('');
     }
     return html;
@@ -3653,7 +3656,7 @@
   // iOS-style: a colour wheel (hue around, saturation outwards), preset swatches and a thick brightness bar.
   function colourControls(d, sfx) {
     const code = colourCode(d), m = colourMax(code), c = currentColour(d);
-    const sPct = Math.round((c.s / m.s) * 100), vPct = toPct(c.v, { min: m.vmin, max: m.v });
+    const sPct = Math.min(100, Math.round((c.s / m.s) * 100)), vPct = toPct(c.v, { min: m.vmin, max: m.v });
     const id = esc(d.id) + sfx, did = esc(d.id);
     const [tx, ty] = cwPoint(c.h, sPct);
     const near = (h) => sPct >= 85 && Math.min(Math.abs(c.h - h), 360 - Math.abs(c.h - h)) <= 10;

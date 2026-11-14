@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.15
+
+- Fixed the LED strip's brightness pill going black: the strip reports its older colour code on the 0-1000 scale, so the saturation percentage reached 392% and the pill's lightness went negative. Saturation is now clamped to 100%, so the pill shows the strip's real colour (orange) instead of black. The hue already followed the strip correctly.
+
 ## 2.91.14
 
 - The LED strip colour diagnostic now also shows on the strip's device page, under the colour wheel and swatches — it was only in the quick control, so it didn't appear in the view the strip's page opens. Nothing else changes.
