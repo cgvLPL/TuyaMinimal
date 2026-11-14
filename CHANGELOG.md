@@ -2,6 +2,11 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.25
+
+- Smart door locks get their own section on the device page: unlock or lock remotely, see the last few unlocks with how they were opened (fingerprint, PIN, guest code) and when, and see your guest codes with their validity. Remote locking only works on all-in-one Wi-Fi locks.
+- Every device page now has a Firmware section: it shows the current firmware version, and when an update is available, an Update button to install it.
+
 ## 2.91.24
 
 - The Energy section's all-time total no longer needs the data statistics service: when Tuya refuses the statistics total, the app now reads the plug's own live cumulative counter instead, so the All time row shows up without any subscription.

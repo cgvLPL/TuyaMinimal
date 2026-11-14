@@ -22,7 +22,9 @@ const routes = {
   activity: require('./_routes/activity'),
   irspec: require('./_routes/irspec'),
   history: require('./_routes/history'),
-  timer: require('./_routes/timer')
+  timer: require('./_routes/timer'),
+  lock: require('./_routes/lock'),
+  firmware: require('./_routes/firmware')
 };
 
 module.exports = async (req, res) => {

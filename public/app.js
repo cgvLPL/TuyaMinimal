@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.25", "items": ["Smart door locks get their own section on the device page: unlock or lock remotely, see the last few unlocks with how they were opened (fingerprint, PIN, guest code) and when, and see your guest codes with their validity. Remote locking only works on all-in-one Wi-Fi locks.", "Every device page now has a Firmware section: it shows the current firmware version, and when an update is available, an Update button to install it."]},
   {"v": "2.91.24", "items": ["The Energy section's all-time total no longer needs the data statistics service: when Tuya refuses the statistics total, the app now reads the plug's own live cumulative counter instead, so the All time row shows up without any subscription."]},
   {"v": "2.91.23", "items": ["Fixed the Energy section showing a \"Tuya refused\" error for a plug that simply hasn't been used: when the power log answers but finds no reports, the section now shows 0 kWh for the last 7 days instead of an error, and a successful daily-statistics call is shown even when every day is 0 kWh. The all-time total still needs the data statistics service authorized in your Tuya cloud project."]},
   {"v": "2.91.22", "items": ["Fixed the Room row on a device page: the room name was sitting in the middle of the row because the value and the chevron were separate items in the row — they're now grouped together, so the room name sits right-aligned next to the chevron, like the Model row below it."]},
@@ -1123,7 +1124,9 @@
     histHours: 24,
     bg: store.get('bg') || 'system',  // optional background: 'system' or 'aura'
     activity: null,      // { homeId, entries, more, loading, error }
-    energy: {},          // deviceId -> { at, available, today, week, days, total } | 'loading'       // { homeId, at, available, temp, code, isDay, unit } for the greeting
+    energy: {},          // deviceId -> { at, available, today, week, days, total } | 'loading'
+    lock: {},             // deviceId -> { at, history: [...], passwords: [...] } | 'loading'
+    firmware: {},         // deviceId -> { at, channels: [...] } | 'loading'       // { homeId, at, available, temp, code, isDay, unit } for the greeting
     tempUnit: store.get('tempUnit') || 'c',  // Celsius unless changed in Me         // deviceId -> time of the last local command (avoid flicker)          // remoteId + key -> true briefly after a button is sent   // deviceId whose icon picker is open
     order: (() => { try { return JSON.parse(store.get('order') || '{}') || {}; } catch (e) { return {}; } })(),  // homeId -> [deviceId]
     hidden: (() => { try { return JSON.parse(store.get('hidden') || '{}') || {}; } catch (e) { return {}; } })(),  // homeId -> [deviceId] hidden from Home
@@ -1381,7 +1384,8 @@
     cover: ['cl', 'clkg', 'mc'],
     fan: ['fs', 'fskg'],
     sensor: ['wsdcg', 'mcs', 'pir', 'ywbj', 'rqbj', 'sj', 'cobj', 'hps', 'ldcg', 'zd', 'co2bj', 'pm25', 'pm2.5', 'jqbj', 'hjjcy', 'kqzljcy', 'voc', 'vocbj'],
-    camera: ['sp']
+    camera: ['sp'],
+    lock: ['ms', 'jtmspro', 'jtmsbh', 'mk', 'gyms', 'hotelms', 'videolock', 'photolock']
   };
   function kindOf(d) {
     if (d.sensorOnly) return 'sensor';
@@ -2067,6 +2071,117 @@
         '<button class="list-row" data-act="energy-retry" data-id="' + esc(d.id) + '" data-key="energy-retry"><span class="label">Try again</span>' + icon('chevron', 16) + '</button>';
     }
     return html + '</div>';
+  }
+
+  function hasLock(d) { return kindOf(d) === 'lock'; }
+  async function loadLock(d, force) {
+    const l = S.lock[d.id];
+    if (l === 'loading' || (!force && l && Date.now() - l.at < 5 * 60 * 1000)) return;
+    S.lock[d.id] = 'loading';
+    try {
+      const r = await api('lock?deviceId=' + encodeURIComponent(d.id));
+      S.lock[d.id] = Object.assign({ at: Date.now() }, r);
+    } catch (err) {
+      S.lock[d.id] = { at: Date.now(), available: false, error: err.message };
+    }
+    const typing = document.activeElement && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName) && document.activeElement.type !== 'range';
+    if (!S.dragging && !typing) render();
+  }
+  function lockWhen(at) {
+    const dd = new Date(at);
+    return dd.toLocaleDateString([], { weekday: 'short' }) + ' ' + dd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  function lockSection(d) {
+    if (!hasLock(d)) return '';
+    if (!S.lock[d.id]) loadLock(d);
+    const l = S.lock[d.id];
+    const batt = typeof d.status.battery_percentage === 'number' ? d.status.battery_percentage : null;
+    let html = '<h2 class="section-title">Lock</h2><div class="list">';
+    if (batt != null) html += '<div class="list-row"><span class="label">Battery</span><span class="value">' + batt + '%</span></div>';
+    html += '<button class="list-row" data-act="lock-unlock" data-id="' + esc(d.id) + '" data-key="lock-unlock"><span class="label">Unlock door</span>' + icon('chevron', 16) + '</button>' +
+      '<button class="list-row" data-act="lock-lock" data-id="' + esc(d.id) + '" data-key="lock-lock"><span class="label">Lock door</span>' + icon('chevron', 16) + '</button>';
+    if (l === 'loading' || !l) {
+      html += '<div class="list-row"><span class="meta">Loading lock…</span></div>';
+    } else if (l.available === false) {
+      html += '<div class="list-row"><span class="meta">' + esc(l.error || 'Could not load the lock.') + '</span></div>' +
+        '<button class="list-row" data-act="lock-retry" data-id="' + esc(d.id) + '" data-key="lock-retry"><span class="label">Try again</span>' + icon('chevron', 16) + '</button>';
+    } else {
+      if (l.history && l.history.length) {
+        l.history.slice(0, 5).forEach((h) => {
+          html += '<div class="list-row"><span class="label">' + esc(h.method) + (h.detail ? ' \u00b7 ' + esc(h.detail) : '') + '</span><span class="value">' + esc(lockWhen(h.at)) + '</span></div>';
+        });
+      } else {
+        html += '<div class="list-row"><span class="meta">No unlocks in the last 7 days.</span></div>';
+      }
+      if (l.passwords && l.passwords.length) {
+        html += '<div class="list-row"><span class="meta">Guest codes</span></div>';
+        l.passwords.forEach((p) => {
+          const when = (p.validFrom ? lockWhen(p.validFrom) : '\u2026') + ' \u2013 ' + (p.validTo ? lockWhen(p.validTo) : '\u2026');
+          html += '<div class="list-row"><span class="label">' + esc(p.name || 'Guest code') + (p.frozen ? ' \u00b7 frozen' : '') + '</span><span class="value">' + esc(when) + '</span></div>';
+        });
+      }
+    }
+    return html + '</div>';
+  }
+  async function lockOperate(d, op) {
+    toast(op === 'unlock' ? 'Unlocking\u2026' : 'Locking\u2026');
+    try {
+      await api('lock', { method: 'POST', body: { op, deviceId: d.id, name: d.name } });
+      toast(op === 'unlock' ? 'Door unlocked.' : 'Door locked.');
+      delete S.lock[d.id];
+      refresh();
+    } catch (err) {
+      toast('Couldn\u2019t ' + (op === 'unlock' ? 'unlock' : 'lock') + ' it: ' + err.message);
+    }
+  }
+  async function loadFirmware(d, force) {
+    const f = S.firmware[d.id];
+    if (f === 'loading' || (!force && f && Date.now() - f.at < 5 * 60 * 1000)) return;
+    S.firmware[d.id] = 'loading';
+    try {
+      const r = await api('firmware?deviceId=' + encodeURIComponent(d.id));
+      S.firmware[d.id] = Object.assign({ at: Date.now() }, r);
+    } catch (err) {
+      S.firmware[d.id] = { at: Date.now(), available: false, error: err.message };
+    }
+    const typing = document.activeElement && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName) && document.activeElement.type !== 'range';
+    if (!S.dragging && !typing) render();
+  }
+  function firmwareSection(d) {
+    if (!S.firmware[d.id]) loadFirmware(d);
+    const f = S.firmware[d.id];
+    let html = '<h2 class="section-title">Firmware</h2><div class="list">';
+    if (f === 'loading' || !f) {
+      html += '<div class="list-row"><span class="meta">Checking firmware\u2026</span></div>';
+    } else if (f.available === false) {
+      html += '<div class="list-row"><span class="meta">' + esc(f.error || 'Could not check the firmware.') + '</span></div>' +
+        '<button class="list-row" data-act="firmware-retry" data-id="' + esc(d.id) + '" data-key="firmware-retry"><span class="label">Try again</span>' + icon('chevron', 16) + '</button>';
+    } else if (!f.channels || !f.channels.length) {
+      html += '<div class="list-row"><span class="meta">No firmware information for this device.</span></div>';
+    } else {
+      f.channels.forEach((c) => {
+        html += '<div class="list-row"><span class="label">Version</span><span class="value">' + esc(c.current || '\u2014') + '</span></div>';
+        if (c.upgrading) {
+          html += '<div class="list-row"><span class="meta">Updating to ' + esc(c.target) + '\u2026</span></div>';
+        } else if (c.available) {
+          html += '<button class="list-row" data-act="firmware-update" data-id="' + esc(d.id) + '" data-channel="' + c.channel + '" data-key="firmware-update-' + c.channel + '"><span class="label">Update to ' + esc(c.target) + '</span>' + icon('chevron', 16) + '</button>';
+        } else {
+          html += '<div class="list-row"><span class="meta">Up to date.</span></div>';
+        }
+      });
+    }
+    return html + '</div>';
+  }
+  async function firmwareStart(d, channel) {
+    toast('Starting the update\u2026');
+    try {
+      await api('firmware', { method: 'POST', body: { deviceId: d.id, channel: Number(channel), name: d.name } });
+      toast('Update started. The device will restart when it finishes.');
+      delete S.firmware[d.id];
+      render();
+    } catch (err) {
+      toast('Couldn\u2019t start the update: ' + err.message);
+    }
   }
 
   // Like the Home app: "Cooling to 24°", "Heating to 28°", "Auto, 24°", "Fan only", "Drying".
@@ -4274,6 +4389,8 @@
       '<div class="list">' + rows.join('') + '</div>' +
       (d.online ? timerSection(d) : '') +
       (d.online ? energySection(d) : '') +
+      (d.online ? lockSection(d) : '') +
+      (d.online ? firmwareSection(d) : '') +
       '</div>';
   }
 
@@ -6959,6 +7076,11 @@ function kClockPicker() {
         break;
       }
       case 'energy-retry': if (d) { delete S.energy[d.id]; render(); } break;
+      case 'lock-retry': if (d) { delete S.lock[d.id]; render(); } break;
+      case 'lock-unlock': if (d) lockOperate(d, 'unlock'); break;
+      case 'lock-lock': if (d) lockOperate(d, 'lock'); break;
+      case 'firmware-retry': if (d) { delete S.firmware[d.id]; render(); } break;
+      case 'firmware-update': if (d) firmwareStart(d, el.dataset.channel); break;
       case 'lmode': {
         if (!d) break;
         if (el.dataset.val === 'colour') sendColour(d, currentColour(d));
@@ -7881,6 +8003,7 @@ function kClockPicker() {
         { id: 'dev21', name: 'Main breaker', category: 'dlq', product: 'Smart circuit breaker', online: true, room: 'Other', status: { switch: true, phase_a: 'CPEABfAAAWg=', total_forward_energy: 128473, leakage_current: 2, temp_current: 34, fault: 0 } },
         { id: 'dev4', name: 'Kettle plug', category: 'cz', product: 'Smart plug with energy monitoring', online: true, room: 'Kitchen', status: { switch_1: false, cur_power: 0, cur_voltage: 2301, cur_current: 0, add_ele: 0 } },
         { id: 'dev5', name: 'Front door', category: 'mcs', product: 'Door sensor', online: true, room: 'Hallway', status: { doorcontact_state: false, battery_percentage: 86 } },
+        { id: 'dev15', name: 'Front door lock', category: 'ms', product: 'Smart door lock', online: true, room: 'Hallway', status: { battery_percentage: 82 } },
         { id: 'dev6', name: 'Porch camera', category: 'sp', product: 'Outdoor camera', online: true, room: 'Hallway', status: {} },
         { id: 'dev10', name: 'Garage plug', category: 'cz', product: 'Smart plug', online: false, room: '', status: { switch_1: false } },
         { id: 'ir1', name: 'Study AC', category: 'infrared_ac', product: 'IR remote', online: true, room: 'Bedroom', status: {}, ir: { hub: 'hub1', categoryId: 5, ac: true, brand: 'Daikin', state: { power: false, mode: 0, temp: 24, wind: 0 } } },
@@ -8043,6 +8166,28 @@ function kClockPicker() {
         if (path.startsWith('timer?')) return { timers: clone(demoTimers[id]) };
         if (b.op === 'add') demoTimers[id].push({ id: 't' + Date.now(), name: 'Home', time: b.time, date: b.date, loops: '0000000', functions: b.functions });
         if (b.op === 'delete') demoTimers[id] = demoTimers[id].filter((t) => t.id !== b.timerId);
+        return { ok: true };
+      }
+      if (path.startsWith('lock')) {
+        if (path.startsWith('lock?')) {
+          const now = Date.now();
+          return {
+            history: [
+              { at: now - 2 * 3600000, method: 'Fingerprint', detail: 'Ray' },
+              { at: now - 9 * 3600000, method: 'PIN code', detail: '' },
+              { at: now - 26 * 3600000, method: 'Guest code', detail: 'Cleaner' }
+            ],
+            passwords: [{ id: 'pw1', name: 'Cleaner', validFrom: now - 86400000, validTo: now + 6 * 86400000, frozen: false }]
+          };
+        }
+        return { ok: true };
+      }
+      if (path.startsWith('firmware')) {
+        if (path.startsWith('firmware?')) {
+          const id = decodeURIComponent((path.match(/deviceId=([^&]+)/) || [])[1] || '');
+          if (id === 'dev15') return { channels: [{ channel: 0, current: '1.4.2', target: '1.5.0', available: true, upgrading: false, desc: 'Improved battery reporting.' }] };
+          return { channels: [{ channel: 0, current: '1.2.0', target: '', available: false, upgrading: false, desc: '' }] };
+        }
         return { ok: true };
       }
       if (path.startsWith('irspec')) {
