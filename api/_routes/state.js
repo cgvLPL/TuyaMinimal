@@ -41,7 +41,7 @@ function acStateFromStatus(statusList) {
 }
 const IR_AC_CATEGORY = 5;              // Tuya IR category ID for air conditioners
 
-function pickDevice(d, roomOf) {
+function pickDevice(d, roomOf, roomIdOf) {
   // Only forward what the app needs. Never forward local_key or IP details.
   const status = {};
   for (const s of d.status || []) status[s.code] = s.value;
@@ -53,6 +53,7 @@ function pickDevice(d, roomOf) {
     online: !!d.online,
     status,
     room: roomOf[d.id] || '',
+    roomId: (roomIdOf && roomIdOf[d.id]) || '',
     ir: d.ir || undefined,
     sensorOnly: d.sensorOnly || undefined
   };
@@ -223,6 +224,7 @@ module.exports = handler(['GET'], async (req) => {
   if (homesRes.error) warnings.push('Homes: ' + homesRes.error);
   let rooms = [], scenes = [], automations = [];
   const roomOf = {};
+  const roomIdOf = {};
   let inHome = null; // Set of device IDs that belong to the selected home
 
   if (home) {
@@ -233,7 +235,7 @@ module.exports = handler(['GET'], async (req) => {
       if (r.error) warnings.push(label + ': ' + r.error);
     }
     rooms = roomData.rooms;
-    lists.forEach((l, i) => { for (const d of l.value || []) roomOf[d.id || d.dev_id] = rooms[i].name; });
+    lists.forEach((l, i) => { for (const d of l.value || []) { roomOf[d.id || d.dev_id] = rooms[i].name; roomIdOf[d.id || d.dev_id] = rooms[i].id; } });
 
     // A remembered home device list can be out of date (a device added in the Tuya app since).
     // If a live device isn't in any home we know of, look this home's list up again.
@@ -316,9 +318,10 @@ module.exports = handler(['GET'], async (req) => {
     homes,
     homeId: home ? home.id : null,
     rooms: rooms.map((r) => r.name),
+    roomList: rooms,
     devices: irDevices.map((d) => {
-      const out = pickDevice(d, roomOf);
-      if (!out.room && d.hubRoomFrom) out.room = roomOf[d.hubRoomFrom] || '';
+      const out = pickDevice(d, roomOf, roomIdOf);
+      if (!out.room && d.hubRoomFrom) { out.room = roomOf[d.hubRoomFrom] || ''; out.roomId = roomIdOf[d.hubRoomFrom] || ''; }
       return out;
     }),
     scenes,

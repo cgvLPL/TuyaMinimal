@@ -11,6 +11,7 @@ const routes = {
   automation: require('./_routes/automation'),
   'automation-edit': require('./_routes/automation-edit'),
   rename: require('./_routes/rename'),
+  'room-move': require('./_routes/room-move'),
   ir: require('./_routes/ir'),
   login: require('./_routes/login'),
   logout: require('./_routes/logout'),

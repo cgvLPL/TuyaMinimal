@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.21", "items": ["You can now move a device to another room right from its own page: tap Room, pick the new room, and it's moved in Tuya too — no need to open the Tuya app. The room also shows in the Tuya app, since the move is written to Tuya's own room data."]},
   {"v": "2.91.20", "items": ["The bottom navigation is now a dark frosted-glass pill: the bar is a darker tinted glass over your wallpaper, the current tab sits in a darker capsule with an amber icon, and the whole pill sits lower — closer to the bottom edge."]},
   {"v": "2.91.19", "items": ["The HomeView face is now truly edge to edge: the face was sitting inside the page container's padding (28px at the top, up to 48px at the sides), so it never actually reached the screen edges — the old pinned background layer was just hiding that. The container padding is gone and the face carries that padding itself, so the face fills the whole screen and its background with it, while the content keeps the same margins."]},
   {"v": "2.91.18", "items": ["The numerals clock's background no longer pulls in from the edges while you swipe: it was painted on a layer pinned to the screen, which the browser re-anchors once the face starts moving — it's now painted on the face itself, so it slides away with the face and stays edge to edge. The night look is unchanged (amber numerals on black)."]},
@@ -1092,6 +1093,7 @@
     dragging: false,
     renaming: null,
     iconPicking: null,
+    roomPicking: null,   // deviceId whose Room picker is open on its device page
     pinEntry: '',        // digits typed on the keypad
     pinStage: 'enter',   // PIN setup: 'enter' then 'confirm'
     pinFirst: '',
@@ -2257,7 +2259,7 @@
   function switchHome(id) {
     if (!id || (S.data && id === S.data.homeId)) return;
     S.homeId = id; store.set('homeId', id); S.room = 'All';
-    S.data = null; S.iconPicking = null; S.renaming = null; S.sceneState = {};
+    S.data = null; S.iconPicking = null; S.roomPicking = null; S.renaming = null; S.sceneState = {};
     if (route().view === 'device') history.replaceState(null, '', location.pathname + location.search + '#devices');
     refresh();
   }
@@ -4242,6 +4244,19 @@
     }
     const batt = batteryInfo(d);
     if (batt) rows.push('<div class="list-row"><span class="label">Battery</span><span class="value' + (batt.low ? ' batt-low' : '') + '">' + batteryGlyph(batt) + batt.text + '</span></div>');
+    // Room: tap to move this device to another room in Tuya (no need for the Tuya app).
+    const roomList = (S.data && S.data.roomList) || [];
+    const roomOpen = S.roomPicking === d.id;
+    if (roomList.length) {
+      rows.push('<button class="list-row" data-act="room-open" data-id="' + esc(d.id) + '" data-key="room-open-' + esc(d.id) + '" aria-expanded="' + roomOpen + '">' +
+        '<span class="label">Room</span><span class="value">' + esc(d.room || 'No room') + '</span>' + icon(roomOpen ? 'down' : 'chevron', 16) + '</button>');
+      if (roomOpen) {
+        for (const r of roomList) {
+          rows.push('<button class="list-row room-pick-row" data-act="room-set" data-id="' + esc(d.id) + '" data-room="' + esc(r.id) + '" data-roomname="' + esc(r.name) + '" data-key="room-set-' + esc(r.id) + '">' +
+            '<span class="label">' + esc(r.name) + '</span>' + (String(d.roomId) === String(r.id) ? '<span class="value">' + icon('check', 18) + '</span>' : '') + '</button>');
+        }
+      }
+    }
     if (d.ir && d.ir.brand) rows.push('<div class="list-row"><span class="label">Brand</span><span class="value">' + esc(d.ir.brand) + '</span></div>');
     else rows.push('<div class="list-row"><span class="label">Model</span><span class="value">' + esc(d.product || d.category) + '</span></div>');
 
@@ -6997,6 +7012,13 @@ function kClockPicker() {
         S.iconPicking = S.iconPicking === id ? null : id;
         render();
         break;
+      case 'room-open':
+        S.roomPicking = S.roomPicking === id ? null : id;
+        render();
+        break;
+      case 'room-set':
+        if (d) moveDeviceToRoom(d, el.dataset.room, el.dataset.roomname);
+        break;
       case 'icon-set':
         S.icons[id] = el.dataset.icon; saveIcons(); render(); syncIcon(id, el.dataset.icon);
         break;
@@ -7391,7 +7413,7 @@ function kClockPicker() {
   }
 
   function lockApp() {
-    S.data = null; S.specs = {}; S.renaming = null; S.iconPicking = null;
+    S.data = null; S.specs = {}; S.renaming = null; S.iconPicking = null; S.roomPicking = null;
     S.pinEntry = ''; S.pinError = '';
     if (readVault()) {
       S.key = ''; S.gate = 'pin';
@@ -7609,6 +7631,24 @@ function kClockPicker() {
     if (e.key === 'Escape' && S.renaming) { S.renaming = null; render(); }
   });
 
+  // Move a device to another room in Tuya. Updates the page at once, then calls the
+  // server; if the server call fails the device goes back to its old room.
+  async function moveDeviceToRoom(d, roomId, roomName) {
+    if (!d || !roomId || String(d.roomId) === String(roomId)) { S.roomPicking = null; render(); return; }
+    const beforeRoom = d.room, beforeRoomId = d.roomId;
+    d.room = roomName; d.roomId = roomId;
+    S.roomPicking = null;
+    render();
+    try {
+      await api('room-move', { method: 'POST', body: { deviceId: d.id, homeId: S.data && S.data.homeId, roomId, fromRoomId: beforeRoomId || undefined, roomName, deviceName: d.name } });
+      refresh();
+    } catch (e) {
+      d.room = beforeRoom; d.roomId = beforeRoomId;
+      render();
+      toast('Couldn\'t move it: ' + e.message);
+    }
+  }
+
   async function renameChannel(d, code, name) {
     const spec = S.specs[d.id] && S.specs[d.id] !== 'loading' ? S.specs[d.id] : (S.specs[d.id] = { codes: {}, writable: null, names: {} });
     spec.names = spec.names || {};
@@ -7675,7 +7715,7 @@ function kClockPicker() {
       else S.editorGuard = false;
       return;
     }
-    S.iconPicking = null; S.renaming = null;
+    S.iconPicking = null; S.roomPicking = null; S.renaming = null;
     if (!inEditor()) S.editor = null;
     render();
   });
@@ -7909,6 +7949,9 @@ function kClockPicker() {
         out.homeId = homeId;
         out.devices = out.devices.filter((d) => (d.home || 'h1') === homeId);
         out.rooms = homeId === 'h1' ? db.rooms : ['Patio', 'Garden'];
+        // Demo rooms get stable ids, like the live state response's roomList.
+        out.roomList = out.rooms.map((name, i) => ({ id: 'demo-' + (i + 1), name }));
+        out.devices.forEach((dev) => { const r = out.roomList.find((x) => x.name === dev.room); if (r) dev.roomId = r.id; });
         if (homeId !== 'h1') { out.scenes = [{ id: 'sc9', name: 'Arrive', steps: [{ executor: 'dpIssue', entity: 'bh1', props: { switch_led: true } }] }]; out.automations = []; }
         out.scenes.forEach((x) => { x.actions = (x.steps || []).length; });
         out.me = { id: 'owner', name: 'Owner', role: 'admin', owner: true };
@@ -8047,6 +8090,13 @@ function kClockPicker() {
       }
       if (path === 'rename') {
         names[b.deviceId] = Object.assign(names[b.deviceId] || {}, { [b.code]: b.name });
+        return { ok: true };
+      }
+      if (path === 'room-move') {
+        const dev = db.devices.find((x) => x.id === b.deviceId);
+        const names = b.homeId && b.homeId !== 'h1' ? ['Patio', 'Garden'] : db.rooms;
+        const r = names.map((name, i) => ({ id: 'demo-' + (i + 1), name })).find((x) => String(x.id) === String(b.roomId));
+        if (dev && r) dev.room = r.name;
         return { ok: true };
       }
       if (path === 'scene') { await wait(600); return { ok: true }; }

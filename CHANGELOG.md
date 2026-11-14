@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.21
+
+- You can now move a device to another room right from its own page: tap Room, pick the new room, and it's moved in Tuya too — no need to open the Tuya app. The room also shows in the Tuya app, since the move is written to Tuya's own room data.
+
 ## 2.91.20
 
 - The bottom navigation is now a dark frosted-glass pill, like the reference: the bar is a darker tinted glass over your wallpaper, the current tab sits in a darker capsule with an amber icon, and the whole pill sits lower — closer to the bottom edge.
