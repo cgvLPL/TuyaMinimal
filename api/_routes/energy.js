@@ -65,6 +65,21 @@ module.exports = handler(['GET'], async (req) => {
     try { total = num((await call('GET', `/v1.0/devices/${deviceId}/statistics/total?code=add_ele`)).total); }
     catch (e) { reasons.push('Total: ' + e.message); }
 
+    // If the statistics total was refused, fall back to the plug's live cumulative
+    // counter (add_ele in its current status) — the same number, and it needs no
+    // statistics subscription at all.
+    if (total == null) {
+      try {
+        const sp = (await specFor(deviceId)).add_ele || {};
+        const scale = typeof sp.scale === 'number' ? sp.scale : 3;
+        const toKwh = (v) => (v / Math.pow(10, scale)) / (String(sp.unit || '').toLowerCase() === 'wh' ? 1000 : 1);
+        const st = await call('GET', `/v1.0/devices/${deviceId}/status`);
+        const row = (Array.isArray(st) ? st : []).find((s) => s && s.code === 'add_ele');
+        const v = row ? num(row.value) : null;
+        if (v != null) total = round3(toKwh(v));
+      } catch (e) { /* live total unavailable; the daily view still works */ }
+    }
+
     // 1. Daily statistics — a successful call is the answer even when every day is 0 kWh
     // (an unused plug genuinely used nothing); only a refused call falls through.
     try {
@@ -124,11 +139,12 @@ module.exports = handler(['GET'], async (req) => {
       reasons.push('Power log: no reports in the last 7 days');
     } catch (e) { reasons.push('Power log: ' + e.message); }
 
-    if (total != null) return { available: true, source: 'total', today: null, week: null, days: null, total, reasons };
     // The power log answered but found no reports: the plug genuinely drew nothing in the
     // last 7 days, so show zeros instead of an error. (The statistics refusals above only
-    // block the all-time total, not the daily view.)
+    // block the all-time total, not the daily view.) This comes first so a live total
+    // doesn't hide the daily chart behind the total-only partial result.
     if (logsOk) return summary(emptyDays(first), total, 'none');
+    if (total != null) return { available: true, source: 'total', today: null, week: null, days: null, total, reasons };
     return { available: false, reasons };
   });
 });

@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.24
+
+- The Energy section's all-time total no longer needs the data statistics service: when Tuya refuses the statistics total, the app now reads the plug's own live cumulative counter instead, so the All time row shows up without any subscription.
+
 ## 2.91.23
 
 - Fixed the Energy section showing a "Tuya refused" error for a plug that simply hasn't been used: when the power log answers but finds no reports, the section now shows 0 kWh for the last 7 days instead of an error, and a successful daily-statistics call is shown even when every day is 0 kWh. The all-time total still needs the data statistics service authorized in your Tuya cloud project.
