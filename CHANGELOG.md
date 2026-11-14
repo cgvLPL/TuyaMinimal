@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.14
+
+- The LED strip colour diagnostic now also shows on the strip's device page, under the colour wheel and swatches — it was only in the quick control, so it didn't appear in the view the strip's page opens. Nothing else changes.
+
 ## 2.91.13
 
 - Temporary diagnostic for the LED strip colour: a small line under a colour light's swatches now shows both colour codes the strip reports (e.g. `v2 h240 · v1 — → uses v2`) so the wrong read can be traced. Nothing else changes.

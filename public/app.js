@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.14", "items": ["The LED strip colour diagnostic now also shows on the strip's device page, under the colour wheel and swatches — it was only in the quick control, so it didn't appear in the view the strip's page opens. Nothing else changes."]},
   {"v": "2.91.13", "items": ["Temporary diagnostic for the LED strip colour: a small line under a colour light's swatches now shows both colour codes the strip reports, so the wrong read can be traced. Nothing else changes."]},
   {"v": "2.91.12", "items": ["Colour lights that report both colour codes now use the one that's actually current: some LED strips keep the older colour value up to date and let the newer one go stale, so the app showed blue while the strip was orange. The pill, the ring and the wheel now follow the strip's real colour."]},
   {"v": "2.91.11", "items": ["Wall tablet mode is now called HomeView: the Me row reads 'HomeView' and the exit button says 'Leave HomeView'. Nothing else changes — same faces, same controls."]},
@@ -3669,6 +3670,7 @@
       '<span class="cw-bar-icon" aria-hidden="true">' + icon('sun', 18) + '</span>' +
       '<span class="cw-bar-val" data-colour-label="v" aria-hidden="true">' + vPct + '%</span></div>' +
       '<span class="sr-only" data-colour-label="sat">' + sPct + '%</span>' +
+      (colourCode(d) ? '<div class="colour-dbg">' + colourDbg(d) + '</div>' : '') +
       '</div>';
   }
   // Wheel geometry: hue 0 points right and runs clockwise; saturation is the distance from the centre.
