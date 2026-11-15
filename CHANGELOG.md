@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.28
+
+- Fixed the clock colour picker running off the screen on narrow screens: on a phone in portrait the colour circles were wider than the screen, so the first colour and the Done button were cut off. The picker now fits the screen width, the circles shrink a little and wrap if needed, so every colour and Done stay reachable. The wall tablet is unchanged.
+
 ## 2.91.27
 
 - Wall tablet: the night clock now has a colour setting — Amber or Red. Press and hold the numerals clock, and under the background choices there's a Night row: Amber keeps the warm amber numerals on black, Red turns the whole night clock red, like Apple HomeView's Night Mode. The dim digital night clock on the other faces follows the same colour. Amber is the default.
