@@ -2604,6 +2604,8 @@ html[data-bg] .grid > .card:not(.active) .icon-dot { background: rgba(255, 255, 
 .ka-page .ka-heat .ka-label { color: #e8700a; }
 .ka-page .ka-off .ka-label { color: var(--muted); }
 .ka-page .ka-num { color: var(--text); }
+/* 2.91.29: the full-screen dial number was 38% of the dial width and crowded the ring; 28% sits comfortably inside it. The Home-face tile keeps the shared 38cqw rule. */
+.ka-page .ka-num { font-size: clamp(32px, 28cqw, 120px); }
 .ka-page .ka-off .ka-num { color: var(--muted); }
 .ka-page .ka-menu.ka-icons { width: auto; max-width: 100%; flex-wrap: nowrap; gap: 10px; }
 .ka-page .ka-mi { background: var(--chip); color: var(--text); }

@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.29
+
+- Made the temperature number on the full-screen AC dial smaller: it was 38% of the dial width and crowded the ring, so it now sits at 28% with clear space around it. The Home-face tile dial and everything else are unchanged.
+
 ## 2.91.28
 
 - Fixed the clock colour picker running off the screen on narrow screens: on a phone in portrait the colour circles were wider than the screen, so the first colour and the Done button were cut off. The picker now fits the screen width, the circles shrink a little and wrap if needed, so every colour and Done stay reachable. The wall tablet is unchanged.
