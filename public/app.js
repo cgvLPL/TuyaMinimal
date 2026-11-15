@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.27", "items": ["Wall tablet: the night clock now has a colour setting — Amber or Red. Press and hold the numerals clock, and under the background choices there is a Night row: Amber keeps the warm amber numerals on black, Red turns the whole night clock red, like Apple HomeView Night Mode. The dim digital night clock on the other faces follows the same colour. Amber is the default."]},
   {"v": "2.91.26", "items": ["Fixed the Firmware section: it was calling the old firmware API that needs a separate subscription, so Tuya refused it. It now uses the current firmware API, which is part of the standard device service. If Tuya still refuses, the section says so plainly instead of showing an error on every device page.", "Fixed the Firmware section showing the same version twice: a device can report the same firmware on two modules, so identical rows are now collapsed into one; genuinely different modules are labelled with their module name."]},
   {"v": "2.91.25", "items": ["Smart door locks get their own section on the device page: unlock or lock remotely, see the last few unlocks with how they were opened (fingerprint, PIN, guest code) and when, and see your guest codes with their validity. Remote locking only works on all-in-one Wi-Fi locks.", "Every device page now has a Firmware section: it shows the current firmware version, and when an update is available, an Update button to install it."]},
   {"v": "2.91.24", "items": ["The Energy section's all-time total no longer needs the data statistics service: when Tuya refuses the statistics total, the app now reads the plug's own live cumulative counter instead, so the All time row shows up without any subscription."]},
@@ -1086,6 +1087,7 @@
     kWxBack: null,  // face to return to after opening the weather from a widget
     kClockStyle: store.get('kClock') === 'numerals' ? 'numerals' : 'digital',
     kClockBg: store.get('kClockBg') || 'sky', kClockPick: false,
+    kNightClock: store.get('kNightClock') === 'red' ? 'red' : 'amber',  // night clock colour: amber (default) or red
     kBg: store.get('kBg') || 'app', kWall: false,
     floor: store.get('floor') || 'all',  // floor shown on Home ('all' or a floor id)  // wall tablet mode's room (separate from the Home tab)
     data: null,
@@ -5369,6 +5371,7 @@
     const ang = kHandAngles(now);
     document.querySelectorAll('[data-khand]').forEach((n) => { n.style.transform = 'rotate(' + ang[n.dataset.khand].toFixed(2) + 'deg)'; });
     document.documentElement.classList.toggle('k-night', kioskIsNight(now));
+    document.documentElement.classList.toggle('k-night-red', S.kNightClock === 'red');
   }
   // A Control Center-style tile: glyph in a circle at the top, name and state at the bottom.
   // Off it's glass; on it turns bright, like accessories in the Home app.
@@ -6147,10 +6150,15 @@ function kNumeralClock(now) {
     (S.kClockPick ? kClockPicker() : '');
 }
 function kClockPicker() {
-  return '<div class="kn-pick" role="radiogroup" aria-label="Clock background">' + KN_BGS.map(([k, c]) =>
+  // Night clock colour: amber (the warm amber on black) or red (Apple HomeView Night Mode).
+  const night = (v, c) => '<button class="kn-sw' + (S.kNightClock === v ? ' on' : '') + '" data-act="knight" data-v="' + v + '" role="radio" aria-checked="' + (S.kNightClock === v) + '" aria-label="Night ' + v + '" style="background:' + c + '"></button>';
+  return '<div class="kn-pick" role="group" aria-label="Clock settings">' +
+    '<div class="kn-pick-row" role="radiogroup" aria-label="Clock background">' + KN_BGS.map(([k, c]) =>
     '<button class="kn-sw' + (S.kClockBg === k ? ' on' : '') + '" data-act="kclock-bg" data-bg="' + k + '" role="radio" aria-checked="' + (S.kClockBg === k) + '" aria-label="' + (k === 'photo' ? 'Wallpaper' : k) + '"' +
     (k === 'photo' ? ' style="background-image:url(' + knPhoto() + ')"' : ' style="background:' + c + '"') + '></button>').join('') +
-    '<button class="kn-done" data-act="kclock-pick-done">Done</button></div>';
+    '<button class="kn-done" data-act="kclock-pick-done">Done</button></div>' +
+    '<div class="kn-pick-row" role="radiogroup" aria-label="Night clock colour"><span class="kn-night-label">Night</span>' +
+    night('amber', '#ffa85c') + night('red', '#ff3b30') + '</div></div>';
 }
 
   // ---- Weather: hourly strip in a glass "Conditions" card ----
@@ -6261,6 +6269,7 @@ function kClockPicker() {
     loadWeather();
     const now = new Date();
     document.documentElement.classList.toggle('k-night', kioskIsNight(now));
+    document.documentElement.classList.toggle('k-night-red', S.kNightClock === 'red');
     // Rooms: a compact row of pills. Only rooms with something to show here are listed.
     const isKRemote = (d) => d.ir && !isKioskAc(d) && qcKind(d) === 'remote';
     const kShows = (d) => isReadingDevice(d) || isKioskAc(d) || (hasToggle(d) && !d.ir) || isKRemote(d);
@@ -7017,6 +7026,12 @@ function kClockPicker() {
       case 'kclock-bg': {
         if (!KN_BGS.some(([k]) => k === el.dataset.bg)) break;
         S.kClockBg = el.dataset.bg; store.set('kClockBg', S.kClockBg); render(); break;
+      }
+      case 'knight': {
+        if (el.dataset.v !== 'amber' && el.dataset.v !== 'red') break;
+        S.kNightClock = el.dataset.v; store.set('kNightClock', S.kNightClock);
+        document.documentElement.classList.toggle('k-night-red', S.kNightClock === 'red');
+        render(); break;
       }
       case 'kclock-pick-done': S.kClockPick = false; render(); break;
       case 'kclock-style': {
