@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.30
+
+- Fixed the sizing on iPhone 7 (iOS 15): the thermostat and temperature dial size everything in container units (cqw), which Safari only supports from version 16, so on iOS 15 the dial number fell back to tiny text, the mode buttons lost their size and the gaps collapsed. Browsers without cqw now get viewport-based sizes that match the modern sizing at phone width. Other devices are unchanged — the fallback is skipped entirely where cqw works.
+
 ## 2.91.29
 
 - Made the temperature number on the full-screen AC dial smaller: it was 38% of the dial width and crowded the ring, so it now sits at 28% with clear space around it. The Home-face tile dial and everything else are unchanged.
