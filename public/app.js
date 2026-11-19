@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.31", "items": ["Distance from home no longer asks for location permission over and over: the prompt only appears when you switch Distance from home on in Me \u2192 Appearance. Background refreshes \u2014 the weather update every few minutes, coming back to the app \u2014 reuse the last saved position and never ask, so a one-time grant or a dismissed prompt no longer means being asked again on every launch. Your last known position is kept on this phone so the distance still shows without asking."]},
   {"v": "2.91.30", "items": ["Fixed the sizing on iPhone 7 (iOS 15): the thermostat and temperature dial size everything in container units (cqw), which Safari only supports from version 16, so on iOS 15 the dial number fell back to tiny text, the mode buttons lost their size and the gaps collapsed. Browsers without cqw now get viewport-based sizes that match the modern sizing at phone width. Other devices are unchanged — the fallback is skipped entirely where cqw works."]},
   {"v": "2.91.29", "items": ["Made the temperature number on the full-screen AC dial smaller: it was 38% of the dial width and crowded the ring, so it now sits at 28% with clear space around it. The Home-face tile dial and everything else are unchanged."]},
   {"v": "2.91.28", "items": ["Fixed the clock colour picker running off the screen on narrow screens: on a phone in portrait the colour circles were wider than the screen, so the first colour and the Done button were cut off. The picker now fits the screen width, the circles shrink a little and wrap if needed, so every colour and Done stay reachable. The wall tablet is unchanged — everything still fits on one row there."]},
@@ -1124,7 +1125,8 @@
     pending: {},         // deviceId -> number of commands still on their way
     weather: null,
     showDistance: store.get('showDistance') === '1',  // "You're 12 km from home" (location stays on this phone)
-    myPos: null,
+    myPos: (() => { try { const p = JSON.parse(store.get('myPos') || 'null'); return p && typeof p.lat === 'number' ? p : null; } catch (e) { return null; } })(),  // last known position, saved so distance shows without asking again
+    locGranted: false,  // a position was read successfully this session
     timers: {},          // deviceId -> { list, at } | 'loading' | { error }
     history: null,       // { id, hours, data, loading, error }
     histHours: 24,
@@ -3389,17 +3391,39 @@
     else text = 'You\'re ' + (km < 10 ? Math.round(km * 10) / 10 : Math.round(km)) + ' km from home';
     return '<p class="distance">' + icon('pin', 14) + '<span>' + text + '</span></p>';
   }
-  function updatePosition(force) {
+  // Location permission: the prompt only appears when you turn Distance from home on.
+  // Background refreshes (weather, coming back to the app) reuse the last saved
+  // position and never ask — otherwise iOS asks again on every launch when the
+  // grant was one-time, or every minute when the prompt was dismissed.
+  const LOC_GRANTED_MS = 30 * 24 * 3600 * 1000;  // a grant is remembered for 30 days
+  function locGrantedBefore() {
+    try { const at = Number(store.get('locGrantedAt') || 0); return !!at && Date.now() - at < LOC_GRANTED_MS; } catch (e) { return false; }
+  }
+  async function updatePosition(force) {
     if (!S.showDistance || !('geolocation' in navigator) || document.visibilityState !== 'visible') return;
     if (!force && updatePosition.at && Date.now() - updatePosition.at < 60000) return;
     updatePosition.at = Date.now();
+    if (!force) {
+      // Background refresh: only ask the system for a position when permission is
+      // already granted. Otherwise keep showing the last saved position, quietly.
+      let granted = S.locGranted === true || locGrantedBefore();
+      try {
+        if (navigator.permissions && navigator.permissions.query) {
+          granted = (await navigator.permissions.query({ name: 'geolocation' })).state === 'granted';
+        }
+      } catch (e) { /* older Safari has no Permissions API: fall back to the remembered grant */ }
+      if (!granted) return;
+    }
     navigator.geolocation.getCurrentPosition((pos) => {
       S.myPos = { lat: pos.coords.latitude, lon: pos.coords.longitude, at: Date.now() };
+      S.locGranted = true;
+      try { store.set('myPos', JSON.stringify(S.myPos)); store.set('locGrantedAt', String(Date.now())); } catch (e) { /* ignore */ }
       const typing = document.activeElement && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName);
       if (!S.dragging && !typing && !S.gate) render();
     }, (err) => {
       if (err && err.code === 1) {  // permission denied
         S.showDistance = false; store.set('showDistance', '0'); S.myPos = null;
+        try { store.del('myPos'); store.del('locGrantedAt'); } catch (e) { /* ignore */ }
         toast('Location is turned off for this app, so distance can\'t be shown.');
         render();
       }
@@ -6431,7 +6455,7 @@ function kClockPicker() {
       '<option value="f"' + (S.tempUnit === 'f' ? ' selected' : '') + '>Fahrenheit (°F)</option></select></div>' +
       '<div class="list-row"><span class="label" id="dist-label">Distance from home</span>' +
       '<button class="switch" role="switch" aria-checked="' + S.showDistance + '" aria-labelledby="dist-label" data-act="distance" data-key="distance"><span class="knob"></span></button></div></div>';
-    html += noteBelow('Distance from home shows how far you are under the greeting. Your location stays on this phone.');
+    html += noteBelow('Distance from home shows how far you are under the greeting. Your location stays on this phone, and it only asks for permission when you switch this on.');
     return html;
   }
 
@@ -7331,7 +7355,7 @@ function kClockPicker() {
         store.set('bg', S.bg); applyBackground(); render();
         break;
       case 'distance':
-        if (S.showDistance) { S.showDistance = false; store.set('showDistance', '0'); S.myPos = null; render(); break; }
+        if (S.showDistance) { S.showDistance = false; store.set('showDistance', '0'); S.myPos = null; try { store.del('myPos'); } catch (e) { /* ignore */ } render(); break; }
         if (!('geolocation' in navigator)) { toast('This browser can\'t share your location.'); break; }
         S.showDistance = true; store.set('showDistance', '1'); render();
         updatePosition(true);  // asks for permission the first time

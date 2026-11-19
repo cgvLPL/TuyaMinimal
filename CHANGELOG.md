@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.31
+
+- Distance from home no longer asks for location permission over and over: the prompt only appears when you switch Distance from home on in Me → Appearance. Background refreshes — the weather update every few minutes, coming back to the app — reuse the last saved position and never ask, so a one-time grant or a dismissed prompt no longer means being asked again on every launch. Your last known position is kept on this phone so the distance still shows without asking.
+
 ## 2.91.30
 
 - Fixed the sizing on iPhone 7 (iOS 15): the thermostat and temperature dial size everything in container units (cqw), which Safari only supports from version 16, so on iOS 15 the dial number fell back to tiny text, the mode buttons lost their size and the gaps collapsed. Browsers without cqw now get viewport-based sizes that match the modern sizing at phone width. Other devices are unchanged — the fallback is skipped entirely where cqw works.
