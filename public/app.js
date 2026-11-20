@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.34", "items": ["A split switch can now be hidden on its own: in Arrange, each switch of a split device has its own eye, so you can hide one switch while the others stay on Home and in the Devices list. Hidden switches stay faded in Arrange so you can bring them back, and they stay hidden on the wall tablet too. Dragging a split device in Arrange moves all its switches together, and the order still saves per device. The choice syncs between your devices."]},
   {"v": "2.91.33", "items": ["A power strip or multi-gang switch can now be split into one tile per switch, or kept as a single tile: turn on Separate tiles on the device page. Each switch gets its own tile, with its own name and on/off state, on Home and in the Devices list, on the phone and the wall tablet; turn it off to merge them back into one tile. The choice syncs between your devices."]},
   {"v": "2.91.32", "items": ["Fixed moving a device to a room kicking the room's other devices out: Tuya's add-to-room call sets the room's device list to exactly the IDs sent, and the app was only sending the moved device. It now reads who's already in the room first and sends the full list \u2014 everyone already there, plus the moved device \u2014 so nobody else leaves. If the room can't be read, the move is refused instead of risking it."]},
   {"v": "2.91.31", "items": ["Distance from home no longer asks for location permission over and over: the prompt only appears when you switch Distance from home on in Me \u2192 Appearance. Background refreshes \u2014 the weather update every few minutes, coming back to the app \u2014 reuse the last saved position and never ask, so a one-time grant or a dismissed prompt no longer means being asked again on every launch. Your last known position is kept on this phone so the distance still shows without asking."]},
@@ -1142,6 +1143,7 @@
     hidden: (() => { try { return JSON.parse(store.get('hidden') || '{}') || {}; } catch (e) { return {}; } })(),  // homeId -> [deviceId] hidden from Home
     shown: (() => { try { return JSON.parse(store.get('shown') || '{}') || {}; } catch (e) { return {}; } })(),  // homeId -> [deviceId] reading devices made visible on Home
     split: (() => { try { return JSON.parse(store.get('split') || '{}') || {}; } catch (e) { return {}; } })(),  // homeId -> [deviceId] multi-switch devices split into one tile per switch
+    hiddenChannels: (() => { try { return JSON.parse(store.get('hiddenChannels') || '{}') || {}; } catch (e) { return {}; } })(),  // homeId -> ['deviceId:switch_1', ...] single switches hidden from Home
     reorder: false,       // true while arranging device cards
     icons: readIcons(),  // deviceId -> icon key, saved on this device      // { id, code } while an outlet name is being edited
     installPrompt: null
@@ -1338,6 +1340,9 @@
       if (data.settings && data.settings.split && data.homeId && Array.isArray(data.settings.split[data.homeId])) {
         S.split = Object.assign({}, S.split, { [data.homeId]: data.settings.split[data.homeId] }); store.set('split', JSON.stringify(S.split));
       }
+      if (data.settings && data.settings.hiddenChannels && data.homeId && Array.isArray(data.settings.hiddenChannels[data.homeId])) {
+        S.hiddenChannels = Object.assign({}, S.hiddenChannels, { [data.homeId]: data.settings.hiddenChannels[data.homeId] }); store.set('hiddenChannels', JSON.stringify(S.hiddenChannels));
+      }
       if (data.homeId) { S.homeId = data.homeId; store.set('homeId', data.homeId); }
       loadWeather();
       prefetchLightSpecs();
@@ -1438,6 +1443,24 @@
       setSplit.t = setTimeout(() => {
         api('settings', { method: 'POST', body: { split: { homeId, ids: S.split[homeId] } } })
           .catch(() => toast('Separate tiles are saved on this device but couldn\'t sync.'));
+      }, 600);
+    }
+  }
+  // One switch of a split device hidden on its own (the whole device is S.hidden instead).
+  function isHiddenCh(d, code) { const s = S.hiddenChannels && S.data && S.hiddenChannels[S.data.homeId]; return !!d && !!code && !!s && s.includes(d.id + ':' + code); }
+  function setHiddenCh(id, code, hide) {
+    const homeId = S.data && S.data.homeId;
+    if (!homeId) return;
+    const key = id + ':' + code;
+    const cur = new Set((S.hiddenChannels && S.hiddenChannels[homeId]) || []);
+    if (hide) cur.add(key); else cur.delete(key);
+    S.hiddenChannels = Object.assign({}, S.hiddenChannels, { [homeId]: Array.from(cur) });
+    store.set('hiddenChannels', JSON.stringify(S.hiddenChannels));
+    if (S.sync && S.mode === 'live') {
+      clearTimeout(setHiddenCh.t);
+      setHiddenCh.t = setTimeout(() => {
+        api('settings', { method: 'POST', body: { hiddenChannels: { homeId, ids: S.hiddenChannels[homeId] } } })
+          .catch(() => toast('Hidden switches are saved on this device but couldn\'t sync.'));
       }, 600);
     }
   }
@@ -3144,13 +3167,14 @@
       '</div>';
   }
   // One card for the device, or one card per switch when it is split (code = switch_1, ...).
-  // A channel card toggles just that switch and opens the device's page; it never takes a photo,
-  // a colour background or the Arrange hide/grip buttons, which stay per device.
+  // A channel card toggles just that switch and opens the device's page; it never takes a photo
+  // or a colour background. In Arrange it gets its own eye (hide just that switch) and a grip
+  // that moves the whole device.
   function deviceCard(d, selectedId, code) {
     const ch = code || null;
     const on = ch ? !!d.status[ch] : isOn(d), toggle = ch ? true : hasToggle(d), lit = toggle && on && d.online;
     if (!ch && d.online && isKioskAc(d)) return acCard(d, selectedId);
-    const cls = ['card', 'compact', 'hue-' + hueOf(d), S.reorder && isHidden(d) ? 'is-hidden' : '', !ch && photoOf(d) ? 'has-photo' : '', lit ? 'active' : '', d.online ? '' : 'offline', !ch && d.id === selectedId ? 'selected' : '', isPending(d.id) ? 'pending' : ''].join(' ');
+    const cls = ['card', 'compact', 'hue-' + hueOf(d), S.reorder && (isHidden(d) || (ch && isHiddenCh(d, ch))) ? 'is-hidden' : '', !ch && photoOf(d) ? 'has-photo' : '', lit ? 'active' : '', d.online ? '' : 'offline', !ch && d.id === selectedId ? 'selected' : '', isPending(d.id) ? 'pending' : ''].join(' ');
     const r = S.reorder, busy = isPending(d.id);
     const colour = !ch && lit && kindOf(d) === 'light' && inColour(d) ? ' style="background:' + colourCss(d) + ';color:#141414"' : '';
     const glyphHtml = ch ? glyph(channelGlyph(d, ch), 22) : (photoOf(d)
@@ -3166,7 +3190,7 @@
       (d.online ? '' : '<span class="off-badge" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 2.5 23 21.5H1z" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9v5.5M12 18v.01" stroke="#000" stroke-width="2.6" stroke-linecap="round"/></svg></span>') +
       '<button class="card-open"' + (r ? ' inert' : '') + ' data-act="open" data-id="' + esc(d.id) + '" data-key="open-' + esc(d.id) + (ch ? '-' + esc(ch) : '') + '" aria-label="' + esc(name) + ', ' + esc(status) + ', show controls">' +
       '<span class="card-text"><span class="card-name">' + esc(name) + '</span><span class="card-status">' + esc(status) + '</span></span></button>' +
-      (r && !ch ? hideBtn(d) + '<button class="card-grip" data-key="grip-' + esc(d.id) + '" aria-label="Move ' + esc(d.name) + '. Use the arrow keys.">' + icon('grip', 18) + '</button>' : '') +
+      (r ? (ch ? hideChBtn(d, ch) : hideBtn(d)) + gripBtn(d, ch) : '') +
       '</div>';
   }
 
@@ -3243,28 +3267,36 @@
   const EYE = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
   const EYE_OFF = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.6 5.6A10 10 0 0 1 12 5.5c6.4 0 10 6.5 10 6.5a17 17 0 0 1-2.6 3.4M6.3 6.9C3.6 8.6 2 12 2 12s3.6 6.5 10 6.5a9.6 9.6 0 0 0 4.2-.9M9.9 9.9a3 3 0 0 0 4.2 4.2M3 3l18 18"/></svg>';
   const hideBtn = (d) => '<button class="card-hide" data-act="hide-toggle" data-id="' + esc(d.id) + '" data-key="hide-' + esc(d.id) + '" aria-pressed="' + isHidden(d) + '" aria-label="' + esc((isHidden(d) ? 'Show ' : 'Hide ') + d.name) + '" title="' + (isHidden(d) ? 'Hidden. Tap to show' : 'Hide from Home') + '">' + (isHidden(d) ? EYE_OFF : EYE) + '</button>';
-  const gridIds = (grid) => Array.from(grid.querySelectorAll('.card')).map((c) => c.dataset.cardId);
+  const hideChBtn = (d, code) => '<button class="card-hide" data-act="hide-ch-toggle" data-id="' + esc(d.id) + '" data-code="' + esc(code) + '" data-key="hide-' + esc(d.id) + '-' + esc(code) + '" aria-pressed="' + isHiddenCh(d, code) + '" aria-label="' + esc((isHiddenCh(d, code) ? 'Show ' : 'Hide ') + channelName(d, code)) + '" title="' + (isHiddenCh(d, code) ? 'Hidden. Tap to show' : 'Hide from Home') + '">' + (isHiddenCh(d, code) ? EYE_OFF : EYE) + '</button>';
+  const gripBtn = (d, code) => '<button class="card-grip" data-key="grip-' + esc(d.id) + (code ? '-' + esc(code) : '') + '" aria-label="Move ' + esc(d.name) + '. Use the arrow keys.">' + icon('grip', 18) + '</button>';
+  // Card ids in the grid, as device ids: a split device's switches count once, so dragging or
+  // arrow-keying a switch moves the whole device and the saved order stays per device.
+  const gridIds = (grid) => Array.from(grid.querySelectorAll('.card')).map((c) => c.dataset.cardId.split(':')[0]).filter((id, i, a) => a.indexOf(id) === i);
   let cardDrag = null;
   document.addEventListener('pointerdown', (e) => {
     const grip = S.reorder && e.target.closest && e.target.closest('.reordering .card-grip');
     if (!grip) return;
     e.preventDefault();
     const card = grip.closest('.card');
-    cardDrag = { card, grid: card.parentElement, before: gridIds(card.parentElement).join(','), scroller: card.closest('.dv-scroll') };
+    // A split device drags as one block: the card grabbed plus its sibling switch cards.
+    const devId = card.dataset.cardId.split(':')[0];
+    const group = Array.from(card.parentElement.querySelectorAll('.card')).filter((c) => c.dataset.cardId === devId || c.dataset.cardId.indexOf(devId + ':') === 0);
+    cardDrag = { card, group, grid: card.parentElement, before: gridIds(card.parentElement).join(','), scroller: card.closest('.dv-scroll') };
     S.dragging = true;
     card.classList.add('lifted');
     if (grip.setPointerCapture) grip.setPointerCapture(e.pointerId);
   });
   document.addEventListener('pointermove', (e) => {
     if (!cardDrag) return;
-    const { card, grid, scroller } = cardDrag;
+    const { card, group, grid, scroller } = cardDrag;
     const under = document.elementFromPoint(e.clientX, e.clientY);
     const t = under && under.closest && under.closest('.card');
-    if (t && t !== card && t.parentElement === grid) {
-      const cards = Array.from(grid.children), from = cards.indexOf(card), to = cards.indexOf(t);
+    if (t && t.parentElement === grid && !group.includes(t)) {
+      const cards = Array.from(grid.children), from = cards.indexOf(group[0]), to = cards.indexOf(t);
       // FLIP: remember where cards were, move, then animate from there.
       const before = new Map(cards.map((c) => [c, c.getBoundingClientRect()]));
-      grid.insertBefore(card, from < to ? t.nextSibling : t);
+      const anchor = from < to ? t.nextSibling : t;
+      group.forEach((n) => grid.insertBefore(n, anchor));
       cards.forEach((c) => {
         if (c === card) return;
         const a = before.get(c), b = c.getBoundingClientRect();
@@ -3294,7 +3326,7 @@
     const dir = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[e.key];
     if (!dir) return;
     e.preventDefault();
-    const card = grip.closest('.card'), grid = card.parentElement, ids = gridIds(grid), i = ids.indexOf(card.dataset.cardId), j = i + dir;
+    const card = grip.closest('.card'), grid = card.parentElement, ids = gridIds(grid), i = ids.indexOf(card.dataset.cardId.split(':')[0]), j = i + dir;
     if (j < 0 || j >= ids.length) return;
     ids.splice(j, 0, ids.splice(i, 1)[0]);
     saveOrder(ids); render();
@@ -3572,9 +3604,11 @@
     const allCards = sortByOrder(shown, data.homeId);
     const hiddenN = allCards.filter(isHidden).length;
     const cards = S.reorder ? allCards : allCards.filter((d) => !isHidden(d));
-    const tileN = cards.reduce((n, d) => n + (!S.reorder && isSplit(d) ? channelCodes(d).length : 1), 0);
-    // A split device shows one card per switch; while arranging it stays one card, so order and hiding stay per device.
-    const cardsHtml = (list) => list.map((d) => (!S.reorder && isSplit(d) ? channelCodes(d).map((c) => deviceCard(d, selectedId, c)).join('') : deviceCard(d, selectedId))).join('');
+    // Which switches of a split device show as tiles: all of them while arranging (hidden ones stay
+    // faded so they can come back), otherwise every switch that isn't hidden on its own.
+    const visibleCodes = (d) => channelCodes(d).filter((c) => S.reorder || !isHiddenCh(d, c));
+    const tileN = cards.reduce((n, d) => n + (isSplit(d) ? visibleCodes(d).length : 1), 0);
+    const cardsHtml = (list) => list.map((d) => (isSplit(d) ? visibleCodes(d).map((c) => deviceCard(d, selectedId, c)).join('') : deviceCard(d, selectedId))).join('');
     if (readings.length || (S.room === 'All' && outdoorAirInfo())) html += climateSummaries(readings);
     if (cards.length) {
       const arrange = allCards.length > 0
@@ -5706,7 +5740,7 @@
     if (!parts || parts.code) return [p];
     const d = findDevice(parts.id);
     if (!d || !isSplit(d)) return [p];
-    return channelCodes(d).map((c) => 'dev:' + d.id + ':' + c);
+    return channelCodes(d).filter((c) => !isHiddenCh(d, c)).map((c) => 'dev:' + d.id + ':' + c);
   }
   // ---- Home face, after HomeView's Home face: a 2×2 thermostat, a minimal analog clock, and tiles
   // with a big icon, the name and "Room · State". On = cream with dark text; off = frosted glass. ----
@@ -7048,6 +7082,17 @@ function kClockPicker() {
               toast(hd.name + ' is back on Home');
             } else { setShown(id, false); toast(hd.name + ' hidden from Home'); }
           } else { const h = !isHidden(hd); setHidden(id, h); toast(h ? hd.name + ' hidden from Home' : hd.name + ' is back on Home'); }
+          render();
+        }
+        break;
+      }
+      case 'hide-ch-toggle': {
+        const hd = findDevice(id);
+        const code = el.dataset.code;
+        if (hd && code) {
+          const h = !isHiddenCh(hd, code);
+          setHiddenCh(id, code, h);
+          toast(h ? channelName(hd, code) + ' hidden from Home' : channelName(hd, code) + ' is back on Home');
           render();
         }
         break;

@@ -4,6 +4,7 @@
 // POST /api/settings { hidden: { homeId, ids: [deviceId, ...] } } → devices hidden from Home in one home
 // POST /api/settings { shown: { homeId, ids: [deviceId, ...] } } → reading devices made visible on Home in one home
 // POST /api/settings { split: { homeId, ids: [deviceId, ...] } } → multi-switch devices split into one tile per switch in one home
+// POST /api/settings { hiddenChannels: { homeId, ids: ['deviceId:switch_1', ...] } } → single switches hidden from Home in one home
 // POST /api/settings { floors: { homeId, list: [{ id, name }], room: { roomName: floorId } } } → the home's floors
 const { handler } = require('../_lib/http');
 const { TuyaError } = require('../_lib/tuya');
@@ -20,6 +21,7 @@ module.exports = handler(['GET', 'POST'], async (req, body) => {
   settings.hidden = settings.hidden || {};
   settings.shown = settings.shown || {};
   settings.split = settings.split || {};
+  settings.hiddenChannels = settings.hiddenChannels || {};
   settings.floors = settings.floors || {};
   if (req.method === 'GET') return settings;
   if (body.order && typeof body.order === 'object') {
@@ -53,6 +55,15 @@ module.exports = handler(['GET', 'POST'], async (req, body) => {
     const ids = Array.isArray(body.split.ids) ? body.split.ids.filter((x) => typeof x === 'string' && DEV.test(x)) : null;
     if (!ids || ids.length > 500) throw new TuyaError('Bad list of split devices.', 'bad_request', 400);
     if (ids.length) settings.split[homeId] = Array.from(new Set(ids)); else delete settings.split[homeId];
+  }
+  if (body.hiddenChannels && typeof body.hiddenChannels === 'object') {
+    const homeId = String(body.hiddenChannels.homeId || '');
+    if (!DEV.test(homeId)) throw new TuyaError('Unknown home.', 'bad_request', 400);
+    access.requireHome(req.user, homeId);
+    const CH = /^[A-Za-z0-9_-]{1,64}:switch_(usb)?\d+$/;
+    const ids = Array.isArray(body.hiddenChannels.ids) ? body.hiddenChannels.ids.filter((x) => typeof x === 'string' && CH.test(x)) : null;
+    if (!ids || ids.length > 500) throw new TuyaError('Bad list of hidden switches.', 'bad_request', 400);
+    if (ids.length) settings.hiddenChannels[homeId] = Array.from(new Set(ids)); else delete settings.hiddenChannels[homeId];
   }
   if (body.floors && typeof body.floors === 'object') {
     // Floors of one home: [{ id, name }] and which floor each room is on.

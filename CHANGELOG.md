@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.34
+
+- A split switch can now be hidden on its own: in Arrange, each switch of a split device has its own eye, so you can hide one switch while the others stay on Home and in the Devices list. Hidden switches stay faded in Arrange so you can bring them back, and they stay hidden on the wall tablet too. Dragging a split device in Arrange moves all its switches together, and the order still saves per device. The choice syncs between your devices.
+
 ## 2.91.33
 
 - A power strip or multi-gang switch can now be split into one tile per switch, or kept as a single tile — turn on Separate tiles on the device page. Each switch gets its own tile, with its own name and on/off state, on Home and in the Devices list, on the phone and the wall tablet; turn it off to merge them back into one tile. The choice syncs between your devices.
