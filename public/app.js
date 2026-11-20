@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.35", "items": ["When saving (or deleting) a scene or automation fails, the reason now scrolls into view: before, it appeared just above the Save button, which can sit below the fold on a long editor while the Save button itself stays stuck to the bottom — so a failure could look like nothing happened at all."]},
   {"v": "2.91.34", "items": ["A split switch can now be hidden on its own: in Arrange, each switch of a split device has its own eye, so you can hide one switch while the others stay on Home and in the Devices list. Hidden switches stay faded in Arrange so you can bring them back, and they stay hidden on the wall tablet too. Dragging a split device in Arrange moves all its switches together, and the order still saves per device. The choice syncs between your devices."]},
   {"v": "2.91.33", "items": ["A power strip or multi-gang switch can now be split into one tile per switch, or kept as a single tile: turn on Separate tiles on the device page. Each switch gets its own tile, with its own name and on/off state, on Home and in the Devices list, on the phone and the wall tablet; turn it off to merge them back into one tile. The choice syncs between your devices."]},
   {"v": "2.91.32", "items": ["Fixed moving a device to a room kicking the room's other devices out: Tuya's add-to-room call sets the room's device list to exactly the IDs sent, and the app was only sending the moved device. It now reads who's already in the room first and sends the full list \u2014 everyone already there, plus the moved device \u2014 so nobody else leaves. If the room can't be read, the move is refused instead of risking it."]},
@@ -5211,12 +5212,20 @@
     render();
   }
 
+  // A failed save or delete puts its reason right above the Save button, which can sit below
+  // the fold on a long editor while the Save button itself stays stuck to the bottom: bring
+  // the reason into view so a failure is never silent.
+  function showSaveError(E, msg) {
+    E.saving = false; E.error = msg; render();
+    const el = document.querySelector('.in-editor p.error');
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
+  }
   async function saveAutomation() {
     const E = S.editor;
     const conditions = conditionsPayload();
-    if (typeof conditions === 'string') { E.error = conditions; render(); return; }
+    if (typeof conditions === 'string') { showSaveError(E, conditions); return; }
     const actions = editorActions();
-    if (typeof actions === 'string') { E.error = actions; render(); return; }
+    if (typeof actions === 'string') { showSaveError(E, actions); return; }
     E.saving = true; E.error = ''; render();
     try {
       await api('automation-edit', { method: 'POST', body: {
@@ -5228,7 +5237,7 @@
       toast(E.id ? 'Automation saved' : 'Automation created');
       S.editor = null; go('scenes'); refresh({ silent: true, fresh: true });
     } catch (e) {
-      E.saving = false; E.error = 'Couldn\'t save: ' + e.message; render();
+      showSaveError(E, 'Couldn\'t save: ' + e.message);
     }
   }
 
@@ -5241,7 +5250,7 @@
       toast('Automation deleted');
       S.editor = null; go('scenes'); refresh({ silent: true, fresh: true });
     } catch (e) {
-      E.saving = false; E.confirmDelete = false; E.error = 'Couldn\'t delete: ' + e.message; render();
+      E.confirmDelete = false; showSaveError(E, 'Couldn\'t delete: ' + e.message);
     }
   }
 
@@ -5281,7 +5290,7 @@
     const E = S.editor;
     if (E.kind === 'auto') return saveAutomation();
     const actions = editorActions();
-    if (typeof actions === 'string') { E.error = actions; render(); return; }
+    if (typeof actions === 'string') { showSaveError(E, actions); return; }
     E.saving = true; E.error = ''; render();
     try {
       await api('scene-edit', { method: 'POST', body: {
@@ -5293,7 +5302,7 @@
       go('scenes');
       refresh({ silent: true });
     } catch (e) {
-      E.saving = false; E.error = 'Couldn\'t save: ' + e.message; render();
+      showSaveError(E, 'Couldn\'t save: ' + e.message);
     }
   }
 
@@ -5309,7 +5318,7 @@
       go('scenes');
       refresh({ silent: true });
     } catch (e) {
-      E.saving = false; E.confirmDelete = false; E.error = 'Couldn\'t delete: ' + e.message; render();
+      E.confirmDelete = false; showSaveError(E, 'Couldn\'t delete: ' + e.message);
     }
   }
 

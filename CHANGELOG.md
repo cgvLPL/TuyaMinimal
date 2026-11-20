@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.35
+
+- When saving (or deleting) a scene or automation fails, the reason now scrolls into view: before, it appeared just above the Save button, which can sit below the fold on a long editor while the Save button itself stays stuck to the bottom — so a failure could look like nothing happened at all.
+
 ## 2.91.34
 
 - A split switch can now be hidden on its own: in Arrange, each switch of a split device has its own eye, so you can hide one switch while the others stay on Home and in the Devices list. Hidden switches stay faded in Arrange so you can bring them back, and they stay hidden on the wall tablet too. Dragging a split device in Arrange moves all its switches together, and the order still saves per device. The choice syncs between your devices.
