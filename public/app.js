@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.33", "items": ["A power strip or multi-gang switch can now be split into one tile per switch, or kept as a single tile: turn on Separate tiles on the device page. Each switch gets its own tile, with its own name and on/off state, on Home and in the Devices list, on the phone and the wall tablet; turn it off to merge them back into one tile. The choice syncs between your devices."]},
   {"v": "2.91.32", "items": ["Fixed moving a device to a room kicking the room's other devices out: Tuya's add-to-room call sets the room's device list to exactly the IDs sent, and the app was only sending the moved device. It now reads who's already in the room first and sends the full list \u2014 everyone already there, plus the moved device \u2014 so nobody else leaves. If the room can't be read, the move is refused instead of risking it."]},
   {"v": "2.91.31", "items": ["Distance from home no longer asks for location permission over and over: the prompt only appears when you switch Distance from home on in Me \u2192 Appearance. Background refreshes \u2014 the weather update every few minutes, coming back to the app \u2014 reuse the last saved position and never ask, so a one-time grant or a dismissed prompt no longer means being asked again on every launch. Your last known position is kept on this phone so the distance still shows without asking."]},
   {"v": "2.91.30", "items": ["Fixed the sizing on iPhone 7 (iOS 15): the thermostat and temperature dial size everything in container units (cqw), which Safari only supports from version 16, so on iOS 15 the dial number fell back to tiny text, the mode buttons lost their size and the gaps collapsed. Browsers without cqw now get viewport-based sizes that match the modern sizing at phone width. Other devices are unchanged — the fallback is skipped entirely where cqw works."]},
@@ -1140,6 +1141,7 @@
     order: (() => { try { return JSON.parse(store.get('order') || '{}') || {}; } catch (e) { return {}; } })(),  // homeId -> [deviceId]
     hidden: (() => { try { return JSON.parse(store.get('hidden') || '{}') || {}; } catch (e) { return {}; } })(),  // homeId -> [deviceId] hidden from Home
     shown: (() => { try { return JSON.parse(store.get('shown') || '{}') || {}; } catch (e) { return {}; } })(),  // homeId -> [deviceId] reading devices made visible on Home
+    split: (() => { try { return JSON.parse(store.get('split') || '{}') || {}; } catch (e) { return {}; } })(),  // homeId -> [deviceId] multi-switch devices split into one tile per switch
     reorder: false,       // true while arranging device cards
     icons: readIcons(),  // deviceId -> icon key, saved on this device      // { id, code } while an outlet name is being edited
     installPrompt: null
@@ -1333,6 +1335,9 @@
       if (data.settings && data.settings.shown && data.homeId && Array.isArray(data.settings.shown[data.homeId])) {
         S.shown = Object.assign({}, S.shown, { [data.homeId]: data.settings.shown[data.homeId] }); store.set('shown', JSON.stringify(S.shown));
       }
+      if (data.settings && data.settings.split && data.homeId && Array.isArray(data.settings.split[data.homeId])) {
+        S.split = Object.assign({}, S.split, { [data.homeId]: data.settings.split[data.homeId] }); store.set('split', JSON.stringify(S.split));
+      }
       if (data.homeId) { S.homeId = data.homeId; store.set('homeId', data.homeId); }
       loadWeather();
       prefetchLightSpecs();
@@ -1418,6 +1423,26 @@
       .sort((a, b) => rank(a) - rank(b));
   }
   function isMulti(d) { return channelCodes(d).length >= 2; }
+  // Split into one tile per switch (Home and the Devices list, phone and wall tablet),
+  // or merged into a single tile. The choice is per device and syncs like hidden/order.
+  function isSplit(d) { const s = S.split && S.data && S.split[S.data.homeId]; return !!d && isMulti(d) && !!s && s.includes(d.id); }
+  function setSplit(id, split) {
+    const homeId = S.data && S.data.homeId;
+    if (!homeId) return;
+    const cur = new Set((S.split && S.split[homeId]) || []);
+    if (split) cur.add(id); else cur.delete(id);
+    S.split = Object.assign({}, S.split, { [homeId]: Array.from(cur) });
+    store.set('split', JSON.stringify(S.split));
+    if (S.sync && S.mode === 'live') {
+      clearTimeout(setSplit.t);
+      setSplit.t = setTimeout(() => {
+        api('settings', { method: 'POST', body: { split: { homeId, ids: S.split[homeId] } } })
+          .catch(() => toast('Separate tiles are saved on this device but couldn\'t sync.'));
+      }, 600);
+    }
+  }
+  // The glyph for one switch of a multi-switch device: plugs for strips and USB, a light for wall switches.
+  function channelGlyph(d, code) { return (['pc', 'cz'].includes(d.category) || /usb/.test(code)) ? 'plug' : 'light'; }
   function channelName(d, code) {
     const s = S.specs[d.id];
     const custom = s && s !== 'loading' && s.names && s.names[code];
@@ -3118,25 +3143,30 @@
       (r ? hideBtn(d) + '<button class="card-grip" data-key="grip-' + esc(d.id) + '" aria-label="Move ' + esc(d.name) + '. Use the arrow keys.">' + icon('grip', 18) + '</button>' : '') +
       '</div>';
   }
-  function deviceCard(d, selectedId) {
-    const on = isOn(d), toggle = hasToggle(d), lit = toggle && on && d.online;
-    if (d.online && isKioskAc(d)) return acCard(d, selectedId);
-    const cls = ['card', 'compact', 'hue-' + hueOf(d), S.reorder && isHidden(d) ? 'is-hidden' : '', photoOf(d) ? 'has-photo' : '', lit ? 'active' : '', d.online ? '' : 'offline', d.id === selectedId ? 'selected' : '', isPending(d.id) ? 'pending' : ''].join(' ');
+  // One card for the device, or one card per switch when it is split (code = switch_1, ...).
+  // A channel card toggles just that switch and opens the device's page; it never takes a photo,
+  // a colour background or the Arrange hide/grip buttons, which stay per device.
+  function deviceCard(d, selectedId, code) {
+    const ch = code || null;
+    const on = ch ? !!d.status[ch] : isOn(d), toggle = ch ? true : hasToggle(d), lit = toggle && on && d.online;
+    if (!ch && d.online && isKioskAc(d)) return acCard(d, selectedId);
+    const cls = ['card', 'compact', 'hue-' + hueOf(d), S.reorder && isHidden(d) ? 'is-hidden' : '', !ch && photoOf(d) ? 'has-photo' : '', lit ? 'active' : '', d.online ? '' : 'offline', !ch && d.id === selectedId ? 'selected' : '', isPending(d.id) ? 'pending' : ''].join(' ');
     const r = S.reorder, busy = isPending(d.id);
-    const colour = lit && kindOf(d) === 'light' && inColour(d) ? ' style="background:' + colourCss(d) + ';color:#141414"' : '';
-    const glyph = photoOf(d)
+    const colour = !ch && lit && kindOf(d) === 'light' && inColour(d) ? ' style="background:' + colourCss(d) + ';color:#141414"' : '';
+    const glyphHtml = ch ? glyph(channelGlyph(d, ch), 22) : (photoOf(d)
       ? '<span class="tile-photo' + (lit ? ' lit' : '') + '" style="--glow-color:' + photoGlow(d) + '">' + photoImg(photoOf(d)) + '</span>'
-      : deviceIcon(d);
+      : deviceIcon(d));
     const iconEl = toggle
-      ? '<button class="card-icon icon-dot' + (busy ? ' pending' : '') + '" role="switch" aria-checked="' + on + '" aria-label="' + esc(d.name + (isMulti(d) ? ', all outlets' : ' power')) + '"' +
-        (busy ? ' aria-busy="true"' : '') + ' data-act="toggle" data-id="' + esc(d.id) + '" data-key="sw-' + esc(d.id) + '"' + (d.online ? '' : ' disabled') + (r ? ' inert' : '') + colour + '>' + glyph + '</button>'
-      : '<span class="card-icon icon-dot" aria-hidden="true">' + glyph + '</span>';
-    const status = d.online ? statusText(d) : 'Offline';
-    return '<div class="' + cls + '" data-card-id="' + esc(d.id) + '">' + iconEl +
+      ? '<button class="card-icon icon-dot' + (busy ? ' pending' : '') + '" role="switch" aria-checked="' + on + '" aria-label="' + esc(ch ? channelName(d, ch) + ' power' : d.name + (isMulti(d) ? ', all outlets' : ' power')) + '"' +
+        (busy ? ' aria-busy="true"' : '') + ' data-act="toggle" data-id="' + esc(d.id) + '"' + (ch ? ' data-code="' + esc(ch) + '"' : '') + ' data-key="sw-' + esc(d.id) + (ch ? '-' + esc(ch) : '') + '"' + (d.online ? '' : ' disabled') + (r ? ' inert' : '') + colour + '>' + glyphHtml + '</button>'
+      : '<span class="card-icon icon-dot" aria-hidden="true">' + glyphHtml + '</span>';
+    const name = ch ? channelName(d, ch) : d.name;
+    const status = d.online ? (ch ? (on ? 'On' : 'Off') : statusText(d)) : 'Offline';
+    return '<div class="' + cls + '" data-card-id="' + esc(d.id + (ch ? ':' + ch : '')) + '">' + iconEl +
       (d.online ? '' : '<span class="off-badge" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 2.5 23 21.5H1z" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9v5.5M12 18v.01" stroke="#000" stroke-width="2.6" stroke-linecap="round"/></svg></span>') +
-      '<button class="card-open"' + (r ? ' inert' : '') + ' data-act="open" data-id="' + esc(d.id) + '" data-key="open-' + esc(d.id) + '" aria-label="' + esc(d.name) + ', ' + esc(status) + ', show controls">' +
-      '<span class="card-text"><span class="card-name">' + esc(d.name) + '</span><span class="card-status">' + esc(status) + '</span></span></button>' +
-      (r ? hideBtn(d) + '<button class="card-grip" data-key="grip-' + esc(d.id) + '" aria-label="Move ' + esc(d.name) + '. Use the arrow keys.">' + icon('grip', 18) + '</button>' : '') +
+      '<button class="card-open"' + (r ? ' inert' : '') + ' data-act="open" data-id="' + esc(d.id) + '" data-key="open-' + esc(d.id) + (ch ? '-' + esc(ch) : '') + '" aria-label="' + esc(name) + ', ' + esc(status) + ', show controls">' +
+      '<span class="card-text"><span class="card-name">' + esc(name) + '</span><span class="card-status">' + esc(status) + '</span></span></button>' +
+      (r && !ch ? hideBtn(d) + '<button class="card-grip" data-key="grip-' + esc(d.id) + '" aria-label="Move ' + esc(d.name) + '. Use the arrow keys.">' + icon('grip', 18) + '</button>' : '') +
       '</div>';
   }
 
@@ -3542,19 +3572,22 @@
     const allCards = sortByOrder(shown, data.homeId);
     const hiddenN = allCards.filter(isHidden).length;
     const cards = S.reorder ? allCards : allCards.filter((d) => !isHidden(d));
+    const tileN = cards.reduce((n, d) => n + (!S.reorder && isSplit(d) ? channelCodes(d).length : 1), 0);
+    // A split device shows one card per switch; while arranging it stays one card, so order and hiding stay per device.
+    const cardsHtml = (list) => list.map((d) => (!S.reorder && isSplit(d) ? channelCodes(d).map((c) => deviceCard(d, selectedId, c)).join('') : deviceCard(d, selectedId))).join('');
     if (readings.length || (S.room === 'All' && outdoorAirInfo())) html += climateSummaries(readings);
     if (cards.length) {
       const arrange = allCards.length > 0
         ? '<button class="icon-btn arrange-btn' + (S.reorder ? ' on' : '') + '" data-act="reorder" data-key="reorder" aria-pressed="' + S.reorder + '"' +
           ' aria-label="' + (S.reorder ? 'Done arranging' : 'Arrange devices') + '" title="' + (S.reorder ? 'Done' : 'Arrange devices') + '">' + icon(S.reorder ? 'check' : 'arrange', 20) + '</button>' : '';
-      html += '<div class="section-head"><h2>Devices</h2><span class="section-count">' + cards.length + '</span>' + arrange + (S.reorder ? '' : allOffButton()) + '</div>';
+      html += '<div class="section-head"><h2>Devices</h2><span class="section-count">' + tileN + '</span>' + arrange + (S.reorder ? '' : allOffButton()) + '</div>';
       if (S.reorder) html += '<p class="reorder-hint">Drag the handles to move devices. Tap the eye to hide a device from Home' + (hiddenN ? ' (' + hiddenN + ' hidden)' : '') + '. Tap ✓ when you\'re done.</p>';
       // Inside a room, devices are grouped like the Home app: Climate, Lights, Shades, Security,
       // Speakers & TVs, Switches & Outlets. "All" (and Arrange, which drags across the whole list) stays one grid.
       const grouped = S.room && S.room !== 'All' && !S.reorder;
       const gridHtml = grouped
-        ? catGroups(cards).map(([name, list]) => '<section class="cat" data-key="cat-' + esc(name) + '" aria-label="' + esc(name) + '"><h3 class="cat-head">' + esc(name) + '</h3><div class="grid">' + list.map((d) => deviceCard(d, selectedId)).join('') + '</div></section>').join('')
-        : '<div class="grid' + (S.reorder ? ' reordering' : '') + '">' + cards.map((d) => deviceCard(d, selectedId)).join('') + '</div>';
+        ? catGroups(cards).map(([name, list]) => '<section class="cat" data-key="cat-' + esc(name) + '" aria-label="' + esc(name) + '"><h3 class="cat-head">' + esc(name) + '</h3><div class="grid">' + cardsHtml(list) + '</div></section>').join('')
+        : '<div class="grid' + (S.reorder ? ' reordering' : '') + '">' + cardsHtml(cards) + '</div>';
       html += '</div><div class="dv-scroll' + (grouped ? ' grouped' : '') + '" data-scroll="devices">' + gridHtml + '</div>';
       return html;
     }
@@ -4379,6 +4412,11 @@
     if (hideHero) hero = '';
     const rows = [];
     const nameRows = k === 'multi' && d.online ? channelCodes(d).map((c) => channelRow(d, c, sfx)) : [];
+    if (k === 'multi') {
+      rows.push('<div class="list-row"><span class="label" id="split-label">Separate tiles</span>' +
+        '<button class="switch" role="switch" aria-checked="' + isSplit(d) + '" aria-labelledby="split-label" data-act="split" data-id="' + esc(d.id) + '" data-key="split-' + esc(d.id) + '"><span class="knob"></span></button></div>');
+      rows.push('<div class="note">Each switch gets its own tile on Home and in the Devices list. Turn it off to merge them back into one tile.</div>');
+    }
     if (hasToggle(d) && !heroHasPower && !qk) {
       rows.push('<div class="list-row"><span class="label">Power</span>' + switchBtn(d, sfx) + '</div>');
     }
@@ -5605,14 +5643,14 @@
   const kPageCells = () => { const r = innerWidth / innerHeight; return r > 1.9 ? 15 : r > 1.25 ? 12 : r < 0.8 ? 12 : 9; };
   function kHomeItems(data) {
     const room = S.kHomeRoom;
-    if (!room || room === 'All') return kModPicks(data);
+    if (!room || room === 'All') return kModPicks(data).flatMap(expandPick);
     if (room.indexOf('floor:') === 0) {  // a floor: every device on it, ACs first
       const fl = room.slice(6), ds = kModCandidates(data).devs.filter((d) => floorOfRoom(data.homeId, d.room) === fl);
-      return ds.filter(isKioskAc).concat(ds.filter((d) => !isKioskAc(d))).map((d) => 'dev:' + d.id);
+      return ds.filter(isKioskAc).concat(ds.filter((d) => !isKioskAc(d))).map((d) => 'dev:' + d.id).flatMap(expandPick);
     }
     // A room: every device in it, ACs first.
     const ds = kModCandidates(data).devs.filter((d) => (d.room || 'Other') === room);
-    return ds.filter(isKioskAc).concat(ds.filter((d) => !isKioskAc(d))).map((d) => 'dev:' + d.id);
+    return ds.filter(isKioskAc).concat(ds.filter((d) => !isKioskAc(d))).map((d) => 'dev:' + d.id).flatMap(expandPick);
   }
   function kHomePages(data) {
     const pages = [];
@@ -5655,6 +5693,21 @@
     return ids.filter(valid);
   }
   function kModSave(ids) { store.set('kMod', JSON.stringify(ids)); }
+  // A Home pick is 'scene:id' or 'dev:id'; a split device contributes one tile per switch: 'dev:id:switch_1'.
+  function pickParts(p) {
+    if (!p || p.indexOf('dev:') !== 0) return null;
+    const rest = p.slice(4), i = rest.lastIndexOf(':');
+    if (i > 0 && /^switch_(usb)?\d+$/.test(rest.slice(i + 1))) return { id: rest.slice(0, i), code: rest.slice(i + 1) };
+    return { id: rest, code: null };
+  }
+  function pickDevice(p) { const parts = pickParts(p); return parts ? findDevice(parts.id) : null; }
+  function expandPick(p) {
+    const parts = pickParts(p);
+    if (!parts || parts.code) return [p];
+    const d = findDevice(parts.id);
+    if (!d || !isSplit(d)) return [p];
+    return channelCodes(d).map((c) => 'dev:' + d.id + ':' + c);
+  }
   // ---- Home face, after HomeView's Home face: a 2×2 thermostat, a minimal analog clock, and tiles
   // with a big icon, the name and "Room · State". On = cream with dark text; off = frosted glass. ----
   function kHandAngles(now) {
@@ -5666,22 +5719,24 @@
     if (pick.indexOf('scene:') === 0) {
       const sc = (data.scenes || []).find((x) => 'scene:' + x.id === pick), st = S.sceneState[sc.id];
       return '<button class="k-mt km-scene ' + (st || '') + '" data-act="scene" data-id="' + esc(sc.id) + '" data-key="km-' + esc(pick) + '"' + (st === 'running' ? ' disabled' : '') + ' aria-label="' + esc('Scene ' + sc.name) + '">' +
-        '<span class="km-ic">' + icon(st === 'done' ? 'check' : 'home', 44) + '</span><span class="km-name">' + esc(sc.name) + '</span><span class="km-sub">' + (st === 'running' ? 'Running…' : st === 'done' ? 'Done' : 'Scene') + '</span></button>';
+        '<span class="km-ic">' + icon(st === 'done' ? 'check' : 'home', 44) + '</span><span class="km-name">' + esc(sc.name) + '</span><span class="km-sub">' + (st === 'running' ? 'Running\u2026' : st === 'done' ? 'Done' : 'Scene') + '</span></button>';
     }
-    const d = findDevice(pick.slice(4));
-    const on = isOn(d) && d.online, busy = isPending(d.id);
-    const state = d.online ? statusText(d) : 'Offline';
-    const sub = d.room ? d.room + ' · ' + state : state;
+    const parts = pickParts(pick), d = parts && findDevice(parts.id), code = parts && parts.code;
+    if (!d) return '';
+    const on = (code ? !!d.status[code] : isOn(d)) && d.online, busy = isPending(d.id);
+    const state = d.online ? (code ? (on ? 'On' : 'Off') : statusText(d)) : 'Offline';
+    const name = code ? channelName(d, code) : d.name;
+    const sub = d.room ? d.room + ' \u00b7 ' + state : state;
     const cls = 'k-mt' + (on ? ' on' : '') + (busy ? ' pending' : '');
     // Product photos don't suit this face: use the matching glyph instead (HomeView uses symbols).
     const PH_GLYPH = { photodesk: 'desklamp', photocolumn: 'column', photodonut: 'lamp', phototable: 'tablelamp', photoac: 'climate', photolantern: 'lantern', photostar: 'starlight' };
     let gk = iconKeyOf(d);
     if (PH_GLYPH[gk]) gk = PH_GLYPH[gk];
-    const inner = '<span class="km-ic">' + glyph(gk, 44) + '</span><span class="km-name">' + esc(d.name) + '</span><span class="km-sub">' + esc(sub) + '</span>';
-    if (isKioskAc(d) || isKRemoteDev(d)) {
-      return '<button class="' + cls + '" data-act="k-open" data-id="' + esc(d.id) + '" data-key="km-' + esc(pick) + '" aria-label="' + esc(d.name + ', ' + state + ', open controls') + '">' + inner + '</button>';
+    const inner = '<span class="km-ic">' + (code ? glyph(channelGlyph(d, code), 44) : glyph(gk, 44)) + '</span><span class="km-name">' + esc(name) + '</span><span class="km-sub">' + esc(sub) + '</span>';
+    if (!code && (isKioskAc(d) || isKRemoteDev(d))) {
+      return '<button class="' + cls + '" data-act="k-open" data-id="' + esc(d.id) + '" data-key="km-' + esc(pick) + '" aria-label="' + esc(name + ', ' + state + ', open controls') + '">' + inner + '</button>';
     }
-    return '<button class="' + cls + '" data-act="toggle" data-id="' + esc(d.id) + '" data-key="km-' + esc(pick) + '" aria-pressed="' + isOn(d) + '" aria-label="' + esc(d.name + ', ' + state) + '"' + (d.online ? '' : ' disabled') + '>' + inner + '</button>';
+    return '<button class="' + cls + '" data-act="toggle" data-id="' + esc(d.id) + '"' + (code ? ' data-code="' + esc(code) + '"' : '') + ' data-key="km-' + esc(pick) + '" aria-pressed="' + (code ? !!d.status[code] : isOn(d)) + '" aria-label="' + esc(name + ', ' + state) + '"' + (d.online ? '' : ' disabled') + '>' + inner + '</button>';
   }
   // The first air conditioner becomes the 2×2 thermostat: the set temperature, huge; ⌄ name ⌃ along
   // the bottom, with the room and the AC's own measured temperature (never a room sensor's).
@@ -6039,7 +6094,8 @@
   function kSizeOf(pick) {
     const s = kSizes()[pick];
     if (s === 's' || s === 'm' || s === 'l') return s;
-    return pick.indexOf('dev:') === 0 && isKioskAc(findDevice(pick.slice(4))) ? 'l' : 's';
+    const d = pickDevice(pick);
+    return d && isKioskAc(d) ? 'l' : 's';
   }
   const kCellsOf = (sz) => (sz === 'l' ? 4 : sz === 'm' ? 2 : 1);
   // ---- Smooth reflow: tiles slide and resize into their new places (FLIP) ----
@@ -7009,8 +7065,10 @@ function kClockPicker() {
         break;
       }
       case 'kedit-del': {
-        const ids = kModPicks(S.data).filter((x) => x !== el.dataset.pick); kModSave(ids);
-        if (S.kEditSel === el.dataset.pick) S.kEditSel = null;
+        const parts = pickParts(el.dataset.pick);
+        const base = parts ? 'dev:' + parts.id : el.dataset.pick;
+        const ids = kModPicks(S.data).filter((x) => x !== base); kModSave(ids);
+        if (S.kEditSel === el.dataset.pick || S.kEditSel === base) S.kEditSel = null;
         kFlip(render); break;
       }
       case 'kedit-done': S.kEdit = false; S.kEditSel = null; render(); break;
@@ -7099,6 +7157,12 @@ function kClockPicker() {
         }
         const pc = powerCode(d);
         if (pc) send(d, [{ code: pc, value: !d.status[pc] }], { [pc]: !d.status[pc] });
+        break;
+      }
+      case 'split': {
+        if (!d || !isMulti(d)) return;
+        setSplit(d.id, !isSplit(d));
+        render();
         break;
       }
       case 'warmth': {

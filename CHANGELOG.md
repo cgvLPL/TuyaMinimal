@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.33
+
+- A power strip or multi-gang switch can now be split into one tile per switch, or kept as a single tile — turn on Separate tiles on the device page. Each switch gets its own tile, with its own name and on/off state, on Home and in the Devices list, on the phone and the wall tablet; turn it off to merge them back into one tile. The choice syncs between your devices.
+
 ## 2.91.32
 
 - Fixed moving a device to a room kicking the room's other devices out: Tuya's add-to-room call sets the room's device list to exactly the IDs sent, and the app was only sending the moved device. It now reads who's already in the room first and sends the full list — everyone already there, plus the moved device — so nobody else leaves. If the room can't be read, the move is refused instead of risking it.
