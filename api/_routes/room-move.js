@@ -1,8 +1,13 @@
 // POST /api/room-move  { deviceId, homeId, roomId, fromRoomId, roomName, deviceName }
 // → moves a device to another room in Tuya, so it no longer needs the Tuya app.
-// Adds the device to the new room first (Tuya moves it there), then best-effort
-// removes it from the old room (a no-op if the add already moved it), and drops
-// the cached room membership so the next state read shows the new room.
+// Tuya's "add a device to a room" call sets the room's device list to exactly the
+// IDs sent — sending just the moved device kicked the room's other devices out
+// (seen live 2026-11-20). So the route first reads the room's current devices
+// and sends the full list: everyone already there, plus the moved device. If the
+// room can't be read, the move is refused rather than risking the room's devices.
+// Then it best-effort removes the device from the old room (a no-op if the add
+// already moved it), and drops the cached room membership so the next state read
+// shows the new room.
 const { call, TuyaError } = require('../_lib/tuya');
 const { handler, requireId } = require('../_lib/http');
 const access = require('../_lib/access');
@@ -18,7 +23,22 @@ module.exports = handler(['POST'], async (req, body) => {
   if (!homeId) throw new TuyaError('Invalid home.', 'bad_request', 400);
   if (!roomId) throw new TuyaError('Invalid room.', 'bad_request', 400);
   if (fromRoomId && fromRoomId === roomId) return { ok: true, roomId, moved: false };
-  await call('POST', `/v1.0/homes/${homeId}/rooms/${roomId}/devices`, { device_ids: [deviceId] });
+  // Read who's already in the room, so the add keeps them there. Refuse the move
+  // if the room can't be read — sending only the moved device would empty it.
+  let inRoom;
+  try {
+    inRoom = await call('GET', `/v1.0/homes/${homeId}/rooms/${roomId}/devices`);
+  } catch (e) {
+    throw new TuyaError('Couldn\'t read the room\'s devices, so nothing was moved.', 'room_read_failed', 502);
+  }
+  if (!Array.isArray(inRoom)) throw new TuyaError('Couldn\'t read the room\'s devices, so nothing was moved.', 'room_read_failed', 502);
+  const ids = [];
+  for (const d of inRoom) {
+    const id = d && (d.id || d.dev_id);
+    if (typeof id === 'string' && id && !ids.includes(id)) ids.push(id);
+  }
+  if (!ids.includes(deviceId)) ids.push(deviceId);
+  await call('POST', `/v1.0/homes/${homeId}/rooms/${roomId}/devices`, { device_ids: ids });
   if (fromRoomId) {
     try { await call('DELETE', `/v1.0/homes/${homeId}/rooms/${fromRoomId}/devices`, { device_ids: [deviceId] }); } catch (e) { /* the add already moved it */ }
   }

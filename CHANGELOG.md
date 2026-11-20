@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.32
+
+- Fixed moving a device to a room kicking the room's other devices out: Tuya's add-to-room call sets the room's device list to exactly the IDs sent, and the app was only sending the moved device. It now reads who's already in the room first and sends the full list — everyone already there, plus the moved device — so nobody else leaves. If the room can't be read, the move is refused instead of risking it.
+
 ## 2.91.31
 
 - Distance from home no longer asks for location permission over and over: the prompt only appears when you switch Distance from home on in Me → Appearance. Background refreshes — the weather update every few minutes, coming back to the app — reuse the last saved position and never ask, so a one-time grant or a dismissed prompt no longer means being asked again on every launch. Your last known position is kept on this phone so the distance still shows without asking.
