@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.36
+
+- The home picker now shows the exact location the app is using for each home — its coordinates from Tuya plus the place name — under the home's name, so a swapped location is visible at a glance instead of guessed at. (Diagnostic for the two homes showing each other's location.)
+
 ## 2.91.35
 
 - When saving (or deleting) a scene or automation fails, the reason now scrolls into view: before, it appeared just above the Save button, which can sit below the fold on a long editor while the Save button itself stays stuck to the bottom — so a failure could look like nothing happened at all.

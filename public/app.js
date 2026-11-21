@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.36", "items": ["The home picker now shows the exact location the app is using for each home — its coordinates from Tuya plus the place name — under the home's name, so a swapped location is visible at a glance instead of guessed at. (Diagnostic for the two homes showing each other's location.)"]},
   {"v": "2.91.35", "items": ["When saving (or deleting) a scene or automation fails, the reason now scrolls into view: before, it appeared just above the Save button, which can sit below the fold on a long editor while the Save button itself stays stuck to the bottom — so a failure could look like nothing happened at all."]},
   {"v": "2.91.34", "items": ["A split switch can now be hidden on its own: in Arrange, each switch of a split device has its own eye, so you can hide one switch while the others stay on Home and in the Devices list. Hidden switches stay faded in Arrange so you can bring them back, and they stay hidden on the wall tablet too. Dragging a split device in Arrange moves all its switches together, and the order still saves per device. The choice syncs between your devices."]},
   {"v": "2.91.33", "items": ["A power strip or multi-gang switch can now be split into one tile per switch, or kept as a single tile: turn on Separate tiles on the device page. Each switch gets its own tile, with its own name and on/off state, on Home and in the Devices list, on the phone and the wall tablet; turn it off to merge them back into one tile. The choice syncs between your devices."]},
@@ -2429,8 +2430,13 @@
     return '<div class="homes-list" role="listbox" aria-label="Homes">' + d.homes.map((h) => {
       const on = h.id === cur;
       const n = on ? S.data.devices.length : null;
+      // The exact coordinates the app is using for this home (from Tuya, by home ID).
+      const locSub = (typeof h.lat === 'number' && typeof h.lon === 'number')
+        ? h.lat.toFixed(4) + ', ' + h.lon.toFixed(4) + (h.place ? ' \u00b7 ' + esc(h.place) : '')
+        : 'No location saved';
       return '<button class="home-row' + (on ? ' on' : '') + '" role="option" aria-selected="' + on + '" data-act="home-choose" data-id="' + esc(h.id) + '" data-key="home-' + esc(h.id) + '">' +
         '<span class="home-row-ic" aria-hidden="true">' + roomGlyph('home', 26) + '</span><span class="home-row-txt"><span class="home-row-name">' + esc(h.name) + '</span>' +
+        '<span class="home-row-sub">' + locSub + '</span>' +
         (on ? '<span class="home-row-sub">' + n + ' accessor' + (n === 1 ? 'y' : 'ies') + '</span>' : '') + '</span>' +
         '<span class="home-row-check" aria-hidden="true">' + (on ? icon('check', 22) : '') + '</span></button>';
     }).join('') + '</div>';

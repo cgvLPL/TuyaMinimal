@@ -1,5 +1,6 @@
 // GET /api/state?homeId=... → homes, rooms, devices, scenes, automations
 const { call, config } = require('../_lib/tuya');
+const { homeLocation } = require('../_lib/location');
 const { handler, requireId } = require('../_lib/http');
 const store = require('../_lib/store');
 
@@ -219,6 +220,19 @@ module.exports = handler(['GET'], async (req) => {
   const homes = (homesRes.value || []).map((h) => ({ id: String(h.home_id), name: h.name }))
     .filter((h) => access.homeAllowed(req.user, h.id));
   const home = homes.find((h) => h.id === wanted) || homes[0] || null;
+  // Diagnostic: the exact coordinates the app uses for each home (from Tuya, by home ID),
+  // so a swapped location shows up in the home picker instead of being guessed at.
+  // A home without a location keeps the picker working — it just says so.
+  await Promise.all(homes.map(async (h) => {
+    try {
+      const loc = await homeLocation(h.id);
+      if (loc) {
+        h.lat = Math.round(loc.lat * 10000) / 10000;
+        h.lon = Math.round(loc.lon * 10000) / 10000;
+        h.place = loc.place || '';
+      }
+    } catch (e) { /* no location for this home: leave it off */ }
+  }));
 
   const warnings = [];
   if (homesRes.error) warnings.push('Homes: ' + homesRes.error);
