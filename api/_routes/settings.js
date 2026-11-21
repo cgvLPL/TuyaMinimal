@@ -1,5 +1,6 @@
 // GET  /api/settings              → shared settings (custom icons, card order)
 // POST /api/settings { icons: { deviceId: iconKey | null } }   → merge and save
+// POST /api/settings { channelIcons: { 'deviceId:switch_1': iconKey | null } } → merge and save
 // POST /api/settings { order: { homeId, ids: [deviceId, ...] } } → save the card order for one home
 // POST /api/settings { hidden: { homeId, ids: [deviceId, ...] } } → devices hidden from Home in one home
 // POST /api/settings { shown: { homeId, ids: [deviceId, ...] } } → reading devices made visible on Home in one home
@@ -17,6 +18,7 @@ module.exports = handler(['GET', 'POST'], async (req, body) => {
   if (!store.enabled()) throw new TuyaError('Sync needs storage. See the README section "Sync and users".', 'no_storage', 503);
   const settings = await store.getJSON('settings', { icons: {} });
   settings.icons = settings.icons || {};
+  settings.channelIcons = settings.channelIcons || {};
   settings.order = settings.order || {};
   settings.hidden = settings.hidden || {};
   settings.shown = settings.shown || {};
@@ -80,6 +82,16 @@ module.exports = handler(['GET', 'POST'], async (req, body) => {
       if (typeof r === 'string' && r.length <= 80 && list.some((f) => f.id === id)) room[r] = id;
     });
     if (list.length) settings.floors[homeId] = { list, room }; else delete settings.floors[homeId];
+  }
+  if (body.channelIcons && typeof body.channelIcons === 'object') {
+    const CHKEY = /^[A-Za-z0-9_-]{1,64}:switch_(usb)?\d+$/;
+    const chEntries = Object.entries(body.channelIcons);
+    if (chEntries.length > 100) throw new TuyaError('Too many changes at once.', 'bad_request', 400);
+    for (const [id, key] of chEntries) {
+      if (!CHKEY.test(id)) continue;
+      if (key === null) delete settings.channelIcons[id];
+      else if (typeof key === 'string' && ICON.test(key)) settings.channelIcons[id] = key;
+    }
   }
   const changes = body.icons && typeof body.icons === 'object' ? body.icons : {};
   const entries = Object.entries(changes);

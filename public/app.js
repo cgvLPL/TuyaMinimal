@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.38", "items": ["Each switch of a split device can now have its own icon, independent of the main device's icon: tap the icon next to a switch name on the device page to pick one. It shows on the switch's tiles, its quick-control pills and its rockers, and syncs between your devices. The distance from home no longer uses a saved phone position older than 10 minutes, so it can't still read the distance from another home you visited earlier — a stale position just hides the distance until the next fresh read. The home picker no longer shows each home's location."]},
   {"v": "2.91.36", "items": ["The home picker now shows the exact location the app is using for each home — its coordinates from Tuya plus the place name — under the home's name, so a swapped location is visible at a glance instead of guessed at. (Diagnostic for the two homes showing each other's location.)"]},
   {"v": "2.91.35", "items": ["When saving (or deleting) a scene or automation fails, the reason now scrolls into view: before, it appeared just above the Save button, which can sit below the fold on a long editor while the Save button itself stays stuck to the bottom — so a failure could look like nothing happened at all."]},
   {"v": "2.91.34", "items": ["A split switch can now be hidden on its own: in Arrange, each switch of a split device has its own eye, so you can hide one switch while the others stay on Home and in the Devices list. Hidden switches stay faded in Arrange so you can bring them back, and they stay hidden on the wall tablet too. Dragging a split device in Arrange moves all its switches together, and the order still saves per device. The choice syncs between your devices."]},
@@ -1109,6 +1110,7 @@
     dragging: false,
     renaming: null,
     iconPicking: null,
+    iconPickingCh: null,  // 'deviceId:switch_N' while its icon picker is open
     roomPicking: null,   // deviceId whose Room picker is open on its device page
     pinEntry: '',        // digits typed on the keypad
     pinStage: 'enter',   // PIN setup: 'enter' then 'confirm'
@@ -1130,7 +1132,7 @@
     pending: {},         // deviceId -> number of commands still on their way
     weather: null,
     showDistance: store.get('showDistance') === '1',  // "You're 12 km from home" (location stays on this phone)
-    myPos: (() => { try { const p = JSON.parse(store.get('myPos') || 'null'); return p && typeof p.lat === 'number' ? p : null; } catch (e) { return null; } })(),  // last known position, saved so distance shows without asking again
+    myPos: (() => { try { const p = JSON.parse(store.get('myPos') || 'null'); return p && typeof p.lat === 'number' && Date.now() - (p.at || 0) < 10 * 60 * 1000 ? p : null; } catch (e) { return null; } })(),  // last known position, but only if read in the last 10 minutes: an older one could be from another home visited earlier
     locGranted: false,  // a position was read successfully this session
     timers: {},          // deviceId -> { list, at } | 'loading' | { error }
     history: null,       // { id, hours, data, loading, error }
@@ -1147,7 +1149,8 @@
     split: (() => { try { return JSON.parse(store.get('split') || '{}') || {}; } catch (e) { return {}; } })(),  // homeId -> [deviceId] multi-switch devices split into one tile per switch
     hiddenChannels: (() => { try { return JSON.parse(store.get('hiddenChannels') || '{}') || {}; } catch (e) { return {}; } })(),  // homeId -> ['deviceId:switch_1', ...] single switches hidden from Home
     reorder: false,       // true while arranging device cards
-    icons: readIcons(),  // deviceId -> icon key, saved on this device      // { id, code } while an outlet name is being edited
+    icons: readIcons(),  // deviceId -> icon key, saved on this device
+    channelIcons: readChannelIcons(),  // 'deviceId:switch_N' -> icon key, per switch of a split device
     installPrompt: null
   };
   if (S.mode === 'demo') store.set('mode', 'demo');
@@ -1156,6 +1159,10 @@
     try { return JSON.parse(store.get('icons') || '{}') || {}; } catch (e) { return {}; }
   }
   function saveIcons() { store.set('icons', JSON.stringify(S.icons)); }
+  function readChannelIcons() {
+    try { return JSON.parse(store.get('channelIcons') || '{}') || {}; } catch (e) { return {}; }
+  }
+  function saveChannelIcons() { store.set('channelIcons', JSON.stringify(S.channelIcons)); }
 
   // ---------- PIN lock ----------
   // With a PIN set, the app password is stored encrypted (AES-GCM) with a key derived
@@ -1327,6 +1334,7 @@
       if (data.me) S.me = data.me;
       S.sync = !!data.sync;
       if (data.settings && data.settings.icons) { S.icons = Object.assign({}, data.settings.icons); saveIcons(); }
+      if (data.settings && data.settings.channelIcons) { S.channelIcons = Object.assign({}, data.settings.channelIcons); saveChannelIcons(); }
       if (data.settings && data.settings.order && data.homeId && Array.isArray(data.settings.order[data.homeId])) {
         S.order = Object.assign({}, S.order, { [data.homeId]: data.settings.order[data.homeId] }); store.set('order', JSON.stringify(S.order));
       }
@@ -1474,6 +1482,20 @@
     if (custom) return custom;
     const m = code.match(/^switch_(usb)?(\d+)$/);
     return m ? (m[1] ? 'USB ' : 'Switch ') + m[2] : code;
+  }
+  // The icon for one switch of a split device, independent of the main device's icon:
+  // a per-switch choice when set, otherwise the switch's own glyph (plug or light).
+  function channelIconKey(d, code) {
+    const k = S.channelIcons && S.channelIcons[d.id + ':' + code];
+    return (k && (ICON_CHOICES.some(([key]) => key === k) || PHOTOS[k])) ? k : null;
+  }
+  function channelIconHtml(d, code, size, photoOk) {
+    const k = channelIconKey(d, code);
+    if (k) {
+      if (PHOTOS[k]) return photoOk ? photoImg(PHOTOS[k]) : glyph(PH_GLYPH[k] || 'generic', size);
+      return glyph(k, size);
+    }
+    return glyph(channelGlyph(d, code), size);
   }
   function specReady(d) { const s = S.specs[d.id]; return !!s && s !== 'loading'; }
   function specOf(d, code) {
@@ -2430,13 +2452,8 @@
     return '<div class="homes-list" role="listbox" aria-label="Homes">' + d.homes.map((h) => {
       const on = h.id === cur;
       const n = on ? S.data.devices.length : null;
-      // The exact coordinates the app is using for this home (from Tuya, by home ID).
-      const locSub = (typeof h.lat === 'number' && typeof h.lon === 'number')
-        ? h.lat.toFixed(4) + ', ' + h.lon.toFixed(4) + (h.place ? ' \u00b7 ' + esc(h.place) : '')
-        : 'No location saved';
       return '<button class="home-row' + (on ? ' on' : '') + '" role="option" aria-selected="' + on + '" data-act="home-choose" data-id="' + esc(h.id) + '" data-key="home-' + esc(h.id) + '">' +
         '<span class="home-row-ic" aria-hidden="true">' + roomGlyph('home', 26) + '</span><span class="home-row-txt"><span class="home-row-name">' + esc(h.name) + '</span>' +
-        '<span class="home-row-sub">' + locSub + '</span>' +
         (on ? '<span class="home-row-sub">' + n + ' accessor' + (n === 1 ? 'y' : 'ies') + '</span>' : '') + '</span>' +
         '<span class="home-row-check" aria-hidden="true">' + (on ? icon('check', 22) : '') + '</span></button>';
     }).join('') + '</div>';
@@ -2444,7 +2461,7 @@
   function switchHome(id) {
     if (!id || (S.data && id === S.data.homeId)) return;
     S.homeId = id; store.set('homeId', id); S.room = 'All';
-    S.data = null; S.iconPicking = null; S.roomPicking = null; S.renaming = null; S.sceneState = {};
+    S.data = null; S.iconPicking = null; S.iconPickingCh = null; S.roomPicking = null; S.renaming = null; S.sceneState = {};
     if (route().view === 'device') history.replaceState(null, '', location.pathname + location.search + '#devices');
     refresh();
   }
@@ -2581,6 +2598,8 @@
   };
   const photoOf = (d) => PHOTOS[iconKeyOf(d)] || null;
   const photoImg = (ph) => '<img class="dev-photo" src="' + ph.src + '" alt="" draggable="false" decoding="async">';
+  // Product photos don't suit the wall tablet face: use the matching glyph instead (HomeView uses symbols).
+  const PH_GLYPH = { photodesk: 'desklamp', photocolumn: 'column', photodonut: 'lamp', phototable: 'tablelamp', photoac: 'climate', photolantern: 'lantern', photostar: 'starlight' };
   // The glow behind a photo of a device that is on: stronger when brighter, in the light's colour.
   function photoGlow(d) {
     if (!d.online || !isOn(d)) return 'transparent';
@@ -2857,7 +2876,7 @@
         : multi
         ? '<div class="qc-multi qc-body" style="--n:' + codes.length + '">' + codes.map((c) =>
             '<div class="qc-unit"><button class="qc-pill qc-switch qc-ch" role="switch" aria-label="' + esc(channelName(d, c)) + '" data-act="toggle" data-id="' + esc(d.id) + '" data-code="' + esc(c) + '">' +
-            '<span class="qc-knob">' + glyph(iconKeyOf(d), 30) + '</span></button><span class="qc-ch-name">' + esc(channelName(d, c)) + '</span></div>').join('') + '</div>'
+            '<span class="qc-knob">' + channelIconHtml(d, c, 30, true) + '</span></button><span class="qc-ch-name">' + esc(channelName(d, c)) + '</span></div>').join('') + '</div>'
         : dim
         ? '<div class="qc-pill qc-slider" role="slider" tabindex="0" aria-label="' + esc(d.name) + ' ' + qcSliderFor(d).label + '" aria-valuemin="0" aria-valuemax="100"><span class="qc-fill"></span><span class="qc-ico">' + glyph(iconKeyOf(d), 34) + '</span></div>' +
           (swatches ? '<div class="qc-swatches" role="group" aria-label="Colors"></div>' : '') +
@@ -3184,7 +3203,7 @@
     const cls = ['card', 'compact', 'hue-' + hueOf(d), S.reorder && (isHidden(d) || (ch && isHiddenCh(d, ch))) ? 'is-hidden' : '', !ch && photoOf(d) ? 'has-photo' : '', lit ? 'active' : '', d.online ? '' : 'offline', !ch && d.id === selectedId ? 'selected' : '', isPending(d.id) ? 'pending' : ''].join(' ');
     const r = S.reorder, busy = isPending(d.id);
     const colour = !ch && lit && kindOf(d) === 'light' && inColour(d) ? ' style="background:' + colourCss(d) + ';color:#141414"' : '';
-    const glyphHtml = ch ? glyph(channelGlyph(d, ch), 22) : (photoOf(d)
+    const glyphHtml = ch ? channelIconHtml(d, ch, 22, true) : (photoOf(d)
       ? '<span class="tile-photo' + (lit ? ' lit' : '') + '" style="--glow-color:' + photoGlow(d) + '">' + photoImg(photoOf(d)) + '</span>'
       : deviceIcon(d));
     const iconEl = toggle
@@ -3451,9 +3470,12 @@
     const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLon / 2) ** 2;
     return 2 * R * Math.asin(Math.sqrt(h));
   }
+  // A saved phone position is only trusted for 10 minutes: after that the user may have
+  // driven to another home, and the distance would keep reading from where they were.
+  const MY_POS_FRESH_MS = 10 * 60 * 1000;
   function distanceLine(homeId) {
     const w = S.weather, p = S.myPos;
-    if (!S.showDistance || !w || w.homeId !== homeId || w.lat == null || !p) return '';
+    if (!S.showDistance || !w || w.homeId !== homeId || w.lat == null || !p || Date.now() - (p.at || 0) > MY_POS_FRESH_MS) return '';
     const km = kmBetween(p, w);
     let text;
     if (km < 0.15) text = 'You\'re home';
@@ -3759,16 +3781,13 @@
   // like the Home app's switch groups, with "1 On • 2 Off" above and the switch names below.
   function multiRockers(d) {
     const codes = channelCodes(d), n = codes.filter((c) => d.status[c]).length, busy = isPending(d.id);
-    // Wall switches get a bulb (they usually run lights); power strips and USB ports get a plug.
-    const outlets = ['pc', 'cz'].includes(d.category);
     const items = codes.map((c) => {
       const on = !!d.status[c], key = d.id + ':' + c;
-      const glyph = outlets || /usb/.test(c) ? 'plug' : 'light';
       const anim = '';
       const name = channelName(d, c);
       return '<div class="mr-item"><button class="rocker mr' + anim + (busy ? ' pending' : '') + '" role="switch" aria-checked="' + on + '" aria-label="' + esc(name) + '"' +
         ' data-act="toggle" data-id="' + esc(d.id) + '" data-code="' + esc(c) + '" data-key="mr-' + esc(d.id) + '-' + esc(c) + '"' + (d.online ? '' : ' disabled') + '>' +
-        '<span class="rocker-knob">' + icon(glyph, 30) + '</span></button>' +
+        '<span class="rocker-knob">' + channelIconHtml(d, c, 30, true) + '</span></button>' +
         '<span class="mr-name">' + esc(name) + '</span></div>';
     }).join('');
     return '<div class="mr-wrap">' +
@@ -4045,26 +4064,33 @@
     return html;
   }
 
-  function iconSection(d, sfx) {
-    const current = iconKeyOf(d);
+  function iconSection(d, sfx, code) {
+    // code set: the picker is for one switch of a split device, not the device itself.
+    const current = code ? (channelIconKey(d, code) || channelGlyph(d, code)) : iconKeyOf(d);
+    const custom = code ? channelIconKey(d, code) : S.icons[d.id];
+    const who = code ? channelName(d, code) : d.name;
+    const codeAttr = code ? ' data-code="' + esc(code) + '"' : '';
+    const setAct = code ? 'icon-set-ch' : 'icon-set';
+    const resetAct = code ? 'icon-reset-ch' : 'icon-reset';
+    const openAct = code ? 'icon-open-ch' : 'icon-open';
     let html = '<div>';
     {
       html += '<div class="icon-pick" id="icons' + sfx + '">' +
         '<p class="icon-group">Photos</p>' +
-        '<div class="icon-grid photo-grid" role="radiogroup" aria-label="Photo for ' + esc(d.name) + '">' +
+        '<div class="icon-grid photo-grid" role="radiogroup" aria-label="Photo for ' + esc(who) + '">' +
         Object.keys(PHOTOS).map((k) =>
-          '<button class="icon-choice photo-choice" role="radio" aria-checked="' + (k === current) + '" data-act="icon-set" data-id="' + esc(d.id) + '" data-icon="' + k + '" data-key="icon-' + k + sfx + '">' +
+          '<button class="icon-choice photo-choice" role="radio" aria-checked="' + (k === current) + '" data-act="' + setAct + '" data-id="' + esc(d.id) + '"' + codeAttr + ' data-icon="' + k + '" data-key="icon-' + k + sfx + '">' +
           '<span class="photo-thumb">' + photoImg(PHOTOS[k]) + '</span><span>' + PHOTOS[k].name + '</span></button>').join('') +
         '</div>' +
         '<p class="icon-group">Icons</p>' +
-        '<div class="icon-grid" role="radiogroup" aria-label="Icon for ' + esc(d.name) + '">' +
+        '<div class="icon-grid" role="radiogroup" aria-label="Icon for ' + esc(who) + '">' +
         ICON_CHOICES.map(([k, name]) =>
-          '<button class="icon-choice" role="radio" aria-checked="' + (k === current) + '" data-act="icon-set" data-id="' + esc(d.id) + '" data-icon="' + k + '" data-key="icon-' + k + sfx + '">' +
+          '<button class="icon-choice" role="radio" aria-checked="' + (k === current) + '" data-act="' + setAct + '" data-id="' + esc(d.id) + '"' + codeAttr + ' data-icon="' + k + '" data-key="icon-' + k + sfx + '">' +
           icon(k, 22) + '<span>' + name + '</span></button>').join('') +
         '</div>' +
         '<div class="icon-actions">' +
-        (S.icons[d.id] ? '<button class="chip soft" data-act="icon-reset" data-id="' + esc(d.id) + '" data-key="icon-reset' + sfx + '">Use default</button>' : '') +
-        '<button class="chip soft" data-act="icon-open" data-id="' + esc(d.id) + '" data-key="icon-done' + sfx + '">Done</button></div>' +
+        (custom ? '<button class="chip soft" data-act="' + resetAct + '" data-id="' + esc(d.id) + '"' + codeAttr + ' data-key="icon-reset' + sfx + '">Use default</button>' : '') +
+        '<button class="chip soft" data-act="' + openAct + '" data-id="' + esc(d.id) + '"' + codeAttr + ' data-key="icon-done' + sfx + '">Done</button></div>' +
         '</div>';
     }
     return html + '</div>';
@@ -4218,9 +4244,12 @@
         '<button type="submit" class="chip soft" data-key="rn-save-' + rk + '">Save</button>' +
         '<button type="button" class="chip soft" data-act="rename-cancel" data-key="rn-cancel-' + rk + '">Cancel</button></form>';
     }
-    // The rockers above switch them; this list is only for names. Tap a row to rename it.
-    return '<button class="list-row rename-row" data-act="rename" data-id="' + esc(d.id) + '" data-code="' + esc(code) + '" data-key="rn-edit-' + rk + '" aria-label="Rename ' + esc(name) + '"' + (d.online ? '' : ' disabled') + '>' +
-      '<span class="label">' + esc(name) + '</span><span class="value icon-value">' + icon('pencil', 16) + '</span></button>';
+    // Tap the icon to change that switch's own icon; tap the name to rename it.
+    const key = d.id + ':' + code;
+    return '<div class="list-row ch-row"><button class="ch-icon icon-dot sm" data-act="icon-open-ch" data-id="' + esc(d.id) + '" data-code="' + esc(code) + '" data-key="ic-' + rk + '" aria-label="Change icon for ' + esc(name) + '">' + channelIconHtml(d, code, 18, true) + '</button>' +
+      '<button class="ch-name" data-act="rename" data-id="' + esc(d.id) + '" data-code="' + esc(code) + '" data-key="rn-edit-' + rk + '" aria-label="Rename ' + esc(name) + '"' + (d.online ? '' : ' disabled') + '>' +
+      '<span class="label">' + esc(name) + '</span><span class="value icon-value">' + icon('pencil', 16) + '</span></button></div>' +
+      (S.iconPickingCh === key ? iconSection(d, '-' + d.id + '-' + code, code) : '');
   }
 
   // ---------- Temperature dial (ACs and thermostats) ----------
@@ -5777,11 +5806,9 @@
     const name = code ? channelName(d, code) : d.name;
     const sub = d.room ? d.room + ' \u00b7 ' + state : state;
     const cls = 'k-mt' + (on ? ' on' : '') + (busy ? ' pending' : '');
-    // Product photos don't suit this face: use the matching glyph instead (HomeView uses symbols).
-    const PH_GLYPH = { photodesk: 'desklamp', photocolumn: 'column', photodonut: 'lamp', phototable: 'tablelamp', photoac: 'climate', photolantern: 'lantern', photostar: 'starlight' };
     let gk = iconKeyOf(d);
     if (PH_GLYPH[gk]) gk = PH_GLYPH[gk];
-    const inner = '<span class="km-ic">' + (code ? glyph(channelGlyph(d, code), 44) : glyph(gk, 44)) + '</span><span class="km-name">' + esc(name) + '</span><span class="km-sub">' + esc(sub) + '</span>';
+    const inner = '<span class="km-ic">' + (code ? channelIconHtml(d, code, 44, false) : glyph(gk, 44)) + '</span><span class="km-name">' + esc(name) + '</span><span class="km-sub">' + esc(sub) + '</span>';
     if (!code && (isKioskAc(d) || isKRemoteDev(d))) {
       return '<button class="' + cls + '" data-act="k-open" data-id="' + esc(d.id) + '" data-key="km-' + esc(pick) + '" aria-label="' + esc(name + ', ' + state + ', open controls') + '">' + inner + '</button>';
     }
@@ -7306,8 +7333,26 @@ function kClockPicker() {
       case 'rename-cancel': S.renaming = null; render(); break;
       case 'icon-open':
         S.iconPicking = S.iconPicking === id ? null : id;
+        S.iconPickingCh = null;
         render();
         break;
+      case 'icon-open-ch': {
+        const key = id + ':' + el.dataset.code;
+        S.iconPickingCh = S.iconPickingCh === key ? null : key;
+        S.iconPicking = null;
+        render();
+        break;
+      }
+      case 'icon-set-ch': {
+        const key = id + ':' + el.dataset.code;
+        S.channelIcons[key] = el.dataset.icon; saveChannelIcons(); render(); syncChannelIcon(key, el.dataset.icon);
+        break;
+      }
+      case 'icon-reset-ch': {
+        const key = id + ':' + el.dataset.code;
+        delete S.channelIcons[key]; saveChannelIcons(); render(); syncChannelIcon(key, null);
+        break;
+      }
       case 'room-open':
         S.roomPicking = S.roomPicking === id ? null : id;
         render();
@@ -7709,7 +7754,7 @@ function kClockPicker() {
   }
 
   function lockApp() {
-    S.data = null; S.specs = {}; S.renaming = null; S.iconPicking = null; S.roomPicking = null;
+    S.data = null; S.specs = {}; S.renaming = null; S.iconPicking = null; S.iconPickingCh = null; S.roomPicking = null;
     S.pinEntry = ''; S.pinError = '';
     if (readVault()) {
       S.key = ''; S.gate = 'pin';
@@ -7918,6 +7963,11 @@ function kClockPicker() {
     try { await api('settings', { method: 'POST', body: { icons: { [id]: key } } }); }
     catch (e) { toast('Icon saved on this device only: ' + e.message); }
   }
+  async function syncChannelIcon(key, iconKey) {
+    if (!S.sync) return;
+    try { await api('settings', { method: 'POST', body: { channelIcons: { [key]: iconKey } } }); }
+    catch (e) { toast('Icon saved on this device only: ' + e.message); }
+  }
 
   function focusRenameInput() {
     const input = Array.from(document.querySelectorAll('.rename input')).find((n) => n.offsetParent !== null);
@@ -8011,7 +8061,7 @@ function kClockPicker() {
       else S.editorGuard = false;
       return;
     }
-    S.iconPicking = null; S.roomPicking = null; S.renaming = null;
+    S.iconPicking = null; S.iconPickingCh = null; S.roomPicking = null; S.renaming = null;
     if (!inEditor()) S.editor = null;
     render();
   });

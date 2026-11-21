@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.38
+
+- Each switch of a split device can now have its own icon, independent of the main device's icon: tap the icon next to a switch name on the device page to pick one. It shows on the switch's tiles, its quick-control pills and its rockers, and syncs between your devices. The distance from home no longer uses a saved phone position older than 10 minutes, so it can't still read the distance from another home you visited earlier — a stale position just hides the distance until the next fresh read. The home picker no longer shows each home's location.
+
 ## 2.91.36
 
 - The home picker now shows the exact location the app is using for each home — its coordinates from Tuya plus the place name — under the home's name, so a swapped location is visible at a glance instead of guessed at. (Diagnostic for the two homes showing each other's location.)
