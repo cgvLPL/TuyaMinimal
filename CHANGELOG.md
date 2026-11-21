@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.92.01
+
+- Short phone screens (iPhone 7, especially with Display Zoom): the greeting, room pills and summary chips plus the device grid can run taller than the screen, so the last card ends up behind the floating tab bar. On short screens the top spacing is tighter and the cards a little shorter, so a short list fits and the last card clears the bar.
+
 ## 2.92.00
 
 - Drag to dim, right on the tile: on the wall tablet, drag up or down on a light tile to brighten or dim it, and on the phone, drag left or right on a light card (the list still scrolls up and down). The tile shows the brightness as you drag, and it only sends when you let go. Tap still toggles the light, and a long press still opens its controls. Works on bulbs and the LED strip.
