@@ -35,7 +35,14 @@ function cleanConditions(list) {
     if (type === 6) {
       if (!/^\d{2}:\d{2}$/.test(String(display.time || ''))) throw bad('Schedules need a time.');
       if (display.loops !== undefined && !/^[01]{7}$/.test(String(display.loops))) throw bad('Invalid days.');
-      if (display.date !== undefined && !/^\d{8}$/.test(String(display.date))) throw bad('Invalid date.');
+      if (display.date !== undefined) {
+        // Tuya and older clients sometimes send the date with dashes; the API
+        // wants 8 digits. An empty date means no date — leave it off.
+        const d = String(display.date).replace(/-/g, '');
+        if (d === '') delete display.date;
+        else if (!/^\d{8}$/.test(d)) throw bad('Invalid date.');
+        else display.date = d;
+      }
     }
     if (type === 1 && !['==', '>', '<'].includes(display.operator)) throw bad('Invalid comparison.');
     if (type === 3 && !/^[A-Za-z]{1,20}$/.test(String(display.code || ''))) throw bad('Invalid weather condition.');

@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.91.39", "items": ["Editing a saved automation with a repeating schedule no longer fails with 'Invalid date': Tuya stores a date on repeating schedules too, in either 20261125 or 2026-11-25 form, and the app passed it through as-is while the server only accepts 8 digits. The date is now normalised to 8 digits (or left off when there isn't one), on the phone and on the server, so schedules kept from the Tuya app save too."]},
   {"v": "2.91.38", "items": ["Each switch of a split device can now have its own icon, independent of the main device's icon: tap the icon next to a switch name on the device page to pick one. It shows on the switch's tiles, its quick-control pills and its rockers, and syncs between your devices. The distance from home no longer uses a saved phone position older than 10 minutes, so it can't still read the distance from another home you visited earlier — a stale position just hides the distance until the next fresh read. The home picker no longer shows each home's location."]},
   {"v": "2.91.36", "items": ["The home picker now shows the exact location the app is using for each home — its coordinates from Tuya plus the place name — under the home's name, so a swapped location is visible at a glance instead of guessed at. (Diagnostic for the two homes showing each other's location.)"]},
   {"v": "2.91.35", "items": ["When saving (or deleting) a scene or automation fails, the reason now scrolls into view: before, it appeared just above the Save button, which can sit below the fold on a long editor while the Save button itself stays stuck to the bottom — so a failure could look like nothing happened at all."]},
@@ -5210,7 +5211,15 @@
       } else if (c.type === 'timer') {
         if (!c.days.some(Boolean)) return 'Pick at least one day for each time.';
         if (!/^\d{2}:\d{2}$/.test(c.time)) return 'Set a time for each schedule.';
-        out.push({ entity_type: 6, entity_id: 'timer', display: Object.assign({}, c.disp || {}, { time: c.time, loops: c.days.map((x) => (x ? '1' : '0')).join(''), timezone_id: c.tz || timeZone() }) });
+        // Tuya stores a date on repeating schedules too, in either 20261125 or
+        // 2026-11-25 form, and the server only accepts 8 digits: normalise the
+        // carried-over date, or leave it off when it isn't a date at all.
+        const disp = Object.assign({}, c.disp || {});
+        if (disp.date !== undefined) {
+          const d = isoDate(disp.date).replace(/-/g, '');
+          if (d) disp.date = d; else delete disp.date;
+        }
+        out.push({ entity_type: 6, entity_id: 'timer', display: Object.assign(disp, { time: c.time, loops: c.days.map((x) => (x ? '1' : '0')).join(''), timezone_id: c.tz || timeZone() }) });
       } else if (c.type === 'weather') {
         out.push(Object.assign({ entity_type: 3, entity_id: c.cityId, display: Object.assign({}, c.disp) }, c.cityName ? { entity_name: c.cityName } : {}));
       } else if (c.type === 'raw') {

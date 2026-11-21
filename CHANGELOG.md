@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.91.39
+
+- Editing a saved automation with a repeating schedule no longer fails with 'Invalid date': Tuya stores a date on repeating schedules too, in either 20261125 or 2026-11-25 form, and the app passed it through as-is while the server only accepts 8 digits. The date is now normalised to 8 digits (or left off when there isn't one), on the phone and on the server, so schedules kept from the Tuya app save too.
+
 ## 2.91.38
 
 - Each switch of a split device can now have its own icon, independent of the main device's icon: tap the icon next to a switch name on the device page to pick one. It shows on the switch's tiles, its quick-control pills and its rockers, and syncs between your devices. The distance from home no longer uses a saved phone position older than 10 minutes, so it can't still read the distance from another home you visited earlier — a stale position just hides the distance until the next fresh read. The home picker no longer shows each home's location.
