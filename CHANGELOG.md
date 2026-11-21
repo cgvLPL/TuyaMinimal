@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.92.00
+
+- Drag to dim, right on the tile: on the wall tablet, drag up or down on a light tile to brighten or dim it, and on the phone, drag left or right on a light card (the list still scrolls up and down). The tile shows the brightness as you drag, and it only sends when you let go. Tap still toggles the light, and a long press still opens its controls. Works on bulbs and the LED strip.
+
 ## 2.91.39
 
 - Editing a saved automation with a repeating schedule no longer fails with 'Invalid date': Tuya stores a date on repeating schedules too, in either 20261125 or 2026-11-25 form, and the app passed it through as-is while the server only accepts 8 digits. The date is now normalised to 8 digits (or left off when there isn't one), on the phone and on the server, so schedules kept from the Tuya app save too.

@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.92.00", "items": ["Drag to dim, right on the tile: on the wall tablet, drag up or down on a light tile to brighten or dim it, and on the phone, drag left or right on a light card (the list still scrolls up and down). The tile shows the brightness as you drag, and it only sends when you let go. Tap still toggles the light, and a long press still opens its controls. Works on bulbs and the LED strip."]},
   {"v": "2.91.39", "items": ["Editing a saved automation with a repeating schedule no longer fails with 'Invalid date': Tuya stores a date on repeating schedules too, in either 20261125 or 2026-11-25 form, and the app passed it through as-is while the server only accepts 8 digits. The date is now normalised to 8 digits (or left off when there isn't one), on the phone and on the server, so schedules kept from the Tuya app save too."]},
   {"v": "2.91.38", "items": ["Each switch of a split device can now have its own icon, independent of the main device's icon: tap the icon next to a switch name on the device page to pick one. It shows on the switch's tiles, its quick-control pills and its rockers, and syncs between your devices. The distance from home no longer uses a saved phone position older than 10 minutes, so it can't still read the distance from another home you visited earlier — a stale position just hides the distance until the next fresh read. The home picker no longer shows each home's location."]},
   {"v": "2.91.36", "items": ["The home picker now shows the exact location the app is using for each home — its coordinates from Tuya plus the place name — under the home's name, so a swapped location is visible at a glance instead of guessed at. (Diagnostic for the two homes showing each other's location.)"]},
@@ -3113,6 +3114,99 @@
   ['pointerup', 'pointercancel', 'scroll'].forEach((t) => document.addEventListener(t, lpCancel, { passive: true, capture: t === 'scroll' }));
   document.addEventListener('click', (e) => { if (Date.now() - lpFired < 700 && !(e.target.closest && e.target.closest('.qc'))) { e.stopPropagation(); e.preventDefault(); } }, true);
 
+  // ---------- Drag to dim on a light tile (2.92.00) ----------
+  // Wall tablet: drag up/down on a light tile (faces swipe sideways, so the vertical
+  // axis is free). Phone: drag left/right on a light card (the list scrolls
+  // vertically, so the horizontal axis is free). Tap still toggles, long press still
+  // opens the quick control / edit mode. One command is sent when the drag ends,
+  // exactly like the quick-control slider and the brightness dial.
+  let dimDrag = null, dimFired = false;
+  // Pixels of movement on the dim axis before a drag counts as dimming, and how much
+  // straighter it must be than the other axis to win over scrolling / face swiping.
+  const DIM_MIN = 8, DIM_RATIO = 1.2;
+  // Pure: the brightness % a drag lands on. delta is signed along the dim axis
+  // (tablet: up is positive; phone: right is positive), size is the tile's extent
+  // on that axis, so a full-tile drag covers the whole 0-100 range.
+  const dimPct = (start, delta, size) => clamp(Math.round(start + (delta / size) * 100), 0, 100);
+  // Pure: which axis a drag is clearly on, if it has picked one yet.
+  const dimAxis = (dx, dy) => {
+    if (Math.abs(dx) >= DIM_MIN && Math.abs(dx) > Math.abs(dy) * DIM_RATIO) return 'h';
+    if (Math.abs(dy) >= DIM_MIN && Math.abs(dy) > Math.abs(dx) * DIM_RATIO) return 'v';
+    return null;
+  };
+  const dimEligible = (d) => d && d.online && qcDimmable(d) && !S.reorder && !S.kEdit && !qc;
+  // The tile/card for a drag that started on it. Split-switch cards (data-code) are
+  // separate switches with no brightness of their own, and scene tiles are not
+  // lights, so neither ever dims.
+  const dimTileOf = (el) => {
+    const t = el && el.closest ? el.closest('.card, .k-mt') : null;
+    if (!t) return null;
+    if (t.classList.contains('card') && !t.dataset.cardId) return null;
+    if (t.classList.contains('card') && t.dataset.cardId.indexOf(':') >= 0) return null;
+    if (t.classList.contains('k-mt') && t.dataset.act !== 'toggle') return null;
+    return t;
+  };
+  // Live feedback while dragging: the tile's status line shows the brightness %,
+  // and its lit state follows it. The device status itself is untouched until the
+  // drag ends, so a cancelled drag changes nothing.
+  const dimLive = (tile, d, pct) => {
+    const text = pct > 0 ? pct + '%' : 'Off';
+    const sub = tile.querySelector('.km-sub');
+    if (sub) sub.textContent = (d.room ? d.room + ' \u00b7 ' : '') + text;
+    const st = tile.querySelector('.card-status');
+    if (st) st.textContent = text;
+    tile.classList.toggle('on', pct > 0);
+    tile.classList.toggle('active', pct > 0);
+  };
+  document.addEventListener('pointerdown', (e) => {
+    if (e.button > 0 || e.isPrimary === false) return;
+    // The leftmost 24px on the phone is the swipe-back edge; leave it to that gesture.
+    if (route().view !== 'kiosk' && e.clientX <= 24) return;
+    const tile = dimTileOf(e.target);
+    if (!tile) return;
+    const d = findDevice(tile.dataset.cardId || tile.dataset.id);
+    if (!dimEligible(d)) return;
+    const start = qcSliderFor(d).pct(d);
+    dimDrag = { d, tile, kiosk: route().view === 'kiosk', x0: e.clientX, y0: e.clientY, start, pct: start, moved: false, pid: e.pointerId };
+  }, { passive: true });
+  document.addEventListener('pointermove', (e) => {
+    if (!dimDrag || e.pointerId !== dimDrag.pid) return;
+    const dx = e.clientX - dimDrag.x0, dy = e.clientY - dimDrag.y0;
+    if (!dimDrag.moved) {
+      const axis = dimAxis(dx, dy);
+      if (!axis) return;
+      // The gesture picked the other axis: scrolling (phone) or face swiping
+      // (tablet) owns it, so let go and let that gesture have it.
+      if ((dimDrag.kiosk && axis === 'h') || (!dimDrag.kiosk && axis === 'v')) { dimDrag = null; return; }
+      if (qc) { dimDrag = null; return; }   // a long press already opened the quick control
+      dimDrag.moved = true;
+      S.dragging = true;
+      dimDrag.tile.classList.add('dimming');
+      if (dimDrag.tile.setPointerCapture) { try { dimDrag.tile.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ } }
+      lpCancel();
+      if (kHold) { clearTimeout(kHold.t); kHold = null; }
+    }
+    const rect = dimDrag.tile.getBoundingClientRect();
+    const size = dimDrag.kiosk ? rect.height : rect.width;
+    if (!size) return;
+    const delta = dimDrag.kiosk ? -(e.clientY - dimDrag.y0) : (e.clientX - dimDrag.x0);
+    dimDrag.pct = dimPct(dimDrag.start, delta, size);
+    dimLive(dimDrag.tile, dimDrag.d, dimDrag.pct);
+  }, { passive: true });
+  const endDim = (e) => {
+    if (!dimDrag || (e && e.pointerId !== undefined && e.pointerId !== dimDrag.pid)) return;
+    const { d, pct, moved, tile } = dimDrag;
+    dimDrag = null;
+    S.dragging = false;
+    tile.classList.remove('dimming');
+    if (!moved) return;
+    dimFired = true;
+    lpFired = Date.now();
+    qcSliderFor(d).commit(d, pct);
+  };
+  document.addEventListener('pointerup', endDim);
+  document.addEventListener('pointercancel', endDim);
+
   // iOS 26 tab bar: when the tab changes, the glass capsule glides from the old tab to the new one,
   // stretching like a droplet on the way and springing into place.
   document.addEventListener('touchstart', () => {}, { passive: true });   // lets :active (the press effect) work on iPhone
@@ -3201,7 +3295,7 @@
     const ch = code || null;
     const on = ch ? !!d.status[ch] : isOn(d), toggle = ch ? true : hasToggle(d), lit = toggle && on && d.online;
     if (!ch && d.online && isKioskAc(d)) return acCard(d, selectedId);
-    const cls = ['card', 'compact', 'hue-' + hueOf(d), S.reorder && (isHidden(d) || (ch && isHiddenCh(d, ch))) ? 'is-hidden' : '', !ch && photoOf(d) ? 'has-photo' : '', lit ? 'active' : '', d.online ? '' : 'offline', !ch && d.id === selectedId ? 'selected' : '', isPending(d.id) ? 'pending' : ''].join(' ');
+    const cls = ['card', 'compact', 'hue-' + hueOf(d), S.reorder && (isHidden(d) || (ch && isHiddenCh(d, ch))) ? 'is-hidden' : '', !ch && photoOf(d) ? 'has-photo' : '', lit ? 'active' : '', d.online ? '' : 'offline', !ch && d.id === selectedId ? 'selected' : '', isPending(d.id) ? 'pending' : '', !ch && qcDimmable(d) && d.online ? 'dimable' : ''].join(' ');
     const r = S.reorder, busy = isPending(d.id);
     const colour = !ch && lit && kindOf(d) === 'light' && inColour(d) ? ' style="background:' + colourCss(d) + ';color:#141414"' : '';
     const glyphHtml = ch ? channelIconHtml(d, ch, 22, true) : (photoOf(d)
@@ -5814,7 +5908,7 @@
     const state = d.online ? (code ? (on ? 'On' : 'Off') : statusText(d)) : 'Offline';
     const name = code ? channelName(d, code) : d.name;
     const sub = d.room ? d.room + ' \u00b7 ' + state : state;
-    const cls = 'k-mt' + (on ? ' on' : '') + (busy ? ' pending' : '');
+    const cls = 'k-mt' + (on ? ' on' : '') + (busy ? ' pending' : '') + (!code && qcDimmable(d) && d.online ? ' dimable' : '');
     let gk = iconKeyOf(d);
     if (PH_GLYPH[gk]) gk = PH_GLYPH[gk];
     const inner = '<span class="km-ic">' + (code ? channelIconHtml(d, code, 44, false) : glyph(gk, 44)) + '</span><span class="km-name">' + esc(name) + '</span><span class="km-sub">' + esc(sub) + '</span>';
@@ -6163,9 +6257,9 @@
   ['pointerup', 'pointercancel'].forEach((n) => document.addEventListener(n, () => { if (kHold) { clearTimeout(kHold.t); kHold = null; } }));
   // The tap that ends a long press (or a mouse swipe) must not also press the tile under it.
   let kSwiped = false;
-  document.addEventListener('pointerdown', () => { kHoldFired = false; }, true);
+  document.addEventListener('pointerdown', () => { kHoldFired = false; dimFired = false; }, true);
   document.addEventListener('click', (e) => {
-    if (kHoldFired || kSwiped || kLvlFired) { kHoldFired = false; kSwiped = false; kLvlFired = false; e.stopPropagation(); e.preventDefault(); return; }
+    if (kHoldFired || kSwiped || kLvlFired || dimFired) { kHoldFired = false; kSwiped = false; kLvlFired = false; dimFired = false; e.stopPropagation(); e.preventDefault(); return; }
     // Edit mode: tapping a tile selects it (to resize) instead of switching it.
     if (S.kEdit && e.target.closest) {
       const cell = e.target.closest('.km-cell'), ctl = e.target.closest('.km-del, .km-sizes, .k-editbar');
