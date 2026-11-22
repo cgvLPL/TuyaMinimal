@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.92.02
+
+- On a slow connection, switching a tile on no longer bounces back to off for a second: after a command, the app now keeps showing what you sent until the server actually reports it (at most 10 seconds). Before, the in-flight guard cleared as soon as the command returned and the 1.5-second guard expired before Tuya's status caught up, so the next status poll merged the still-old state over the tile. The same hold applies to a full refresh landing in that window.
+
 ## 2.92.00
 
 - Drag to dim, right on the tile: on the wall tablet, drag up or down on a light tile to brighten or dim it, and on the phone, drag left or right on a light card (the list still scrolls up and down). The tile shows the brightness as you drag, and it only sends when you let go. Tap still toggles the light, and a long press still opens its controls. Works on bulbs and the LED strip.

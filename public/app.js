@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.92.02", "items": ["On a slow connection, switching a tile on no longer bounces back to off for a second: after a command, the app now keeps showing what you sent until the server actually reports it (at most 10 seconds). Before, the in-flight guard cleared as soon as the command returned and the 1.5-second guard expired before Tuya's status caught up, so the next status poll merged the still-old state over the tile. The same hold applies to a full refresh landing in that window."]},
   {"v": "2.92.00", "items": ["Drag to dim, right on the tile: on the wall tablet, drag up or down on a light tile to brighten or dim it, and on the phone, drag left or right on a light card (the list still scrolls up and down). The tile shows the brightness as you drag, and it only sends when you let go. Tap still toggles the light, and a long press still opens its controls. Works on bulbs and the LED strip."]},
   {"v": "2.91.39", "items": ["Editing a saved automation with a repeating schedule no longer fails with 'Invalid date': Tuya stores a date on repeating schedules too, in either 20261125 or 2026-11-25 form, and the app passed it through as-is while the server only accepts 8 digits. The date is now normalised to 8 digits (or left off when there isn't one), on the phone and on the server, so schedules kept from the Tuya app save too."]},
   {"v": "2.91.38", "items": ["Each switch of a split device can now have its own icon, independent of the main device's icon: tap the icon next to a switch name on the device page to pick one. It shows on the switch's tiles, its quick-control pills and its rockers, and syncs between your devices. The distance from home no longer uses a saved phone position older than 10 minutes, so it can't still read the distance from another home you visited earlier — a stale position just hides the distance until the next fresh read. The home picker no longer shows each home's location."]},
@@ -1132,6 +1133,7 @@
     pollMs: Number(store.get('pollMs')) || 4000,  // live status interval
     touched: {},
     pending: {},         // deviceId -> number of commands still on their way
+    expect: {},          // deviceId -> { codes: {code: value}, at } of the last change sent, until the server confirms it
     weather: null,
     showDistance: store.get('showDistance') === '1',  // "You're 12 km from home" (location stays on this phone)
     myPos: (() => { try { const p = JSON.parse(store.get('myPos') || 'null'); return p && typeof p.lat === 'number' && Date.now() - (p.at || 0) < 10 * 60 * 1000 ? p : null; } catch (e) { return null; } })(),  // last known position, but only if read in the last 10 minutes: an older one could be from another home visited earlier
@@ -1332,6 +1334,14 @@
       lastFull = Date.now();
       S.data = data;
       saveSnapshot(data);
+      // 2.92.02: a full refresh must not undo a just-sent change either: keep
+      // the sent values on the fresh snapshot until the server confirms them.
+      for (const d of data.devices || []) {
+        const exp = S.expect[d.id];
+        if (!exp) continue;
+        if (Date.now() - exp.at > EXPECT_MS) delete S.expect[d.id];
+        else Object.assign(d.status, exp.codes);
+      }
       S.gate = null;
       if (data.me) S.me = data.me;
       S.sync = !!data.sync;
@@ -2333,10 +2343,32 @@
 
   // ---------- Commands ----------
   const pendingSend = {};
+  // 2.92.02: a just-sent change stays shown until the server confirms it.
+  // On a slow connection Tuya's status can lag the command by seconds: the
+  // in-flight guard used to clear as soon as the command POST returned, and
+  // the 1.5 s touched-guard expired before the server caught up, so the next
+  // status poll merged the still-old state over the tile and it bounced back
+  // to off for a second. Remember what was sent; a poll only overwrites it
+  // once the server reports those same values, or after 10 s at most.
+  const EXPECT_MS = 10000;
+  function expectFor(commands, patch) {
+    const codes = {};
+    (commands || []).forEach((c) => { codes[c.code] = c.value; });
+    Object.assign(codes, patch || {});
+    return codes;
+  }
+  function expectHold(exp, status, now) {
+    if (!exp) return null;
+    if (now - exp.at > EXPECT_MS) return 'expired';
+    if (status && Object.keys(exp.codes).every((k) => status[k] === exp.codes[k])) return 'confirmed';
+    return 'hold';
+  }
   async function send(d, commands, patch, opts) {
     opts = opts || {};
     const before = Object.assign({}, d.status);
     Object.assign(d.status, patch || {});
+    const expectCodes = expectFor(commands, patch);
+    if (Object.keys(expectCodes).length) S.expect[d.id] = { codes: expectCodes, at: Date.now() };
     S.touched[d.id] = Date.now();
     markPending(d.id, 1);
     if (!opts.noRender) render();
@@ -2345,6 +2377,7 @@
       S.touched[d.id] = Date.now();
       statusSoon();
     } catch (e) {
+      delete S.expect[d.id];   // the command failed: the revert below is the truth, don't hold the sent values
       d.status = opts.revertTo || before;
       toast(d.name + ': ' + e.message);
     } finally {
@@ -8195,6 +8228,12 @@ function kClockPicker() {
         if (!fresh) continue;
         if (now - (S.touched[d.id] || 0) < 1500) continue; // let a just-sent command land first
         if (hasLocalChange(d.id) || S.dragging) continue;   // don't undo a change still on its way (or a drag in progress)
+        const exp = S.expect[d.id];
+        if (exp) {   // 2.92.02: don't let a stale server state undo a just-sent change
+          const hold = expectHold(exp, fresh.status, now);
+          if (hold !== 'hold') delete S.expect[d.id];
+          if (hold === 'hold') continue;
+        }
         if (d.ir && d.ir.ac) { if (d.online !== fresh.online) { d.online = fresh.online; changed = true; } continue; }
         if (d.online !== fresh.online || JSON.stringify(d.status) !== JSON.stringify(fresh.status)) {
           d.online = fresh.online; d.status = fresh.status; changed = true;
