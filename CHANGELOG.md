@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.01
+
+- Notes under the lists (like the explanation on the eWeLink page) now span the full width of the card instead of stopping in a narrow column on the left.
+
 ## 2.93.00
 
 - eWeLink devices can now live in your homes alongside your Tuya devices: link your eWeLink account in Me > eWeLink, and each eWeLink switch or plug can be assigned to HG22A or Cove, where it shows as a plug tile you can toggle like any other. The first version covers single on/off switches and plugs only, and eWeLink devices can't join Tuya scenes or automations, which run on Tuya's cloud.

@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.93.01", "items": ["Notes under the lists (like the explanation on the eWeLink page) now span the full width of the card instead of stopping in a narrow column on the left."]},
   {"v": "2.93.00", "items": ["eWeLink devices can now live in your homes alongside your Tuya devices: link your eWeLink account in Me > eWeLink, and each eWeLink switch or plug can be assigned to HG22A or Cove, where it shows as a plug tile you can toggle like any other. The first version covers single on/off switches and plugs only, and eWeLink devices can't join Tuya scenes or automations, which run on Tuya's cloud."]},
   {"v": "2.92.02", "items": ["On a slow connection, switching a tile on no longer bounces back to off for a second: after a command, the app now keeps showing what you sent until the server actually reports it (at most 10 seconds). Before, the in-flight guard cleared as soon as the command returned and the 1.5-second guard expired before Tuya's status caught up, so the next status poll merged the still-old state over the tile. The same hold applies to a full refresh landing in that window."]},
   {"v": "2.92.00", "items": ["Drag to dim, right on the tile: on the wall tablet, drag up or down on a light tile to brighten or dim it, and on the phone, drag left or right on a light card (the list still scrolls up and down). The tile shows the brightness as you drag, and it only sends when you let go. Tap still toggles the light, and a long press still opens its controls. Works on bulbs and the LED strip."]},
@@ -4184,7 +4185,7 @@
         '<span class="act-text"><b>' + esc(e.who) + '</b> ' + esc(e.text) + '</span><span class="act-time">' + time + '</span></div>';
     }).join('') + '</div>';
     if (A.more) html += '<button class="btn ghost act-more" data-act="act-more" data-key="act-more"' + (A.loading ? ' disabled' : '') + '>' + (A.loading ? 'Loading…' : 'Show older') + '</button>';
-    html += '<p class="note" style="text-align:left;margin-top:12px">Changes made in the Tuya app or with physical switches aren\'t included.</p>';
+    html += '<p class="note" style="text-align:left;margin-top:12px;max-width:none">Changes made in the Tuya app or with physical switches aren\'t included.</p>';
     return html;
   }
 
@@ -4195,7 +4196,7 @@
       '<button class="bg-choice" role="radio" aria-checked="' + (S.bg === v) + '" data-act="bg-set" data-v="' + v + '" data-key="bg-' + v + '">' +
       '<span class="bg-thumb' + (v === 'system' ? ' bg-system' : '') + '"' + (v === 'system' ? '' : ' style="background-image:url(/backgrounds/thumbs/' + v + '.jpg)"') + '>' +
       (S.bg === v ? '<span class="bg-check">' + icon('check', 16) + '</span>' : '') + '</span><span class="bg-name">' + n + '</span></button>').join('') + '</div>';
-    html += '<p class="note" style="text-align:left;margin-top:12px">Photo backgrounds use the dark look so text stays readable. Saved on this device.</p>';
+    html += '<p class="note" style="text-align:left;margin-top:12px;max-width:none">Photo backgrounds use the dark look so text stays readable. Saved on this device.</p>';
     return html;
   }
 
@@ -4222,7 +4223,7 @@
         '<span class="se-room">' + esc((d.room ? d.room + ', ' : '') + label) + '</span></span></span>' + icon(open ? 'down' : 'chevron', 16) + '</button>' +
         (open ? iconSection(d, '-' + d.id) : '');
     }).join('') + '</div>';
-    if (!S.sync) html += '<p class="note" style="text-align:left;margin-top:10px">Icons are saved in this browser. Set up sync to share them across devices.</p>';
+    if (!S.sync) html += '<p class="note" style="text-align:left;margin-top:10px;max-width:none">Icons are saved in this browser. Set up sync to share them across devices.</p>';
     return html;
   }
 
@@ -6697,7 +6698,7 @@ function kClockPicker() {
   const subHead = (sub, title, back, key) =>
     '<div class="detail-head se-head-top"><button class="round-btn" data-act="tab" data-tab="' + (back || 'me') + '" data-key="' + key + '" aria-label="Back">' + icon('back', 20) + '</button>' +
     '<div><p class="sub">' + sub + '</p><h1 class="detail-title">' + title + '</h1></div></div>';
-  const noteBelow = (t) => '<p class="note" style="text-align:left;margin-top:10px">' + t + '</p>';
+  const noteBelow = (t) => '<p class="note" style="text-align:left;margin-top:10px;max-width:none">' + t + '</p>';
   const isAdminView = () => S.mode === 'demo' || (S.mode === 'live' && (!S.me || S.me.role === 'admin'));
   const pollLabel = () => ({ 2000: 'Every 2 s', 4000: 'Every 4 s', 10000: 'Every 10 s', 30000: 'Every 30 s' })[S.pollMs] || 'Every ' + Math.round(S.pollMs / 1000) + ' s';
 
@@ -6918,11 +6919,11 @@ function kClockPicker() {
     let html = '<h2 class="section-title">People</h2>';
     if (!S.sync) {
       return html + '<div class="list"><div class="list-row"><span class="label">Owner</span><span class="value">Uses APP_PASSWORD</span></div></div>' +
-        '<p class="note" style="text-align:left;margin-top:10px">To give others their own password, set up storage first (README, "Sync and users").</p>';
+        '<p class="note" style="text-align:left;margin-top:10px;max-width:none">To give others their own password, set up storage first (README, "Sync and users").</p>';
     }
     if (S.users === null) { loadUsers(); return html + '<p class="note" style="text-align:left">Loading…</p>'; }
     if (S.users === 'loading') return html + '<p class="note" style="text-align:left">Loading…</p>';
-    if (S.users && S.users.error) return html + '<p class="note" style="text-align:left">' + esc(S.users.error) + '</p>';
+    if (S.users && S.users.error) return html + '<p class="note" style="text-align:left;max-width:none">' + esc(S.users.error) + '</p>';
     html += '<div class="list"><div class="list-row"><span class="channel"><span class="label">Owner</span></span><span class="value">Admin</span></div>';
     html += S.users.map((u) => {
       const armed = S.userDelete === u.id;
