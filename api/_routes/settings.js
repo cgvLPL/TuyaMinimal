@@ -7,7 +7,8 @@
 // POST /api/settings { split: { homeId, ids: [deviceId, ...] } } → multi-switch devices split into one tile per switch in one home
 // POST /api/settings { hiddenChannels: { homeId, ids: ['deviceId:switch_1', ...] } } → single switches hidden from Home in one home
 // POST /api/settings { floors: { homeId, list: [{ id, name }], room: { roomName: floorId } } } → the home's floors
-const { handler } = require('../_lib/http');
+// POST /api/settings { ewelinkHomes: { homeId, ids: ['ew-<deviceid>', ...] } } → eWeLink devices assigned to one home
+const { handler, requireId } = require('../_lib/http');
 const { TuyaError } = require('../_lib/tuya');
 const store = require('../_lib/store');
 const access = require('../_lib/access');
@@ -25,6 +26,7 @@ module.exports = handler(['GET', 'POST'], async (req, body) => {
   settings.split = settings.split || {};
   settings.hiddenChannels = settings.hiddenChannels || {};
   settings.floors = settings.floors || {};
+  settings.ewelinkHomes = settings.ewelinkHomes || {};
   if (req.method === 'GET') return settings;
   if (body.order && typeof body.order === 'object') {
     const homeId = String(body.order.homeId || '');
@@ -66,6 +68,15 @@ module.exports = handler(['GET', 'POST'], async (req, body) => {
     const ids = Array.isArray(body.hiddenChannels.ids) ? body.hiddenChannels.ids.filter((x) => typeof x === 'string' && CH.test(x)) : null;
     if (!ids || ids.length > 500) throw new TuyaError('Bad list of hidden switches.', 'bad_request', 400);
     if (ids.length) settings.hiddenChannels[homeId] = Array.from(new Set(ids)); else delete settings.hiddenChannels[homeId];
+  }
+  if (body.ewelinkHomes && typeof body.ewelinkHomes === 'object') {
+    const homeId = requireId(body.ewelinkHomes.homeId, 'home');
+    const ids = body.ewelinkHomes.ids;
+    if (!Array.isArray(ids) || ids.length > 500 || ids.some((id) => typeof id !== 'string' || !/^ew-[A-Za-z0-9_-]{1,64}$/.test(id))) {
+      throw new TuyaError('ewelinkHomes must be a list of up to 500 eWeLink device ids.', 'bad_request', 400);
+    }
+    await access.requireHome(req.user, homeId);
+    if (ids.length === 0) delete settings.ewelinkHomes[homeId]; else settings.ewelinkHomes[homeId] = ids;
   }
   if (body.floors && typeof body.floors === 'object') {
     // Floors of one home: [{ id, name }] and which floor each room is on.

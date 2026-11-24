@@ -24,7 +24,8 @@ const routes = {
   history: require('./_routes/history'),
   timer: require('./_routes/timer'),
   lock: require('./_routes/lock'),
-  firmware: require('./_routes/firmware')
+  firmware: require('./_routes/firmware'),
+  ewelink: require('./_routes/ewelink')
 };
 
 module.exports = async (req, res) => {

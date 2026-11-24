@@ -1,0 +1,294 @@
+// Minimal eWeLink Cloud (OpenAPI V2) client for Vercel serverless functions.
+// No dependencies: uses Node 18+ built-in fetch and crypto.
+// Mirrors api/_lib/tuya.js: env config, HMAC signing, fetch + 8 s timeout, error class.
+const crypto = require('crypto');
+const store = require('./store');
+const { cached } = require('./cache');
+const { TuyaError } = require('./tuya');
+
+const HOSTS = {
+  as: 'https://as-apia.coolkit.cc',   // Asia (Ray's account)
+  us: 'https://us-apia.coolkit.cc',   // Americas
+  eu: 'https://eu-apia.coolkit.cc',   // Europe
+  cn: 'https://cn-apia.coolkit.cn'    // Mainland China
+};
+const AUTH_PAGE = 'https://c2ccdn.coolkit.cc/oauth/index.html';
+// Where eWeLink sends the user back after authorizing. The client detects ?code= + region=
+// on load and exchanges the code. No new serverless function file needed.
+const REDIRECT_URL = 'https://tuya-minimal.vercel.app/';
+const TOKEN_KEY = 'ewelink:token';
+const TIMEOUT_MS = 8000;   // per request to eWeLink, like Tuya
+
+function isConfigured() {
+  return !!(process.env.EWELINK_APPID && process.env.EWELINK_APPSECRET);
+}
+
+function config() {
+  const appid = process.env.EWELINK_APPID;
+  const secret = process.env.EWELINK_APPSECRET;
+  if (!appid || !secret) {
+    throw new TuyaError('Server is missing EWELINK_APPID or EWELINK_APPSECRET.', 'not_configured', 503);
+  }
+  return { appid, secret };
+}
+
+const NONCE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+function nonce() {
+  let s = '';
+  for (let i = 0; i < 8; i++) s += NONCE_CHARS[Math.floor(Math.random() * NONCE_CHARS.length)];
+  return s;
+}
+
+// HMAC-SHA256 with the app secret, Base64. Doc example: HMAC('abc', 'ABC_123')
+// → v1+mfNY2ukxswM8sZOTg99srZsVnUVv9DGXeav1096M=
+function sign(secret, message) {
+  return crypto.createHmac('sha256', secret).update(message, 'utf8').digest('base64');
+}
+// Authorize-page signature: the message is "clientId_seq".
+function signAuth(appid, seq, secret) {
+  return sign(secret, appid + '_' + seq);
+}
+// Signed pre-token calls. GET signs the parameters sorted alphabetically, joined with '&';
+// POST signs the whole JSON body.
+function signGet(secret, params) {
+  const keys = Object.keys(params || {}).sort();
+  return sign(secret, keys.map((k) => k + '=' + params[k]).join('&'));
+}
+function signPost(secret, body) {
+  return sign(secret, typeof body === 'string' ? body : JSON.stringify(body));
+}
+
+// ---------- Token in the shared KV store (never sent to the client) ----------
+async function loadToken() {
+  try { return await store.getJSON(TOKEN_KEY, null); } catch (e) { return null; }
+}
+async function saveToken(tok) {
+  await store.setJSON(TOKEN_KEY, tok);
+}
+async function clearToken() {
+  try { await store.del(TOKEN_KEY); } catch (e) { /* already gone */ }
+}
+async function isLinked() {
+  const tok = await loadToken();
+  return !!(tok && tok.at);
+}
+
+// One request to eWeLink. `auth` is { sign: true } for pre-token calls (the
+// Authorization header carries the HMAC of the body) or { bearer: token } for
+// calls made with an access token. eWeLink answers { error, msg, data }; error 0 = ok.
+async function rawRequest(cfg, host, method, path, bodyObj, auth) {
+  const body = bodyObj === undefined ? '' : JSON.stringify(bodyObj);
+  const headers = {
+    'X-CK-Appid': cfg.appid,
+    'X-CK-Nonce': nonce(),
+    'Content-Type': 'application/json'
+  };
+  if (auth && auth.sign) headers.Authorization = 'Sign ' + signPost(cfg.secret, body);
+  else if (auth && auth.bearer) headers.Authorization = 'Bearer ' + auth.bearer;
+  const signal = AbortSignal.timeout(TIMEOUT_MS);
+  const timedOut = (e) => e && (e.name === 'TimeoutError' || e.name === 'AbortError');
+  let res;
+  try {
+    res = await fetch(host + path, { method, headers, body: body || undefined, signal });
+  } catch (e) {
+    if (timedOut(e)) throw new TuyaError('eWeLink took too long to answer. Try again in a moment.', 'timeout', 504);
+    throw new TuyaError('Could not reach eWeLink.', 'network');
+  }
+  let json;
+  try {
+    json = await res.json();
+  } catch (e) {
+    if (timedOut(e)) throw new TuyaError('eWeLink took too long to answer. Try again in a moment.', 'timeout', 504);
+    throw new TuyaError('eWeLink sent an unreadable response (HTTP ' + res.status + ').', 'bad_response');
+  }
+  if (typeof json.error !== 'number') throw new TuyaError('eWeLink sent an unreadable response.', 'bad_response', 502);
+  if (json.error !== 0) {
+    const msg = json.msg || 'eWeLink returned an error.';
+    // 401/402: token problems. 407: this appid may not call that interface.
+    // 412: free quota exceeded. 30017: the device's brand isn't authorized for this appid.
+    if (json.error === 401 || json.error === 402) throw new TuyaError(msg, json.error, 401);
+    if (json.error === 407) throw new TuyaError('This eWeLink app is not allowed to use that feature.', 407, 403);
+    if (json.error === 412) throw new TuyaError('The free eWeLink allowance for this month is used up.', 412, 503);
+    if (json.error === 30017) throw new TuyaError('This device\'s brand isn\'t authorized for this eWeLink app. It needs a brand-authorization letter from CoolKit.', 30017, 403);
+    throw new TuyaError(msg, json.error, 502);
+  }
+  return json.data || {};
+}
+
+async function refreshToken(cfg, tok) {
+  let data;
+  try {
+    data = await rawRequest(cfg, HOSTS[tok.region] || HOSTS.as, 'POST', '/v2/user/refresh', { rt: tok.rt }, { sign: true });
+  } catch (e) {
+    if (e.code === 401 || e.code === 402) throw new TuyaError('Your eWeLink link expired. Link your account again in Me.', 'not_linked', 401);
+    throw e;
+  }
+  const next = {
+    at: data.at, rt: data.rt || tok.rt, region: tok.region,
+    atExp: data.atExpiredTime || Date.now() + 29 * 864e5,
+    rtExp: data.rtExpiredTime || Date.now() + 59 * 864e5
+  };
+  await saveToken(next);
+  return next;
+}
+
+// The access token, refreshed when it has (nearly) expired.
+async function getAccessToken(cfg) {
+  const tok = await loadToken();
+  if (!tok || !tok.at) throw new TuyaError('eWeLink is not linked. Link your account in Me.', 'not_linked', 401);
+  if (tok.atExp && tok.atExp > Date.now() + 60000) return tok;
+  if (!tok.rt) throw new TuyaError('eWeLink is not linked. Link your account again in Me.', 'not_linked', 401);
+  return refreshToken(cfg, tok);
+}
+
+// Authenticated call. Retries once with a fresh token if eWeLink says the token is stale.
+async function callAuthed(method, path, bodyObj) {
+  const cfg = config();
+  let tok = await getAccessToken(cfg);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await rawRequest(cfg, HOSTS[tok.region] || HOSTS.as, method, path, bodyObj, { bearer: tok.at });
+    } catch (e) {
+      if ((e.code === 401 || e.code === 402) && attempt === 0 && tok.rt) { tok = await refreshToken(cfg, tok); continue; }
+      throw e;
+    }
+  }
+}
+
+// The authorize URL the Link button opens. The user signs in on eWeLink's page and
+// is sent back to REDIRECT_URL with ?code=...&region=... (the code is valid 30 s).
+function authUrl() {
+  const cfg = config();
+  const seq = String(Date.now());
+  const q = new URLSearchParams({
+    clientId: cfg.appid,
+    seq,
+    authorization: signAuth(cfg.appid, seq, cfg.secret),
+    redirectUrl: REDIRECT_URL,
+    grantType: 'authorization_code',
+    state: nonce() + nonce(),
+    nonce: nonce(),
+    showQRCode: 'false'
+  });
+  return AUTH_PAGE + '?' + q.toString();
+}
+
+// Swap the authorize code for tokens and store them. The region comes back with the code.
+async function exchangeCode(code, region) {
+  const cfg = config();
+  const host = HOSTS[region] || HOSTS.as;
+  const data = await rawRequest(cfg, host, 'POST', '/v2/user/oauth/token',
+    { code, redirectUrl: REDIRECT_URL, grantType: 'authorization_code' }, { sign: true });
+  if (!data.accessToken) throw new TuyaError('eWeLink did not return a token.', 'bad_response', 502);
+  const tok = {
+    at: data.accessToken, rt: data.refreshToken, region,
+    atExp: data.atExpiredTime || Date.now() + 29 * 864e5,
+    rtExp: data.rtExpiredTime || Date.now() + 59 * 864e5
+  };
+  await saveToken(tok);
+  return tok;
+}
+
+// Take the link away on eWeLink's side too (best effort), then forget the stored token.
+async function revoke() {
+  const cfg = config();
+  const tok = await loadToken();
+  if (tok && tok.at) {
+    try { await rawRequest(cfg, HOSTS[tok.region] || HOSTS.as, 'DELETE', '/v2/user/oauth/token', undefined, { bearer: tok.at }); } catch (e) { /* local unlink still stands */ }
+  }
+  await clearToken();
+}
+
+// GET /v2/family → homes with their rooms.
+async function getFamilies() {
+  const data = await callAuthed('GET', '/v2/family');
+  return Array.isArray(data.familyList) ? data.familyList : [];
+}
+
+// GET /v2/device/thing?familyid=...&num=0 → all things in a family (paged past 30).
+async function getThings(familyId) {
+  let beginIndex = 0;
+  const out = [];
+  for (;;) {
+    const data = await callAuthed('GET', '/v2/device/thing?familyid=' + encodeURIComponent(familyId) + '&num=0' + (beginIndex ? '&beginIndex=' + beginIndex : ''));
+    const list = Array.isArray(data.thingList) ? data.thingList : [];
+    out.push(...list);
+    const total = typeof data.total === 'number' ? data.total : list.length;
+    if (out.length >= total || !list.length) break;
+    beginIndex = out.length;
+  }
+  return out;
+}
+
+// GET /v2/device/thing/status?type=1&id=...&params= (empty = all params).
+async function getStatus(id) {
+  const data = await callAuthed('GET', '/v2/device/thing/status?type=1&id=' + encodeURIComponent(id) + '&params=');
+  return (data && data.params) || {};
+}
+
+// POST /v2/device/thing/status { type: 1, id, params }.
+async function setStatus(id, params) {
+  await callAuthed('POST', '/v2/device/thing/status', { type: 1, id, params });
+  return true;
+}
+
+// Every thing in every family, with its family and room names attached. Shared for ~30 s
+// between the state, status and eWeLink routes, so a refresh cycle costs one list call.
+async function getAllThings() {
+  return cached('ewelink:things', 30000, async () => {
+    const fams = await getFamilies();
+    const all = [];
+    for (const fam of fams) {
+      const things = await getThings(String(fam.id));
+      for (const t of things) {
+        if (t.itemType === 3) continue;   // groups aren't devices
+        const d = t.itemData || {};
+        const room = (fam.roomList || []).find((r) => String(r.id) === String(d.family && d.family.roomid));
+        all.push({
+          deviceid: String(d.deviceid || ''),
+          name: d.name || '',
+          brandName: d.brandName || '',
+          productModel: d.productModel || '',
+          uiid: d.extra && d.extra.uiid,
+          online: !!d.online,
+          params: (d.params && typeof d.params === 'object') ? d.params : {},
+          familyId: String(fam.id),
+          familyName: fam.name || '',
+          roomId: room ? String(room.id) : '',
+          roomName: room ? room.name : ''
+        });
+      }
+    }
+    return all;
+  });
+}
+
+// v1: single-channel on/off switches/plugs only. A multi-channel device reports
+// params.switches; its channels are ignored until a later version.
+function mapThing(t) {
+  return {
+    id: 'ew-' + t.deviceid,
+    name: t.name || 'eWeLink device',
+    category: 'cz',
+    product: [t.brandName, t.productModel].filter(Boolean).join(' ') || 'eWeLink plug',
+    online: !!t.online,
+    status: { switch_1: t.params && t.params.switch === 'on' },
+    room: t.roomName || '',
+    ew: true
+  };
+}
+
+// Tuya-style commands [{ code: 'switch_1', value: bool }] → eWeLink params.
+// Anything else isn't an on/off switch in v1.
+function commandParams(commands) {
+  const c = (commands || []).find((x) => x && x.code === 'switch_1');
+  if (!c || typeof c.value !== 'boolean') return null;
+  return { switch: c.value ? 'on' : 'off' };
+}
+
+module.exports = {
+  isConfigured, isLinked, config, authUrl, exchangeCode, revoke,
+  getFamilies, getThings, getStatus, setStatus, getAllThings,
+  mapThing, commandParams, signAuth, signGet, signPost, nonce,
+  REDIRECT_URL, TOKEN_KEY
+};

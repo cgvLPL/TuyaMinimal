@@ -1,6 +1,7 @@
 // GET /api/state?homeId=... → homes, rooms, devices, scenes, automations
 const { call, config } = require('../_lib/tuya');
 const { handler, requireId } = require('../_lib/http');
+const ew = require('../_lib/ewelink');
 const store = require('../_lib/store');
 
 // The Tuya app saves a readable description next to actions it makes (IR remote buttons and AC
@@ -309,6 +310,25 @@ module.exports = handler(['GET'], async (req) => {
     settings.order = home && Array.isArray(all[home.id]) ? { [home.id]: all[home.id] } : {};
   }
 
+  // eWeLink devices assigned to this home (2.93.00): the app merges the linked
+  // eWeLink account's devices into the Tuya home they're assigned to. A failure here
+  // must never break the Tuya devices, so it only adds a warning.
+  let ewDevices = [];
+  if (home && settings && settings.ewelinkHomes && Array.isArray(settings.ewelinkHomes[home.id]) && settings.ewelinkHomes[home.id].length) {
+    try {
+      const assigned = new Set(settings.ewelinkHomes[home.id]);
+      const things = await ew.getAllThings();
+      const roomByName = {};
+      for (const r of rooms) roomByName[r.name.toLowerCase()] = r;
+      for (const t of things) {
+        const m = ew.mapThing(t);
+        if (!assigned.has(m.id)) continue;
+        const match = m.room ? roomByName[m.room.toLowerCase()] : null;
+        ewDevices.push(Object.assign(m, { room: match ? match.name : '', roomId: match ? match.id : '' }));
+      }
+    } catch (e) { warnings.push('eWeLink: ' + (e.message || 'could not load devices')); }
+  }
+
   await flushPersisted();
   return {
     me: req.user,
@@ -322,7 +342,7 @@ module.exports = handler(['GET'], async (req) => {
       const out = pickDevice(d, roomOf, roomIdOf);
       if (!out.room && d.hubRoomFrom) { out.room = roomOf[d.hubRoomFrom] || ''; out.roomId = roomIdOf[d.hubRoomFrom] || ''; }
       return out;
-    }),
+    }).concat(ewDevices),
     scenes,
     automations,
     warnings,

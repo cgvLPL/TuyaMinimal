@@ -7,6 +7,7 @@ const { call, config, TuyaError } = require('../_lib/tuya');
 const { handler } = require('../_lib/http');
 const access = require('../_lib/access');
 const { cached } = require('../_lib/cache');
+const ew = require('../_lib/ewelink');
 
 // Every open screen polls this. Within a couple of seconds they all share one Tuya call.
 const STATUS_TTL = 2500;
@@ -31,6 +32,18 @@ module.exports = handler(['GET'], async (req) => {
     for (const s of d.status || []) status[s.code] = s.value;
     devices[d.id] = { online: !!d.online, status };
   }
+  // eWeLink devices (2.93.00): one shared thing-list call per cycle, merged the same way.
+  // The Tuya allowed-device set doesn't know eWeLink ids; the client only asks for ids it
+  // already shows, and the command route enforces home assignment, so only `wanted` applies.
+  try {
+    const things = await ew.getAllThings();
+    for (const t of things) {
+      const id = 'ew-' + t.deviceid;
+      if (wanted.size && !wanted.has(id)) continue;
+      devices[id] = { online: !!t.online, status: { switch_1: t.params && t.params.switch === 'on' } };
+    }
+  } catch (e) { /* eWeLink just isn't refreshed this time */ }
+
   const irac = {};
   const pairs = String((req.query && req.query.ir) || '').split(',').map((x) => x.split(':'))
     .filter((p) => p.length === 2 && ID.test(p[0]) && ID.test(p[1])).slice(0, 20);

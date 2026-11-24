@@ -3,11 +3,31 @@ const { call, TuyaError } = require('../_lib/tuya');
 const { handler, requireId } = require('../_lib/http');
 const access = require('../_lib/access');
 const activity = require('../_lib/activity');
+const ew = require('../_lib/ewelink');
+const store = require('../_lib/store');
 
 const CODE = /^[a-z0-9_]{1,48}$/;
 
 module.exports = handler(['POST'], async (req, body) => {
   const deviceId = requireId(body.deviceId, 'device');
+  // eWeLink devices (2.93.00): ew-<deviceid>. A device may only be controlled when
+  // it is assigned to a home the user can access; the Tuya path below is untouched.
+  if (deviceId.startsWith('ew-')) {
+    const params = ew.commandParams(commands);
+    if (!params) throw new TuyaError('Only on/off switches are supported for eWeLink devices.', 'bad_request', 400);
+    let assigned = false;
+    try {
+      const s = await store.getJSON('settings', { icons: {} });
+      const homes = (s && s.ewelinkHomes) || {};
+      for (const [homeId, ids] of Object.entries(homes)) {
+        if (Array.isArray(ids) && ids.includes(deviceId)) { await access.requireHome(req.user, homeId); assigned = true; break; }
+      }
+    } catch (e) { if (e && e.status === 403) throw e; }
+    if (!assigned) throw new TuyaError('That eWeLink device is not assigned to one of your homes.', 'forbidden', 403);
+    await ew.setStatus(deviceId.slice(3), params);
+    activity.log(req.user, 'device', deviceId, name || deviceId, JSON.stringify(commands), homeId);
+    return { ok: true, deviceId, result: 'ok', commands: commands || [] };
+  }
   await access.requireDevice(req.user, deviceId);
   const commands = Array.isArray(body.commands) ? body.commands : [];
   const isHsv = (v) => v && typeof v === 'object' && !Array.isArray(v) &&

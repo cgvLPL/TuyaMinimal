@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.00
+
+- eWeLink devices can now live in your homes alongside your Tuya devices: link your eWeLink account in Me > eWeLink, and each eWeLink switch or plug can be assigned to HG22A or Cove, where it shows as a plug tile you can toggle like any other. The first version covers single on/off switches and plugs only, and eWeLink devices can't join Tuya scenes or automations, which run on Tuya's cloud.
+
 ## 2.92.02
 
 - On a slow connection, switching a tile on no longer bounces back to off for a second: after a command, the app now keeps showing what you sent until the server actually reports it (at most 10 seconds). Before, the in-flight guard cleared as soon as the command returned and the 1.5-second guard expired before Tuya's status caught up, so the next status poll merged the still-old state over the tile. The same hold applies to a full refresh landing in that window.

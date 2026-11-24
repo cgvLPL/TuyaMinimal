@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.93.00", "items": ["eWeLink devices can now live in your homes alongside your Tuya devices: link your eWeLink account in Me > eWeLink, and each eWeLink switch or plug can be assigned to HG22A or Cove, where it shows as a plug tile you can toggle like any other. The first version covers single on/off switches and plugs only, and eWeLink devices can't join Tuya scenes or automations, which run on Tuya's cloud."]},
   {"v": "2.92.02", "items": ["On a slow connection, switching a tile on no longer bounces back to off for a second: after a command, the app now keeps showing what you sent until the server actually reports it (at most 10 seconds). Before, the in-flight guard cleared as soon as the command returned and the 1.5-second guard expired before Tuya's status caught up, so the next status poll merged the still-old state over the tile. The same hold applies to a full refresh landing in that window."]},
   {"v": "2.92.00", "items": ["Drag to dim, right on the tile: on the wall tablet, drag up or down on a light tile to brighten or dim it, and on the phone, drag left or right on a light card (the list still scrolls up and down). The tile shows the brightness as you drag, and it only sends when you let go. Tap still toggles the light, and a long press still opens its controls. Works on bulbs and the LED strip."]},
   {"v": "2.91.39", "items": ["Editing a saved automation with a repeating schedule no longer fails with 'Invalid date': Tuya stores a date on repeating schedules too, in either 20261125 or 2026-11-25 form, and the app passed it through as-is while the server only accepts 8 digits. The date is now normalised to 8 digits (or left off when there isn't one), on the phone and on the server, so schedules kept from the Tuya app save too."]},
@@ -1152,6 +1153,8 @@
     shown: (() => { try { return JSON.parse(store.get('shown') || '{}') || {}; } catch (e) { return {}; } })(),  // homeId -> [deviceId] reading devices made visible on Home
     split: (() => { try { return JSON.parse(store.get('split') || '{}') || {}; } catch (e) { return {}; } })(),  // homeId -> [deviceId] multi-switch devices split into one tile per switch
     hiddenChannels: (() => { try { return JSON.parse(store.get('hiddenChannels') || '{}') || {}; } catch (e) { return {}; } })(),  // homeId -> ['deviceId:switch_1', ...] single switches hidden from Home
+    ewelinkHomes: (() => { try { return JSON.parse(store.get('ewelinkHomes') || '{}') || {}; } catch (e) { return {}; } })(),  // homeId -> ['ew-<deviceid>', ...] eWeLink devices assigned to each home
+    ewelink: null,      // { linked, appConfigured, devices } | 'loading' — eWeLink link state for Me > eWeLink
     reorder: false,       // true while arranging device cards
     icons: readIcons(),  // deviceId -> icon key, saved on this device
     channelIcons: readChannelIcons(),  // 'deviceId:switch_N' -> icon key, per switch of a split device
@@ -1234,7 +1237,7 @@
     if (h === 'scenes' || h === 'me') return { view: h };
     return { view: 'devices' };
   }
-  const ME_PAGES = ['people', 'appearance', 'settings', 'about', 'attention', 'floors'];
+  const ME_PAGES = ['people', 'appearance', 'settings', 'about', 'attention', 'floors', 'ewelink'];
   function inEditor() { const v = route().view; return v === 'scene-edit' || v === 'auto-edit'; }
   function go(hash) {
     if (location.hash === '#' + hash) render(); else location.hash = hash;
@@ -1365,6 +1368,9 @@
       if (data.settings && data.settings.hiddenChannels && data.homeId && Array.isArray(data.settings.hiddenChannels[data.homeId])) {
         S.hiddenChannels = Object.assign({}, S.hiddenChannels, { [data.homeId]: data.settings.hiddenChannels[data.homeId] }); store.set('hiddenChannels', JSON.stringify(S.hiddenChannels));
       }
+      if (data.settings && data.settings.ewelinkHomes && data.homeId && Array.isArray(data.settings.ewelinkHomes[data.homeId])) {
+        S.ewelinkHomes = Object.assign({}, S.ewelinkHomes, { [data.homeId]: data.settings.ewelinkHomes[data.homeId] }); store.set('ewelinkHomes', JSON.stringify(S.ewelinkHomes));
+      }
       if (data.homeId) { S.homeId = data.homeId; store.set('homeId', data.homeId); }
       loadWeather();
       prefetchLightSpecs();
@@ -1486,6 +1492,34 @@
       }, 600);
     }
   }
+  // Which home an eWeLink device belongs to (2.93.00), and moving it there.
+  // Per home, synced like hidden/split; the server stores the full list per home.
+  // The debounced save posts every home's list, so a fast A -> B -> C move can't
+  // leave the device behind in a home the save never touched.
+  function ewelinkHomeOf(id) {
+    for (const [homeId, ids] of Object.entries(S.ewelinkHomes || {})) if (Array.isArray(ids) && ids.includes(id)) return homeId;
+    return '';
+  }
+  function setEwelinkHome(id, homeId) {
+    const prev = ewelinkHomeOf(id);
+    if (prev === homeId) return;
+    const next = Object.assign({}, S.ewelinkHomes);
+    for (const h of Object.keys(next)) next[h] = (next[h] || []).filter((x) => x !== id);
+    if (homeId) next[homeId] = Array.from(new Set([...(next[homeId] || []), id]));
+    S.ewelinkHomes = next;
+    store.set('ewelinkHomes', JSON.stringify(S.ewelinkHomes));
+    if (S.mode === 'demo' || (S.sync && S.mode === 'live')) {
+      clearTimeout(setEwelinkHome.t);
+      setEwelinkHome.t = setTimeout(async () => {
+        try {
+          for (const h of Object.keys(S.ewelinkHomes)) await api('settings', { method: 'POST', body: { ewelinkHomes: { homeId: h, ids: S.ewelinkHomes[h] } } });
+          refresh({ silent: true, fresh: true });
+        } catch (e) { toast('The home is saved on this device but couldn\'t sync.'); }
+      }, 600);
+    }
+    render();
+  }
+
   // The glyph for one switch of a multi-switch device: plugs for strips and USB, a light for wall switches.
   function channelGlyph(d, code) { return (['pc', 'cz'].includes(d.category) || /usb/.test(code)) ? 'plug' : 'light'; }
   function channelName(d, code) {
@@ -4657,10 +4691,10 @@
       (hideHero ? '' : '<div class="hero">' + (photoOf(d) && hero.indexOf('<div class="td') === -1 ? '<div class="hero-photo ' + (on && d.online ? 'lit' : 'dim') + '" style="--glow-color:' + photoGlow(d) + '">' + photoImg(photoOf(d)) + '</div>' : '') + hero + '</div>') +
       (nameRows.length ? '<h3 class="section-title">Switch names</h3><div class="list names-list">' + nameRows.join('') + '</div>' : '') +
       '<div class="list">' + rows.join('') + '</div>' +
-      (d.online ? timerSection(d) : '') +
+      (d.online && !d.ew ? timerSection(d) : '') +
       (d.online ? energySection(d) : '') +
       (d.online ? lockSection(d) : '') +
-      (d.online ? firmwareSection(d) : '') +
+      (d.online && !d.ew ? firmwareSection(d) : '') +
       '</div>';
   }
 
@@ -6667,6 +6701,82 @@ function kClockPicker() {
   const isAdminView = () => S.mode === 'demo' || (S.mode === 'live' && (!S.me || S.me.role === 'admin'));
   const pollLabel = () => ({ 2000: 'Every 2 s', 4000: 'Every 4 s', 10000: 'Every 10 s', 30000: 'Every 30 s' })[S.pollMs] || 'Every ' + Math.round(S.pollMs / 1000) + ' s';
 
+  // ---------- eWeLink ----------
+  // Link an eWeLink account (Me > eWeLink) and put each eWeLink device in a home.
+  async function loadEwelink() {
+    if (S.ewelink === 'loading') return;
+    S.ewelink = 'loading'; render();
+    try {
+      const st = await api('ewelink');
+      const devs = st.linked ? await api('ewelink', { method: 'POST', body: { action: 'devices' } }) : { devices: [] };
+      S.ewelink = { linked: !!st.linked, appConfigured: !!st.appConfigured, devices: devs.devices || [] };
+    } catch (e) {
+      S.ewelink = { linked: false, appConfigured: false, devices: [], error: e.message };
+      toast('Couldn\'t load eWeLink: ' + e.message);
+    }
+    render();
+  }
+  async function ewelinkLink() {
+    try {
+      const r = await api('ewelink', { method: 'POST', body: { action: 'auth-url' } });
+      if (r.url) location.href = r.url;
+    } catch (e) { toast(e.message); }
+  }
+  async function ewelinkUnlink() {
+    if (!S.ewelinkUnlinkArmed) {
+      S.ewelinkUnlinkArmed = true; render();
+      setTimeout(() => { if (S.ewelinkUnlinkArmed) { S.ewelinkUnlinkArmed = false; render(); } }, 4000);
+      return;
+    }
+    S.ewelinkUnlinkArmed = false;
+    try {
+      await api('ewelink', { method: 'POST', body: { action: 'unlink' } });
+      toast('eWeLink unlinked');
+      S.ewelink = null; loadEwelink();
+    } catch (e) { toast(e.message); }
+  }
+  function ewelinkView() {
+    const data = S.data;
+    let html = subHead('Me', 'eWeLink', 'me', 'ewelink-back');
+    if (!S.ewelink || S.ewelink === 'loading') {
+      if (S.ewelink !== 'loading') loadEwelink();
+      return html + loadingView();
+    }
+    const ew = S.ewelink;
+    if (ew.error) {
+      html += noteBelow('eWeLink couldn\'t be reached: ' + esc(ew.error));
+      html += '<div class="list"><button class="list-row" data-act="ewelink-retry" data-key="ewelink-retry"><span class="label">Try again</span>' + icon('chevron', 16) + '</button></div>';
+      return html;
+    }
+    if (!ew.appConfigured) {
+      html += '<div class="list"><div class="list-row"><span class="label">Not set up yet</span><span class="value">No app ID</span></div></div>';
+      html += noteBelow('Linking needs the eWeLink app ID on the server first - it is added once the developer certification is approved and the app is created.');
+      return html;
+    }
+    if (!ew.linked) {
+      html += '<div class="list"><button class="list-row" data-act="ewelink-link" data-key="ewelink-link"><span class="label">Link eWeLink account</span>' + icon('chevron', 16) + '</button></div>';
+      html += noteBelow('This opens eWeLink\'s sign-in page. After you allow it, you are sent back here and the account is linked.');
+      return html;
+    }
+    html += '<div class="list"><div class="list-row"><span class="label">Account linked</span><span class="value">eWeLink</span></div>' +
+      '<button class="list-row" data-act="ewelink-unlink" data-key="ewelink-unlink"><span class="label">' + (S.ewelinkUnlinkArmed ? 'Tap again to unlink' : 'Unlink account') + '</span>' + icon('chevron', 16) + '</button></div>';
+    const homes = (data && data.homes) || [];
+    if (!ew.devices.length) {
+      html += noteBelow('No eWeLink devices found in this account yet. Pair one in the eWeLink app and it shows here.');
+      return html;
+    }
+    html += '<h2 class="section-title">Devices</h2><div class="list">' + ew.devices.map((d) => {
+      const cur = ewelinkHomeOf(d.id);
+      return '<div class="list-row" data-key="ew-' + esc(d.id) + '"><span class="label">' + esc(d.name) + '<span class="floor-count">' + (d.online ? 'Online' : 'Offline') + (d.room ? ' - ' + esc(d.room) : '') + '</span></span>' +
+        '<select data-act="ewelink-home" data-id="' + esc(d.id) + '" aria-label="Home for ' + esc(d.name) + '">' +
+        '<option value=""' + (cur ? '' : ' selected') + '>Not in a home</option>' +
+        homes.map((h) => '<option value="' + esc(h.id) + '"' + (cur === h.id ? ' selected' : '') + '>' + esc(h.name) + '</option>').join('') +
+        '</select></div>';
+    }).join('') + '</div>';
+    html += noteBelow('Each device shows in the home you pick, as a plug tile. eWeLink devices can\'t join Tuya scenes or automations.');
+    return html;
+  }
+
   function meView() {
     const data = S.data;
     const live = S.mode === 'live';
@@ -6690,6 +6800,7 @@ function kClockPicker() {
       html += chevRow('tab', 'people', 'people-open', 'People', n ? n + (n === 1 ? ' person' : ' people') : '');
     }
     html += chevRow('tab', 'icons', 'icons-open', 'Device icons', '');
+    html += chevRow('tab', 'ewelink', 'ewelink-open', 'eWeLink', S.ewelink && S.ewelink !== 'loading' ? (S.ewelink.linked ? 'Linked' : 'Not linked') : '');
     if (data && (data.rooms || []).length) { const fl = floorCfg(data.homeId).list.length; html += chevRow('tab', 'floors', 'floors-open', 'Floors', fl ? fl + (fl === 1 ? ' floor' : ' floors') : 'Off'); }
     html += chevRow('kiosk-enter', null, 'kiosk-open', 'HomeView', 'Clock, scenes, devices');
     html += '</div>';
@@ -7098,6 +7209,8 @@ function kClockPicker() {
       mainHtml = settingsView();
     } else if (r.view === 'floors') {
       mainHtml = floorsView();
+    } else if (r.view === 'ewelink') {
+      mainHtml = ewelinkView();
     } else if (r.view === 'about') {
       mainHtml = aboutView();
     } else if (r.view === 'attention') {
@@ -7625,6 +7738,9 @@ function kClockPicker() {
       case 'install': install(); break;
       case 'lock': lockApp(); break;
       case 'signout': signOut(); break;
+      case 'ewelink-link': ewelinkLink(); break;
+      case 'ewelink-unlink': ewelinkUnlink(); break;
+      case 'ewelink-retry': S.ewelink = null; loadEwelink(); break;
       case 'user-form-open': S.userForm = { name: '', password: '', role: 'member', error: '', busy: false, open: true }; render(); focusFirst('uf-name'); break;
       case 'user-form-close': S.userForm.open = false; render(); break;
       case 'user-del':
@@ -7755,6 +7871,7 @@ function kClockPicker() {
       if (f && v && v !== f.name) { f.name = v; FLOORS[h] = c; saveFloors(h); render(); } else if (f) el.value = f.name;
       return;
     }
+    if (act === 'ewelink-home') { setEwelinkHome(el.dataset.id, el.value); return; }
     const d = el.dataset.id ? findDevice(el.dataset.id) : null;
     if (LIVE_PREFIX[act]) S.dragging = false;
     if (['hue', 'sat', 'cbright'].includes(act)) {
@@ -8369,6 +8486,7 @@ function kClockPicker() {
         { id: 'dev15', name: 'Front door lock', category: 'ms', product: 'Smart door lock', online: true, room: 'Hallway', status: { battery_percentage: 82 } },
         { id: 'dev6', name: 'Porch camera', category: 'sp', product: 'Outdoor camera', online: true, room: 'Hallway', status: {} },
         { id: 'dev10', name: 'Garage plug', category: 'cz', product: 'Smart plug', online: false, room: '', status: { switch_1: false } },
+        { id: 'ew-1000000001', name: 'USB Adapter', category: 'cz', product: 'Smatrul USB adapter', online: true, room: 'Living room', status: { switch_1: false }, ew: true },
         { id: 'ir1', name: 'Study AC', category: 'infrared_ac', product: 'IR remote', online: true, room: 'Bedroom', status: {}, ir: { hub: 'hub1', categoryId: 5, ac: true, brand: 'Daikin', state: { power: false, mode: 0, temp: 24, wind: 0 } } },
         { id: 'ir2', name: 'Living room TV', category: 'infrared_tv', product: 'IR remote', online: true, room: 'Living room', status: {}, ir: { hub: 'hub1', categoryId: 2, ac: false, brand: 'Samsung' } },
         { id: 'bh1', home: 'h2', name: 'Patio lights', category: 'dj', product: 'Smart bulb', online: true, room: 'Patio', status: { switch_led: true, work_mode: 'white', bright_value_v2: 600, temp_value_v2: 0 } },
@@ -8418,6 +8536,7 @@ function kClockPicker() {
     };
     const names = { dev12: { switch_1: 'Monitor', switch_2: 'Laptop charger' } };
     const demoIcons = { dev2: 'photocolumn', dev11: 'photodonut', dev8: 'phototable' };
+    const demoEwelinkHomes = { h1: ['ew-1000000001'] };  // eWeLink devices assigned to each demo home
     const demoTimers = {};
     const demoAct = [
       { at: Date.now() - 5 * 60000, who: 'Sam', text: 'turned off Kettle plug', home: true },
@@ -8436,7 +8555,7 @@ function kClockPicker() {
         const homeId = db.homes.some((h) => m && h.id === decodeURIComponent(m[1])) ? decodeURIComponent(m[1]) : 'h1';
         const out = clone(db);
         out.homeId = homeId;
-        out.devices = out.devices.filter((d) => (d.home || 'h1') === homeId);
+        out.devices = out.devices.filter((d) => d.id.startsWith('ew-') ? (demoEwelinkHomes[homeId] || []).includes(d.id) : (d.home || 'h1') === homeId);
         out.rooms = homeId === 'h1' ? db.rooms : ['Patio', 'Garden'];
         // Demo rooms get stable ids, like the live state response's roomList.
         out.roomList = out.rooms.map((name, i) => ({ id: 'demo-' + (i + 1), name }));
@@ -8445,7 +8564,7 @@ function kClockPicker() {
         out.scenes.forEach((x) => { x.actions = (x.steps || []).length; });
         out.me = { id: 'owner', name: 'Owner', role: 'admin', owner: true };
         out.sync = true;
-        out.settings = { icons: Object.assign({}, demoIcons) };
+        out.settings = { icons: Object.assign({}, demoIcons), ewelinkHomes: { [homeId]: (demoEwelinkHomes[homeId] || []).slice() } };
         out.at = Date.now();
         return out;
       }
@@ -8566,7 +8685,20 @@ function kClockPicker() {
         if (/[?&]ir=/.test(path)) (db.irRemotes || db.devices).forEach((x) => { if (x.ir && x.ir.ac && x.ir.state) irac[x.id] = clone(x.ir.state); });
         return { at: Date.now(), devices: out, irac };
       }
-      if (path === 'settings') { Object.entries((b.icons) || {}).forEach(([k, v]) => { if (v === null) delete demoIcons[k]; else demoIcons[k] = v; }); return { icons: demoIcons }; }
+      if (path === 'ewelink') {
+        if (opts && opts.method === 'POST' && b.action === 'devices') {
+          return { devices: db.devices.filter((x) => x.id.startsWith('ew-')).map((x) => ({ id: x.id, name: x.name, online: x.online, room: x.room, homeId: Object.keys(demoEwelinkHomes).find((h) => (demoEwelinkHomes[h] || []).includes(x.id)) || null })) };
+        }
+        return { linked: true, appConfigured: true };
+      }
+      if (path === 'settings') {
+        Object.entries((b.icons) || {}).forEach(([k, v]) => { if (v === null) delete demoIcons[k]; else demoIcons[k] = v; });
+        if (b.ewelinkHomes && typeof b.ewelinkHomes === 'object') {
+          const h = b.ewelinkHomes, ids = Array.isArray(h.ids) ? h.ids.slice() : [];
+          if (ids.length) demoEwelinkHomes[h.homeId] = ids; else delete demoEwelinkHomes[h.homeId];
+        }
+        return { icons: demoIcons };
+      }
       if (path === 'logout') return { ok: true };
       if (path === 'users') {
         if (!opts || !opts.method || opts.method === 'GET') return { users: clone(demoUsers) };
@@ -8640,6 +8772,22 @@ function kClockPicker() {
       const wc = snap.homeId && weatherFromCache(snap.homeId); if (wc) S.weather = wc;  // weather shows instantly too
     }
   }
+  // eWeLink OAuth return (2.93.00): the authorize page sends the user back to / with
+  // ?code= and ?region=. Exchange it once, then strip the query so a reload can't retry it.
+  (async function handleEwelinkReturn() {
+    if (S.mode !== 'live') return;
+    const q = new URLSearchParams(location.search);
+    const code = q.get('code'), region = q.get('region');
+    if (!code || !region) return;
+    history.replaceState(null, '', location.pathname + location.hash);
+    if (!S.key) { toast('Sign in first, then link eWeLink again in Me.'); return; }
+    try {
+      await api('ewelink', { method: 'POST', body: { action: 'exchange', code, region } });
+      toast('eWeLink linked');
+      S.ewelink = null;
+      if (!S.gate) refresh({ silent: true });
+    } catch (e) { toast('Couldn\'t link eWeLink: ' + e.message); }
+  })();
   render();
   if (!S.gate) refresh();
 })();
