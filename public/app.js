@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.93.23", "items": ["eWeLink can now sign in with the account email and password set on the server, so devices work before the developer certification lands. The official sign-in page still works once the app ID is added."]},
   {"v": "2.93.21", "items": ["The temperature on the AC tile is bigger."]},
   {"v": "2.93.20", "items": ["Pages start a bit lower on iPhone, well clear of the status-bar blur."]},
   {"v": "2.93.19", "items": ["The pull-to-refresh indicator now sits below the iOS status-bar blur too."]},
@@ -6721,7 +6722,7 @@ function kClockPicker() {
     try {
       const st = await api('ewelink');
       const devs = st.linked ? await api('ewelink', { method: 'POST', body: { action: 'devices' } }) : { devices: [] };
-      S.ewelink = { linked: !!st.linked, appConfigured: !!st.appConfigured, devices: devs.devices || [] };
+      S.ewelink = { linked: !!st.linked, appConfigured: !!st.appConfigured, mode: st.mode || null, devices: devs.devices || [] };
     } catch (e) {
       S.ewelink = { linked: false, appConfigured: false, devices: [], error: e.message };
       toast('Couldn\'t load eWeLink: ' + e.message);
@@ -6729,9 +6730,17 @@ function kClockPicker() {
     render();
   }
   async function ewelinkLink() {
+    if (S.ewelink && S.ewelink.mode === 'unofficial') return ewelinkLogin();
     try {
       const r = await api('ewelink', { method: 'POST', body: { action: 'auth-url' } });
       if (r.url) location.href = r.url;
+    } catch (e) { toast(e.message); }
+  }
+  async function ewelinkLogin() {
+    try {
+      await api('ewelink', { method: 'POST', body: { action: 'login' } });
+      toast('eWeLink linked');
+      S.ewelink = null; loadEwelink();
     } catch (e) { toast(e.message); }
   }
   async function ewelinkUnlink() {
@@ -6762,12 +6771,12 @@ function kClockPicker() {
     }
     if (!ew.appConfigured) {
       html += '<div class="list"><div class="list-row"><span class="label">Not set up yet</span><span class="value">No app ID</span></div></div>';
-      html += noteBelow('Linking needs the eWeLink app ID on the server first - it is added once the developer certification is approved and the app is created.');
+      html += noteBelow('Linking needs eWeLink set up on the server first - either the app ID from the developer certification, or the account email and password.');
       return html;
     }
     if (!ew.linked) {
       html += '<div class="list"><button class="list-row" data-act="ewelink-link" data-key="ewelink-link"><span class="label">Link eWeLink account</span>' + icon('chevron', 16) + '</button></div>';
-      html += noteBelow('This opens eWeLink\'s sign-in page. After you allow it, you are sent back here and the account is linked.');
+      html += noteBelow(ew.mode === 'unofficial' ? 'Signs in with the eWeLink account set on the server. No sign-in page needed.' : 'This opens eWeLink\'s sign-in page. After you allow it, you are sent back here and the account is linked.');
       return html;
     }
     html += '<div class="list"><div class="list-row"><span class="label">Account linked</span><span class="value">eWeLink</span></div>' +

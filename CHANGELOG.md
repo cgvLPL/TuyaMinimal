@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.23
+
+- eWeLink can now sign in with the account email and password set on the server (EWELINK_EMAIL + EWELINK_PASSWORD), so devices work before the developer certification lands. The official sign-in page still works once the app ID is added; remove the email/password to switch back.
+
 ## 2.93.21
 
 - AC tile temperature enlarged: font-size clamp(52px, 15vw, 72px) instead of clamp(40px, 11vw, 56px).

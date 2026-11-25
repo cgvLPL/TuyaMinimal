@@ -29,7 +29,7 @@ async function deviceAssignments() {
 
 module.exports = handler(['GET', 'POST'], async (req, body) => {
   if (req.method === 'GET') {
-    return { linked: await ew.isLinked(), appConfigured: ew.isConfigured() };
+    return { linked: await ew.isLinked(), appConfigured: ew.isConfigured(), mode: ew.mode() };
   }
   const action = body && body.action;
   if (action === 'devices') {
@@ -43,6 +43,11 @@ module.exports = handler(['GET', 'POST'], async (req, body) => {
     };
   }
   needAdmin(req);
+  if (action === 'login') {
+    if (ew.mode() !== 'unofficial') throw new TuyaError('This server uses the eWeLink sign-in page.', 'bad_request', 400);
+    await ew.loginWithPassword();
+    return { ok: true, linked: true };
+  }
   if (action === 'auth-url') return { url: ew.authUrl() };
   if (action === 'exchange') {
     const code = typeof body.code === 'string' ? body.code : '';

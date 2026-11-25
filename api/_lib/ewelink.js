@@ -19,17 +19,48 @@ const REDIRECT_URL = 'https://tuya-minimal.vercel.app/';
 const TOKEN_KEY = 'ewelink:token';
 const TIMEOUT_MS = 8000;   // per request to eWeLink, like Tuya
 
+// Two ways in:
+//  - official: your own APPID/APPSECRET from the eWeLink Developer Center + OAuth.
+//  - unofficial: sign in with the account email/password the way the eWeLink app
+//    does, using the app's own (publicly known) credentials. No certification
+//    needed, but it is not a supported interface and CoolKit can change it at any
+//    time. Set EWELINK_EMAIL + EWELINK_PASSWORD on the server to use it; if both
+//    are set the account login wins, and removing them falls back to the official
+//    app. The first pair is authorized on the Asia host; the second is a fallback.
+const APP_PAIRS = [
+  { appid: 'R8Oq3y0eSZSYdKccHlrQzT1ACCOUT9Gv', secret: '1ve5Qk9GXfUhKAn1svnKwpAlxXkMarru' },
+  { appid: 'oeVkj2lYFGnJu5XUtWisfW4utiN4u9Mq', secret: '6Nz4n0xA8s8qdxQf2GqurZj2Fs55FUvM' }
+];
+
+function mode() {
+  if (process.env.EWELINK_EMAIL && process.env.EWELINK_PASSWORD) return 'unofficial';
+  if (process.env.EWELINK_APPID && process.env.EWELINK_APPSECRET) return 'official';
+  return null;
+}
+
 function isConfigured() {
-  return !!(process.env.EWELINK_APPID && process.env.EWELINK_APPSECRET);
+  return mode() !== null;
 }
 
 function config() {
-  const appid = process.env.EWELINK_APPID;
-  const secret = process.env.EWELINK_APPSECRET;
-  if (!appid || !secret) {
-    throw new TuyaError('Server is missing EWELINK_APPID or EWELINK_APPSECRET.', 'not_configured', 503);
+  const m = mode();
+  if (m === 'unofficial') {
+    // Env can override the app credentials; otherwise the app's own pairs.
+    const pairs = (process.env.EWELINK_APPID && process.env.EWELINK_APPSECRET)
+      ? [{ appid: process.env.EWELINK_APPID, secret: process.env.EWELINK_APPSECRET }, ...APP_PAIRS]
+      : APP_PAIRS;
+    return { mode: m, appid: pairs[0].appid, secret: pairs[0].secret, pairs, email: process.env.EWELINK_EMAIL, password: process.env.EWELINK_PASSWORD };
   }
-  return { appid, secret };
+  if (m === 'official') return { mode: m, appid: process.env.EWELINK_APPID, secret: process.env.EWELINK_APPSECRET };
+  throw new TuyaError('eWeLink is not set up on the server yet.', 'not_configured', 503);
+}
+
+// The secret that signed a stored token (refresh calls must sign with the same app).
+function secretForAppid(appid, cfg) {
+  if (cfg && cfg.pairs) { const p = cfg.pairs.find((x) => x.appid === appid); if (p) return p.secret; }
+  const p = APP_PAIRS.find((x) => x.appid === appid);
+  if (p) return p.secret;
+  return cfg && cfg.secret;
 }
 
 const NONCE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -70,7 +101,55 @@ async function clearToken() {
 }
 async function isLinked() {
   const tok = await loadToken();
-  return !!(tok && tok.at);
+  if (tok && tok.at) return true;
+  // Account-login mode signs in on demand, so a configured server counts as linked.
+  return mode() === 'unofficial';
+}
+
+// Sign in with the account email/password (unofficial mode). Tries each app
+// credential pair; error 10004 means "wrong region" and carries the right one.
+// Stores the token like the OAuth flow does, tagged with the app that issued it.
+async function loginWithPassword(cfg) {
+  cfg = cfg || config();
+  if (cfg.mode !== 'unofficial') throw new TuyaError('Account login is not set up on the server.', 'not_configured', 503);
+  const payload = { email: cfg.email, password: cfg.password, countryCode: '+86' };
+  const body = JSON.stringify(payload);
+  let region = 'as';
+  let lastErr = null;
+  for (const pair of cfg.pairs) {
+    for (let hop = 0; hop < 2; hop++) {
+      let res;
+      try {
+        res = await fetch(HOSTS[region] + '/v2/user/login', {
+          method: 'POST',
+          headers: { 'X-CK-Appid': pair.appid, 'X-CK-Nonce': nonce(), 'Content-Type': 'application/json', Authorization: 'Sign ' + signPost(pair.secret, body) },
+          body, signal: AbortSignal.timeout(TIMEOUT_MS)
+        });
+      } catch (e) {
+        if (e && (e.name === 'TimeoutError' || e.name === 'AbortError')) throw new TuyaError('eWeLink took too long to answer. Try again in a moment.', 'timeout', 504);
+        throw new TuyaError('Could not reach eWeLink.', 'network');
+      }
+      let json;
+      try { json = await res.json(); } catch (e) { throw new TuyaError('eWeLink sent an unreadable response (HTTP ' + res.status + ').', 'bad_response'); }
+      if (json.error === 0 && json.data && json.data.at) {
+        const d = json.data;
+        const tok = {
+          at: d.at, rt: d.rt || '', region: d.region || region,
+          atExp: d.atExpiredTime || Date.now() + 29 * 864e5,
+          rtExp: d.rtExpiredTime || Date.now() + 59 * 864e5,
+          appid: pair.appid, apikey: (d.user && d.user.apikey) || '', mode: 'unofficial'
+        };
+        await saveToken(tok);
+        return tok;
+      }
+      if (json.error === 10004 && json.data && json.data.region && HOSTS[json.data.region]) { region = json.data.region; continue; }
+      if (json.error === 407) { lastErr = new TuyaError('eWeLink refused the app sign-in. It may have changed; the official link still works.', 407, 403); break; }
+      if (json.error === 10014) throw new TuyaError('The eWeLink account or password on the server is wrong.', 10014, 401);
+      lastErr = new TuyaError(json.msg || 'eWeLink sign-in failed.', json.error || 'bad_response', 502);
+      break;
+    }
+  }
+  throw lastErr || new TuyaError('eWeLink sign-in failed.', 'bad_response', 502);
 }
 
 // One request to eWeLink. `auth` is { sign: true } for pre-token calls (the
@@ -116,9 +195,10 @@ async function rawRequest(cfg, host, method, path, bodyObj, auth) {
 }
 
 async function refreshToken(cfg, tok) {
+  const signCfg = { appid: tok.appid || cfg.appid, secret: secretForAppid(tok.appid, cfg) };
   let data;
   try {
-    data = await rawRequest(cfg, HOSTS[tok.region] || HOSTS.as, 'POST', '/v2/user/refresh', { rt: tok.rt }, { sign: true });
+    data = await rawRequest(signCfg, HOSTS[tok.region] || HOSTS.as, 'POST', '/v2/user/refresh', { rt: tok.rt }, { sign: true });
   } catch (e) {
     if (e.code === 401 || e.code === 402) throw new TuyaError('Your eWeLink link expired. Link your account again in Me.', 'not_linked', 401);
     throw e;
@@ -126,7 +206,8 @@ async function refreshToken(cfg, tok) {
   const next = {
     at: data.at, rt: data.rt || tok.rt, region: tok.region,
     atExp: data.atExpiredTime || Date.now() + 29 * 864e5,
-    rtExp: data.rtExpiredTime || Date.now() + 59 * 864e5
+    rtExp: data.rtExpiredTime || Date.now() + 59 * 864e5,
+    appid: tok.appid || cfg.appid, apikey: tok.apikey || '', mode: tok.mode || cfg.mode
   };
   await saveToken(next);
   return next;
@@ -135,10 +216,16 @@ async function refreshToken(cfg, tok) {
 // The access token, refreshed when it has (nearly) expired.
 async function getAccessToken(cfg) {
   const tok = await loadToken();
-  if (!tok || !tok.at) throw new TuyaError('eWeLink is not linked. Link your account in Me.', 'not_linked', 401);
-  if (tok.atExp && tok.atExp > Date.now() + 60000) return tok;
-  if (!tok.rt) throw new TuyaError('eWeLink is not linked. Link your account again in Me.', 'not_linked', 401);
-  return refreshToken(cfg, tok);
+  if (tok && tok.at && tok.atExp && tok.atExp > Date.now() + 60000) return tok;
+  if (tok && tok.at && tok.rt) {
+    try { return await refreshToken(cfg, tok); }
+    catch (e) {
+      if (cfg.mode === 'unofficial') return loginWithPassword(cfg);
+      throw e;
+    }
+  }
+  if (cfg.mode === 'unofficial') return loginWithPassword(cfg);
+  throw new TuyaError('eWeLink is not linked. Link your account in Me.', 'not_linked', 401);
 }
 
 // Authenticated call. Retries once with a fresh token if eWeLink says the token is stale.
@@ -147,9 +234,13 @@ async function callAuthed(method, path, bodyObj) {
   let tok = await getAccessToken(cfg);
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      return await rawRequest(cfg, HOSTS[tok.region] || HOSTS.as, method, path, bodyObj, { bearer: tok.at });
+      const callCfg = tok.appid ? { appid: tok.appid, secret: cfg.secret } : cfg;
+      return await rawRequest(callCfg, HOSTS[tok.region] || HOSTS.as, method, path, bodyObj, { bearer: tok.at });
     } catch (e) {
-      if ((e.code === 401 || e.code === 402) && attempt === 0 && tok.rt) { tok = await refreshToken(cfg, tok); continue; }
+      if ((e.code === 401 || e.code === 402) && attempt === 0) {
+        if (tok.rt) { try { tok = await refreshToken(cfg, tok); continue; } catch (e2) { if (cfg.mode !== 'unofficial') throw e2; } }
+        if (cfg.mode === 'unofficial') { tok = await loginWithPassword(cfg); continue; }
+      }
       throw e;
     }
   }
@@ -159,6 +250,7 @@ async function callAuthed(method, path, bodyObj) {
 // is sent back to REDIRECT_URL with ?code=...&region=... (the code is valid 30 s).
 function authUrl() {
   const cfg = config();
+  if (cfg.mode === 'unofficial') throw new TuyaError('This server signs in with the eWeLink account directly; there is no sign-in page.', 'bad_request', 400);
   const seq = String(Date.now());
   const q = new URLSearchParams({
     clientId: cfg.appid,
@@ -176,6 +268,7 @@ function authUrl() {
 // Swap the authorize code for tokens and store them. The region comes back with the code.
 async function exchangeCode(code, region) {
   const cfg = config();
+  if (cfg.mode === 'unofficial') throw new TuyaError('This server signs in with the eWeLink account directly; there is no sign-in page.', 'bad_request', 400);
   const host = HOSTS[region] || HOSTS.as;
   const data = await rawRequest(cfg, host, 'POST', '/v2/user/oauth/token',
     { code, redirectUrl: REDIRECT_URL, grantType: 'authorization_code' }, { sign: true });
@@ -193,7 +286,7 @@ async function exchangeCode(code, region) {
 async function revoke() {
   const cfg = config();
   const tok = await loadToken();
-  if (tok && tok.at) {
+  if (cfg.mode === 'official' && tok && tok.at) {
     try { await rawRequest(cfg, HOSTS[tok.region] || HOSTS.as, 'DELETE', '/v2/user/oauth/token', undefined, { bearer: tok.at }); } catch (e) { /* local unlink still stands */ }
   }
   await clearToken();
@@ -287,7 +380,7 @@ function commandParams(commands) {
 }
 
 module.exports = {
-  isConfigured, isLinked, config, authUrl, exchangeCode, revoke,
+  isConfigured, isLinked, config, mode, loginWithPassword, authUrl, exchangeCode, revoke,
   getFamilies, getThings, getStatus, setStatus, getAllThings,
   mapThing, commandParams, signAuth, signGet, signPost, nonce,
   REDIRECT_URL, TOKEN_KEY
