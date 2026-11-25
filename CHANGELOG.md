@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.28
+
+- Luma (the dual-port USB adapter) now shows its two real switches instead of four: its firmware reports four channels, but only two outlets exist — the app now knows this model and hides the phantom pair.
+
 ## 2.93.27
 
 - Groundwork for correct switch counts on eWeLink multi-outlet devices: the server now records each device's model ID so phantom outlets (reported by the firmware but not present on the hardware) can be hidden.

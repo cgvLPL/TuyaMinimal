@@ -387,6 +387,7 @@ async function getAllThings() {
 // unknown UIIDs use the reported count.
 const CHANNELS_BY_UIID = {
   // 'uiid': channels
+  '139': 2 // CK-BL602-4SW-HS-03 (Smatrul dual-port USB adapter): 4-channel firmware, 2 real outlets
 };
 function channelCap(uiid) {
   const n = CHANNELS_BY_UIID[String(uiid)];
