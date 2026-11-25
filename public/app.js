@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.93.17", "items": ["The wallpaper now reaches the bottom of the screen on Scenes, Me and the other scrolling pages too, in the iPhone Home Screen app."]},
   {"v": "2.93.16", "items": ["Removed the temporary viewport diagnostic. The page now fills the full screen on iPhone, with no band under the tab bar."]},
   {"v": "2.93.15", "items": ["The page now fills the full screen height in the iPhone Home Screen app, so the band under the tab bar is painted."]},
   {"v": "2.93.14", "items": ["Temporary on-screen viewport diagnostic to track down the bottom band."]},

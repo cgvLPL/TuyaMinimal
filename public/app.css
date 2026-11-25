@@ -3561,6 +3561,26 @@ html[data-bg] { background-color: #000000; }
     position: absolute; top: 0; left: 0; right: 0; bottom: auto; height: 100lvh;
   }
 }
+
+/* ---------- 2.93.17: wallpaper on scrolling pages (Scenes, Me, ...) ----------
+   The wallpaper on html::before is painted with the page root and iOS clips it
+   at the short 812pt viewport. A normal fixed element (like the tab bar) is not
+   clipped, so on pages that scroll the wallpaper moves to body::before/::after.
+   The locked Devices page keeps the html layers from 2.93.15. */
+@media (display-mode: standalone) {
+  html[data-bg]:not(.lock-scroll)::before, html[data-bg]:not(.lock-scroll)::after { display: none; }
+  html[data-bg]:not(.lock-scroll) body::before, html[data-bg]:not(.lock-scroll) body::after {
+    content: ""; position: fixed; top: 0; left: 0; right: 0; height: 100lvh; z-index: -1; pointer-events: none;
+  }
+  html[data-bg]:not(.lock-scroll) body::before { background-color: #000000; background-repeat: no-repeat; background-position: center; background-size: cover; }
+  html[data-bg]:not(.lock-scroll) body::after { background: rgba(0, 0, 0, var(--dim, 0.35)); }
+  html[data-bg="aura"]:not(.lock-scroll) body::before { background-image: url("/backgrounds/aura.jpg"); background-size: contain; }
+  html[data-bg="ember"]:not(.lock-scroll) body::before { background-image: url("/backgrounds/ember.jpg"); background-size: cover; }
+  html[data-bg="tide"]:not(.lock-scroll) body::before { background-image: url("/backgrounds/tide.jpg"); background-size: cover; }
+  html[data-bg="mist"]:not(.lock-scroll) body::before { background-image: url("/backgrounds/mist.jpg"); background-size: cover; }
+  html[data-bg="halftone"]:not(.lock-scroll) body::before { background-image: url("/backgrounds/halftone.jpg"); background-size: cover; }
+  html[data-bg="dusk"]:not(.lock-scroll) body::before { background-image: url("/backgrounds/dusk.jpg"); background-size: cover; }
+}
 @media (min-width: 900px) {
   .main.devices-view { height: auto; }
 }
