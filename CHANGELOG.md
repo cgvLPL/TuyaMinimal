@@ -2,6 +2,14 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.19
+
+- Pull-to-refresh indicator moved below the iOS status-bar blur, matching the 2.93.18 page offset.
+
+## 2.93.18
+
+- In the Home Screen app, pages start 14px lower (safe area + 24px) so the greeting and headings sit below the iOS status-bar blur.
+
 ## 2.93.17
 
 - On pages that scroll (Scenes, Me, ...), the wallpaper is now drawn on body::before/::after instead of html::before/::after, because iOS clips the root layer at the short viewport. The Devices page is unchanged.

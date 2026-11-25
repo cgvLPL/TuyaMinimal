@@ -3584,3 +3584,14 @@ html[data-bg] { background-color: #000000; }
 @media (min-width: 900px) {
   .main.devices-view { height: auto; }
 }
+
+/* ---------- 2.93.18: clear the iOS status-bar blur ----------
+   iOS blurs the strip under the clock and its soft edge reaches about 76pt on
+   an iPhone with a Dynamic Island, so the greeting and page titles started
+   inside it (safe area + 10px = 72pt). Start the page 14px lower. */
+@media (max-width: 899px) and (display-mode: standalone) {
+  .main { padding-top: calc(max(var(--safe-top), 20px) + 24px); }
+}
+@media (max-width: 899px) and (display-mode: standalone) {
+  .ptr { top: calc(max(var(--safe-top), 20px) + 24px); }
+}
