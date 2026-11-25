@@ -3534,23 +3534,3 @@ html[data-bg] .floor-btn[aria-pressed="true"], .k26 .floor-btn[aria-pressed="tru
 .k26 .k-hfloor-in { color: #fff; }
 .k26 .k-hsep { flex: none; align-self: center; width: 1px; height: 1em; margin: 0 .3em; background: rgba(255, 255, 255, 0.25); }
 
-/* 2.93.02: short phone screens (iPhone 7, esp. with Display Zoom at 320x568):
-   the frozen top plus the device grid can run taller than the viewport, so the
-   last card ends up behind the floating tab bar at rest. Tighten the top
-   spacing so a short list fits and the last card clears the bar.
-   2.93.04: narrowed to max-width 375px — the fix was also applying on iPhone 17
-   Pro (402px wide) and looked off there. iPhone 7 / SE keep it; wider phones
-   are back to the previous layout. */
-@media (max-width: 375px) and (max-height: 700px) {
-  .hello { margin-bottom: 6px; }
-  .room-pills { padding-bottom: 8px; }
-  .summaries { padding-top: 4px; padding-bottom: 8px; }
-  .section-head { margin-top: 0; }
-  .dv-top .section-head { margin-bottom: 4px; }
-  .dv-scroll { padding-top: 8px; }
-}
-/* On the shortest screens the cards themselves shrink a little too. */
-@media (max-width: 375px) and (max-height: 600px) {
-  .grid { gap: 10px; }
-  .grid > .card.compact { height: 64px; }
-}

@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.05
+
+- Short-screen compatibility blocks for iPhone 7 removed entirely: the layout is back to how it was before 2.93.02 on every phone. (On iPhone 7 the last card can sit behind the floating tab bar again.)
+
 ## 2.93.04
 
 - Short-screen fix (iPhone 7) now only applies to narrow phones (up to 375px wide): it was also tightening the layout on iPhone 17 Pro, which looked off. iPhone 7 keeps the fix; iPhone 17 Pro is back to the previous layout.
