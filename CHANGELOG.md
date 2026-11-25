@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.20
+
+- Page and pull-to-refresh offset in the Home Screen app raised from safe area + 24px to + 36px.
+
 ## 2.93.19
 
 - Pull-to-refresh indicator moved below the iOS status-bar blur, matching the 2.93.18 page offset.
