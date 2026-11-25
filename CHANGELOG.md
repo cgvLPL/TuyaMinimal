@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.04
+
+- Short-screen fix (iPhone 7) now only applies to narrow phones (up to 375px wide): it was also tightening the layout on iPhone 17 Pro, which looked off. iPhone 7 keeps the fix; iPhone 17 Pro is back to the previous layout.
+
 ## 2.93.03
 
 - App icon and favicon are now the house in the field at sunrise (blue sky, yellow sun, green fields).

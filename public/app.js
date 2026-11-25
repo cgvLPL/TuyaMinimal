@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.93.04", "items": ["Short-screen fix (iPhone 7) now only applies to narrow phones (up to 375px wide): it was also tightening the layout on iPhone 17 Pro, which looked off. iPhone 7 keeps the fix; iPhone 17 Pro is back to the previous layout."]},
   {"v": "2.93.03", "items": ["App icon and favicon are now the house in the field at sunrise (blue sky, yellow sun, green fields)."]},
   {"v": "2.93.02", "items": ["Short phone screens (iPhone 7, especially with Display Zoom): the greeting, room pills and summary chips plus the device grid can run taller than the screen, so the last card ends up behind the floating tab bar. On short screens the top spacing is tighter and the cards a little shorter, so a short list fits and the last card clears the bar."]},
   {"v": "2.93.01", "items": ["Notes under the lists (like the explanation on the eWeLink page) now span the full width of the card instead of stopping in a narrow column on the left."]},
