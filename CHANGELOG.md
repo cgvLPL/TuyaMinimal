@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.16
+
+- Removed the temporary viewport diagnostic. The full-height page fix from 2.93.15 stays.
+
 ## 2.93.15
 
 - iOS Home Screen apps get a layout viewport one safe-area-top shorter than the screen, and the Devices page locked the page to that height, leaving an unpainted band. The page is now 100lvh tall in standalone mode and the Devices wallpaper is anchored to the page instead of fixed.
