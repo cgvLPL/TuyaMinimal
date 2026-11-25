@@ -2,6 +2,14 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.03
+
+- App icon and favicon are now the house in the field at sunrise (blue sky, yellow sun, green fields).
+
+## 2.93.02
+
+- Short phone screens (iPhone 7, especially with Display Zoom): the greeting, room pills and summary chips plus the device grid can run taller than the screen, so the last card ends up behind the floating tab bar. On short screens the top spacing is tighter and the cards a little shorter, so a short list fits and the last card clears the bar.
+
 ## 2.93.01
 
 - Notes under the lists (like the explanation on the eWeLink page) now span the full width of the card instead of stopping in a narrow column on the left.
