@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.93.21", "items": ["The temperature on the AC tile is bigger."]},
   {"v": "2.93.20", "items": ["Pages start a bit lower on iPhone, well clear of the status-bar blur."]},
   {"v": "2.93.19", "items": ["The pull-to-refresh indicator now sits below the iOS status-bar blur too."]},
   {"v": "2.93.18", "items": ["Pages start a little lower on iPhone so the greeting and titles clear the blur under the status bar."]},

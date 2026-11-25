@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.21
+
+- AC tile temperature enlarged: font-size clamp(52px, 15vw, 72px) instead of clamp(40px, 11vw, 56px).
+
 ## 2.93.20
 
 - Page and pull-to-refresh offset in the Home Screen app raised from safe area + 24px to + 36px.

@@ -3595,3 +3595,6 @@ html[data-bg] { background-color: #000000; }
 @media (max-width: 899px) and (display-mode: standalone) {
   .ptr { top: calc(max(var(--safe-top), 20px) + 36px); }
 }
+
+/* 2.93.21: bigger AC temperature on the thermostat tile (was clamp(40px, 11vw, 56px), 44px on an iPhone) */
+.ac-big-num { font-size: clamp(52px, 15vw, 72px); }
