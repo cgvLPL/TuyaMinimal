@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.93.12", "items": ["The Devices page and the wallpaper now use the full screen height — no more flat band at the bottom."]},
   {"v": "2.93.11", "items": ["Rolled back to the 2.93.01 code — the tab-bar and bottom-band changes are reverted. The new house app icon stays."]},
   {"v": "2.93.01", "items": ["Notes under the lists (like the explanation on the eWeLink page) now span the full width of the card instead of stopping in a narrow column on the left."]},
   {"v": "2.93.00", "items": ["eWeLink devices can now live in your homes alongside your Tuya devices: link your eWeLink account in Me > eWeLink, and each eWeLink switch or plug can be assigned to HG22A or Cove, where it shows as a plug tile you can toggle like any other. The first version covers single on/off switches and plugs only, and eWeLink devices can't join Tuya scenes or automations, which run on Tuya's cloud."]},

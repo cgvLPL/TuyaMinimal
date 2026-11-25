@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.12
+
+- The Devices page and the wallpaper now use the full screen height instead of the dynamic viewport, so they no longer leave a flat band at the bottom as if a browser bar were there. (Re-applied on top of the 2.93.11 rollback — the 2.93.10 attempt was rolled back before it could be tested.)
+
 ## 2.93.11
 
 - Rolled back to the 2.93.01 code: the tab-bar and bottom-band changes from 2.93.02 through 2.93.10 are reverted (short-screen fix, docked bar, canvas background, full-screen height, and the iPhone 7 layer removal). The iOS 15 dial fallback is back. The new house app icon stays.

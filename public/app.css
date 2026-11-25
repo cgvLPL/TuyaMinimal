@@ -772,7 +772,10 @@ dialog.confirm::backdrop { background: rgba(10, 10, 20, 0.25); -webkit-backdrop-
 /* ---------- Frozen top on the Devices page: only the cards scroll ---------- */
 html.lock-scroll, html.lock-scroll body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 .main.devices-view {
-  height: 100dvh; display: flex; flex-direction: column; overflow: hidden;
+  /* 2.93.12: 100vh (large viewport), not 100dvh — dvh accounts for the
+     bottom browser bar and left a flat band below the tab bar on the
+     Devices page, while the full screen is available in the PWA. */
+  height: 100vh; display: flex; flex-direction: column; overflow: hidden;
   padding-bottom: 0;
 }
 .dv-top { flex: 0 0 auto; }
@@ -1354,11 +1357,15 @@ html[data-bg] {
 }
 html[data-bg]::before {
   content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  /* 2.93.12: explicit 100vh so the wallpaper covers the full screen even
+     when the dynamic viewport is shorter (bottom browser bar). */
+  height: 100vh;
   background-color: #000000; background-repeat: no-repeat; background-position: center; background-size: cover;
 }
 /* A dimming layer over photo backgrounds keeps white text readable (Apple suggests ~35% over bright content) */
 html[data-bg]::after {
   content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  height: 100vh;
   background: rgba(0, 0, 0, var(--dim, 0.35));
 }
 html[data-bg="aura"]::before     { background-image: url("/backgrounds/aura.jpg"); background-size: contain; }
