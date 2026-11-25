@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.07
+
+- The tab bar now docks at the very bottom of the screen — no dead band below it. The safe-area inset sits inside the bar, so the icons still clear the home indicator.
+
 ## 2.93.06
 
 - Short-screen fix for iPhone 7 is back, exactly as in 2.93.02 (last card clears the floating tab bar on short screens). The new house icon stays.

@@ -3551,3 +3551,17 @@ html[data-bg] .floor-btn[aria-pressed="true"], .k26 .floor-btn[aria-pressed="tru
   .grid { gap: 10px; }
   .grid > .card.compact { height: 64px; }
 }
+
+/* 2.93.07: full-screen bottom — the tab bar docks at the screen edge so there
+   is no dead band ("chin") below it. The safe-area inset moves inside the
+   pill as bottom padding, so the icons still clear the home indicator. */
+html .tabbar {
+  bottom: 0;
+  border-radius: 999px 999px 0 0;
+  padding: 6px 10px calc(var(--safe-bottom) + 6px);
+}
+html.tab-min .tabbar {
+  bottom: 0;
+  border-radius: 999px 999px 0 0;
+  padding: 4px 4px calc(var(--safe-bottom) + 4px);
+}
