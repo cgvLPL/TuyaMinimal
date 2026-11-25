@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.26
+
+- eWeLink multi-outlet devices now show every outlet as its own switch (Switch 1, Switch 2, ...), each switchable on its own. Arrange can also split them into separate tiles, like Tuya power strips.
+
 ## 2.93.25
 
 - eWeLink multi-outlet adapters (like dual-port USB chargers) now read and switch correctly: they report their state per outlet, which the app now understands. The tile shows and controls the first outlet.

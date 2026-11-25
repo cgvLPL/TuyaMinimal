@@ -330,13 +330,15 @@ async function getStatus(id) {
 async function setStatus(id, params) {
   let out = params;
   if (params && typeof params.switch === 'string') {
+    const outlet = Number.isInteger(params.outlet) && params.outlet >= 0 ? params.outlet : 0;
+    out = { switch: params.switch };
     try {
       const things = await getAllThings();
       const t = things.find((x) => x.deviceid === String(id));
       if (t && t.params && Array.isArray(t.params.switches) && typeof t.params.switch !== 'string') {
-        out = { switches: [{ switch: params.switch, outlet: 0 }] };
+        out = { switches: [{ switch: params.switch, outlet }] };
       }
-    } catch (e) { /* shape unknown: send as-is */ }
+    } catch (e) { /* shape unknown: send the single-switch form */ }
   }
   await callAuthed('POST', '/v2/device/thing/status', { type: 1, id, params: out });
   return true;
@@ -374,20 +376,32 @@ async function getAllThings() {
 }
 
 // On/off state from either params shape: single-channel devices report
-// params.switch; multi-channel ones report params.switches[{switch, outlet}]
-// (outlet 0 is the first channel — the one the tile controls in v1).
-function switchState(params) {
-  if (!params || typeof params !== 'object') return false;
-  if (typeof params.switch === 'string') return params.switch === 'on';
-  if (Array.isArray(params.switches)) {
-    const ch = params.switches.find((s) => s && (s.outlet === 0 || s.outlet === undefined)) || params.switches[0];
-    return !!(ch && ch.switch === 'on');
+// params.switch; multi-channel ones report params.switches[{switch, outlet}].
+// switchStatus builds the Tuya-style status map the client enumerates switches
+// from (switch_1, switch_2, ... — one per outlet, in outlet order).
+function switchStatus(params) {
+  const st = {};
+  if (params && typeof params.switch === 'string') { st.switch_1 = params.switch === 'on'; return st; }
+  if (params && Array.isArray(params.switches)) {
+    params.switches.forEach((s, i) => {
+      if (!s) return;
+      const o = Number(s.outlet);
+      const outlet = Number.isInteger(o) && o >= 0 ? o : i;
+      st['switch_' + (outlet + 1)] = s.switch === 'on';
+    });
   }
-  return false;
+  if (!Object.keys(st).length) st.switch_1 = false;
+  return st;
 }
 
-// v1: on/off switches/plugs only. A multi-channel device shows (and toggles)
-// its first outlet; separate tiles per outlet can come later.
+// The first outlet's state (the one the tile toggles).
+function switchState(params) {
+  return switchStatus(params).switch_1 === true;
+}
+
+// v1: on/off switches/plugs only. A multi-channel device exposes every outlet
+// as its own switch (switch_1, switch_2, ...), so the device page lists them
+// all and Arrange can split them into separate tiles, like Tuya strips.
 function mapThing(t) {
   return {
     id: 'ew-' + t.deviceid,
@@ -395,23 +409,25 @@ function mapThing(t) {
     category: 'cz',
     product: [t.brandName, t.productModel].filter(Boolean).join(' ') || 'eWeLink plug',
     online: !!t.online,
-    status: { switch_1: switchState(t.params) },
+    status: switchStatus(t.params),
     room: t.roomName || '',
     ew: true
   };
 }
 
-// Tuya-style commands [{ code: 'switch_1', value: bool }] → eWeLink params.
-// Anything else isn't an on/off switch in v1.
+// Tuya-style commands [{ code: 'switch_1'|'switch_2'|..., value: bool }] →
+// eWeLink params { switch, outlet } (switch_N is outlet N-1). setStatus turns
+// that into the shape the device speaks. Anything else isn't a switch in v1.
 function commandParams(commands) {
-  const c = (commands || []).find((x) => x && x.code === 'switch_1');
+  const c = (commands || []).find((x) => x && /^switch_\d+$/.test(x.code || ''));
   if (!c || typeof c.value !== 'boolean') return null;
-  return { switch: c.value ? 'on' : 'off' };
+  const outlet = parseInt(c.code.slice('switch_'.length), 10) - 1;
+  return { switch: c.value ? 'on' : 'off', outlet: outlet >= 0 ? outlet : 0 };
 }
 
 module.exports = {
   isConfigured, isLinked, config, mode, loginWithPassword, authUrl, exchangeCode, revoke,
   getFamilies, getThings, getStatus, setStatus, getAllThings,
-  mapThing, commandParams, switchState, signAuth, signGet, signPost, nonce,
+  mapThing, commandParams, switchState, switchStatus, signAuth, signGet, signPost, nonce,
   REDIRECT_URL, TOKEN_KEY
 };

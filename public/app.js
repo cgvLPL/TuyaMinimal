@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.93.26", "items": ["eWeLink multi-outlet devices now show every outlet as its own switch, each switchable on its own."]},
   {"v": "2.93.25", "items": ["eWeLink multi-outlet adapters now show the right on/off state and can be switched."]},
   {"v": "2.93.24", "items": ["Fixed eWeLink devices failing to turn on or off with an \u201cunexpected server error\u201d.", "eWeLink devices can now be moved into rooms."]},
   {"v": "2.93.23", "items": ["eWeLink can now sign in with the account email and password set on the server, so devices work before the developer certification lands. The official sign-in page still works once the app ID is added."]},
@@ -8509,7 +8510,7 @@ function kClockPicker() {
         { id: 'dev15', name: 'Front door lock', category: 'ms', product: 'Smart door lock', online: true, room: 'Hallway', status: { battery_percentage: 82 } },
         { id: 'dev6', name: 'Porch camera', category: 'sp', product: 'Outdoor camera', online: true, room: 'Hallway', status: {} },
         { id: 'dev10', name: 'Garage plug', category: 'cz', product: 'Smart plug', online: false, room: '', status: { switch_1: false } },
-        { id: 'ew-1000000001', name: 'USB Adapter', category: 'cz', product: 'Smatrul USB adapter', online: true, room: 'Living room', status: { switch_1: false }, ew: true },
+        { id: 'ew-1000000001', name: 'USB Adapter', category: 'cz', product: 'Smatrul USB adapter', online: true, room: 'Living room', status: { switch_1: false, switch_2: true }, ew: true },
         { id: 'ir1', name: 'Study AC', category: 'infrared_ac', product: 'IR remote', online: true, room: 'Bedroom', status: {}, ir: { hub: 'hub1', categoryId: 5, ac: true, brand: 'Daikin', state: { power: false, mode: 0, temp: 24, wind: 0 } } },
         { id: 'ir2', name: 'Living room TV', category: 'infrared_tv', product: 'IR remote', online: true, room: 'Living room', status: {}, ir: { hub: 'hub1', categoryId: 2, ac: false, brand: 'Samsung' } },
         { id: 'bh1', home: 'h2', name: 'Patio lights', category: 'dj', product: 'Smart bulb', online: true, room: 'Patio', status: { switch_led: true, work_mode: 'white', bright_value_v2: 600, temp_value_v2: 0 } },
