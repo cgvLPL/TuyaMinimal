@@ -40,7 +40,7 @@ module.exports = handler(['GET'], async (req) => {
     for (const t of things) {
       const id = 'ew-' + t.deviceid;
       if (wanted.size && !wanted.has(id)) continue;
-      devices[id] = { online: !!t.online, status: { switch_1: t.params && t.params.switch === 'on' } };
+      devices[id] = { online: !!t.online, status: { switch_1: ew.switchState(t.params) } };
     }
   } catch (e) { /* eWeLink just isn't refreshed this time */ }
 

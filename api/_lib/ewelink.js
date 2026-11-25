@@ -182,6 +182,9 @@ async function rawRequest(cfg, host, method, path, bodyObj, auth) {
   }
   if (typeof json.error !== 'number') throw new TuyaError('eWeLink sent an unreadable response.', 'bad_response', 502);
   if (json.error !== 0) {
+    // Server-side only (no bodies or tokens): makes control failures diagnosable
+    // from the runtime logs instead of guessing from the app's toast.
+    console.error('eWeLink API error:', method, path, 'error', json.error, '-', json.msg || '');
     const msg = json.msg || 'eWeLink returned an error.';
     // 401/402: token problems. 407: this appid may not call that interface.
     // 412: free quota exceeded. 30017: the device's brand isn't authorized for this appid.
@@ -319,9 +322,23 @@ async function getStatus(id) {
   return (data && data.params) || {};
 }
 
-// POST /v2/device/thing/status { type: 1, id, params }.
+// POST /v2/device/thing/status { type: 1, id, params }. Multi-channel devices
+// reject a plain { switch } (eWeLink answers "device control failed") — they
+// want { switches: [{ switch, outlet }] }. The device's own reported params
+// (from the cached thing list) say which shape it speaks, so translate when the
+// device reports switches but no switch. Unknown shape: send as-is.
 async function setStatus(id, params) {
-  await callAuthed('POST', '/v2/device/thing/status', { type: 1, id, params });
+  let out = params;
+  if (params && typeof params.switch === 'string') {
+    try {
+      const things = await getAllThings();
+      const t = things.find((x) => x.deviceid === String(id));
+      if (t && t.params && Array.isArray(t.params.switches) && typeof t.params.switch !== 'string') {
+        out = { switches: [{ switch: params.switch, outlet: 0 }] };
+      }
+    } catch (e) { /* shape unknown: send as-is */ }
+  }
+  await callAuthed('POST', '/v2/device/thing/status', { type: 1, id, params: out });
   return true;
 }
 
@@ -356,8 +373,21 @@ async function getAllThings() {
   });
 }
 
-// v1: single-channel on/off switches/plugs only. A multi-channel device reports
-// params.switches; its channels are ignored until a later version.
+// On/off state from either params shape: single-channel devices report
+// params.switch; multi-channel ones report params.switches[{switch, outlet}]
+// (outlet 0 is the first channel — the one the tile controls in v1).
+function switchState(params) {
+  if (!params || typeof params !== 'object') return false;
+  if (typeof params.switch === 'string') return params.switch === 'on';
+  if (Array.isArray(params.switches)) {
+    const ch = params.switches.find((s) => s && (s.outlet === 0 || s.outlet === undefined)) || params.switches[0];
+    return !!(ch && ch.switch === 'on');
+  }
+  return false;
+}
+
+// v1: on/off switches/plugs only. A multi-channel device shows (and toggles)
+// its first outlet; separate tiles per outlet can come later.
 function mapThing(t) {
   return {
     id: 'ew-' + t.deviceid,
@@ -365,7 +395,7 @@ function mapThing(t) {
     category: 'cz',
     product: [t.brandName, t.productModel].filter(Boolean).join(' ') || 'eWeLink plug',
     online: !!t.online,
-    status: { switch_1: t.params && t.params.switch === 'on' },
+    status: { switch_1: switchState(t.params) },
     room: t.roomName || '',
     ew: true
   };
@@ -382,6 +412,6 @@ function commandParams(commands) {
 module.exports = {
   isConfigured, isLinked, config, mode, loginWithPassword, authUrl, exchangeCode, revoke,
   getFamilies, getThings, getStatus, setStatus, getAllThings,
-  mapThing, commandParams, signAuth, signGet, signPost, nonce,
+  mapThing, commandParams, switchState, signAuth, signGet, signPost, nonce,
   REDIRECT_URL, TOKEN_KEY
 };

@@ -2,6 +2,11 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.25
+
+- eWeLink multi-outlet adapters (like dual-port USB chargers) now read and switch correctly: they report their state per outlet, which the app now understands. The tile shows and controls the first outlet.
+- eWeLink errors are now recorded in the server log with their code, so a failed command can be diagnosed exactly.
+
 ## 2.93.24
 
 - Fixed eWeLink devices failing to turn on or off: the command route crashed before sending the switch command, so every toggle returned "Unexpected server error".

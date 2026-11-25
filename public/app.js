@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.93.25", "items": ["eWeLink multi-outlet adapters now show the right on/off state and can be switched."]},
   {"v": "2.93.24", "items": ["Fixed eWeLink devices failing to turn on or off with an \u201cunexpected server error\u201d.", "eWeLink devices can now be moved into rooms."]},
   {"v": "2.93.23", "items": ["eWeLink can now sign in with the account email and password set on the server, so devices work before the developer certification lands. The official sign-in page still works once the app ID is added."]},
   {"v": "2.93.21", "items": ["The temperature on the AC tile is bigger."]},
