@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.30
+
+- Renaming an eWeLink device's switches works now: names are saved in the app (eWeLink has no such setting to write to), so "Switch 1" can become "Lamp" and stays that way.
+
 ## 2.93.29
 
 - eWeLink switches now actually switch: commands go over the same live connection the eWeLink app uses, instead of the web endpoint that was refusing them.

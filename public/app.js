@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.93.30", "items": ["Renaming an eWeLink device's switches works now, and the names stick."]},
   {"v": "2.93.29", "items": ["eWeLink switches now switch over the same live connection the eWeLink app uses."]},
   {"v": "2.93.28", "items": ["The dual-port USB adapter now shows its two real switches instead of four."]},
   {"v": "2.93.27", "items": ["Groundwork for hiding phantom outlets on eWeLink multi-outlet devices."]},
