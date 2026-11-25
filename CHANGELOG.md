@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.09
+
+- The wallpaper image now also lives on the page itself, so the dotted background runs to the bottom edge on the Devices page too — it was leaving a flat band below the tab bar there while other screens were fine.
+
 ## 2.93.08
 
 - The tab bar is a floating pill again, like before — the docked bar from 2.93.07 is gone. The wallpaper runs to the bottom edge below it.

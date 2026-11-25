@@ -1372,6 +1372,18 @@ html[data-bg="mist"]             { --dim: 0.45; }
 html[data-bg="halftone"]::before { background-image: url("/backgrounds/halftone.jpg"); }
 html[data-bg="halftone"]         { --dim: 0.25; }
 html[data-bg="dusk"]::before     { background-image: url("/backgrounds/dusk.jpg"); }
+/* 2.93.09: the same image on <html> itself, so it paints on the canvas
+   (which always covers the whole viewport) even where the fixed ::before
+   is clipped — on the Devices page on iPhone a flat band appeared below
+   the tab bar while other screens were fine. Same image, same cover
+   math, so where the ::before does cover, nothing changes. */
+html[data-bg] { background-size: cover; background-position: center; background-repeat: no-repeat; }
+html[data-bg="aura"] { background-image: url("/backgrounds/aura.jpg"); background-size: contain; }
+html[data-bg="ember"] { background-image: url("/backgrounds/ember.jpg"); }
+html[data-bg="tide"] { background-image: url("/backgrounds/tide.jpg"); }
+html[data-bg="mist"] { background-image: url("/backgrounds/mist.jpg"); }
+html[data-bg="halftone"] { background-image: url("/backgrounds/halftone.jpg"); }
+html[data-bg="dusk"] { background-image: url("/backgrounds/dusk.jpg"); }
 html[data-bg="dusk"]             { --dim: 0.3; }
 /* Text sitting straight on a photo gets a soft shadow for legibility */
 html[data-bg] .hello, html[data-bg] .section-head h2, html[data-bg] .section-title, html[data-bg] .detail-head,
