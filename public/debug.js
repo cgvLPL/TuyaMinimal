@@ -1,4 +1,4 @@
-/* TEMPORARY viewport diagnostic (2.93.14). Remove once the bottom band is fixed. */
+/* TEMPORARY viewport diagnostic (2.93.15). Remove once the bottom band is fixed. */
 (function () {
   var d = document;
   function mk(css, txt) { var e = d.createElement('div'); e.style.cssText = 'position:fixed;pointer-events:none;z-index:2147483647;' + css; if (txt) e.textContent = txt; d.body.appendChild(e); return e; }
@@ -10,7 +10,8 @@
     mk('left:0;width:30%;height:4px;background:#0a84ff'),
     mk('left:30%;width:30%;height:4px;background:#ffd60a'),
     mk('left:60%;width:30%;height:4px;background:#bf5af2'),
-    mk('left:90%;width:10%;height:4px;background:#ffffff')
+    mk('left:90%;width:10%;height:4px;background:#ffffff'),
+    mk('position:absolute;left:0;right:0;height:4px;top:calc(100lvh - 4px);background:#ff9500')
   ];
   function run() {
     var vv = window.visualViewport;
@@ -26,7 +27,7 @@
       '100vh ' + px('100vh') + '  lvh ' + px('100lvh') + '  dvh ' + px('100dvh') + '  svh ' + px('100svh'),
       'fixed bottom:0 -> y=' + Math.round(m[0].getBoundingClientRect().bottom * 10) / 10,
       'safe top ' + inset('top') + '  bottom ' + inset('bottom'),
-      'legend: red=fixed bottom, blue=lvh, yellow=dvh, purple=svh, white=screen.height'
+      'legend: red=fixed bottom, blue=lvh, yellow=dvh, purple=svh, white=screen.height, orange=page-anchored 100lvh'
     ].join('\n');
   }
   run();

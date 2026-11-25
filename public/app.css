@@ -3542,24 +3542,24 @@ html[data-bg] .floor-btn[aria-pressed="true"], .k26 .floor-btn[aria-pressed="tru
 .k26 .k-hsep { flex: none; align-self: center; width: 1px; height: 1em; margin: 0 .3em; background: rgba(255, 255, 255, 0.25); }
 
 
-/* ---------- 2.93.13: full-height wallpaper + tab bar on iPhone ----------
-   The wallpaper layers are fixed to the screen but were sized with a fixed
-   100vh. They now stretch past the top and bottom edges (overscan), so no
-   viewport rounding or safe-area difference can leave an unpainted band
-   under the floating tab bar. */
-html { min-height: 100%; background-color: var(--bg); }
+/* ---------- 2.93.15: full-height page in the iOS Home Screen app ----------
+   iOS gives a Home Screen app a layout viewport that is the safe-area-top
+   shorter than the screen (812 of 874 on iPhone 16 Pro). position:fixed
+   layers can't paint below that line, and the page itself ended there too
+   because the Devices page locks html to height:100%. Making the document as
+   tall as the large viewport (100lvh) lets the page paint the last strip; the
+   wallpaper on the locked Devices page is anchored to the document instead
+   of fixed so it reaches the bottom too. */
+html { background-color: var(--bg); min-height: 100%; }
 html[data-bg] { background-color: #000000; }
-body { min-height: 100vh; min-height: 100lvh; }
-html[data-bg]::before,
-html[data-bg]::after {
-  top: -120px; bottom: -240px; left: 0; right: 0;
-  height: auto;
-}
-@supports (-webkit-touch-callout: none) {
-  /* iOS only: -webkit-fill-available tracks the real window height in a Home Screen app */
-  html { height: -webkit-fill-available; }
-  body { min-height: -webkit-fill-available; }
-  .main.devices-view { height: -webkit-fill-available; height: 100lvh; }
+@media (display-mode: standalone) {
+  html { min-height: 100lvh; }
+  body { min-height: 100lvh; }
+  html.lock-scroll, html.lock-scroll body { height: 100lvh; }
+  html.lock-scroll[data-bg]::before,
+  html.lock-scroll[data-bg]::after {
+    position: absolute; top: 0; left: 0; right: 0; bottom: auto; height: 100lvh;
+  }
 }
 @media (min-width: 900px) {
   .main.devices-view { height: auto; }
