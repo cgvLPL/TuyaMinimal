@@ -2,42 +2,9 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
-## 2.93.10
+## 2.93.11
 
-- The Devices page and the wallpaper now use the full screen height instead of the dynamic viewport, so they no longer leave a flat band at the bottom as if a browser bar were there.
-- Removed the iPhone 7 compatibility layer: the short-screen tab-bar fix and the iOS 15 dial fallback. On an iPhone 7 the last card sits behind the tab bar again and the dials lose their sizing.
-
-## 2.93.09
-
-- The wallpaper image now also lives on the page itself, so the dotted background runs to the bottom edge on the Devices page too — it was leaving a flat band below the tab bar there while other screens were fine.
-
-## 2.93.08
-
-- The tab bar is a floating pill again, like before — the docked bar from 2.93.07 is gone. The wallpaper runs to the bottom edge below it.
-
-## 2.93.07
-
-- The tab bar now docks at the very bottom of the screen — no dead band below it. The safe-area inset sits inside the bar, so the icons still clear the home indicator.
-
-## 2.93.06
-
-- Short-screen fix for iPhone 7 is back, exactly as in 2.93.02 (last card clears the floating tab bar on short screens). The new house icon stays.
-
-## 2.93.05
-
-- Short-screen compatibility blocks for iPhone 7 removed entirely: the layout is back to how it was before 2.93.02 on every phone. (On iPhone 7 the last card can sit behind the floating tab bar again.)
-
-## 2.93.04
-
-- Short-screen fix (iPhone 7) now only applies to narrow phones (up to 375px wide): it was also tightening the layout on iPhone 17 Pro, which looked off. iPhone 7 keeps the fix; iPhone 17 Pro is back to the previous layout.
-
-## 2.93.03
-
-- App icon and favicon are now the house in the field at sunrise (blue sky, yellow sun, green fields).
-
-## 2.93.02
-
-- Short phone screens (iPhone 7, especially with Display Zoom): the greeting, room pills and summary chips plus the device grid can run taller than the screen, so the last card ends up behind the floating tab bar. On short screens the top spacing is tighter and the cards a little shorter, so a short list fits and the last card clears the bar.
+- Rolled back to the 2.93.01 code: the tab-bar and bottom-band changes from 2.93.02 through 2.93.10 are reverted (short-screen fix, docked bar, canvas background, full-screen height, and the iPhone 7 layer removal). The iOS 15 dial fallback is back. The new house app icon stays.
 
 ## 2.93.01
 

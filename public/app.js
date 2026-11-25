@@ -4,15 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
-  {"v": "2.93.10", "items": ["The Devices page and the wallpaper now use the full screen height — no more flat band at the bottom.", "Removed the iPhone 7 compatibility layer (short-screen tab-bar fix and iOS 15 dial fallback)."]},
-  {"v": "2.93.09", "items": ["The dotted wallpaper now runs to the bottom edge on the Devices page too — no more flat band below the tab bar."]},
-  {"v": "2.93.08", "items": ["The tab bar is a floating pill again, like before — the docked bar from 2.93.07 is gone."]},
-  {"v": "2.93.07", "items": ["The tab bar now docks at the very bottom of the screen — no dead band below it."]},
-  {"v": "2.93.06", "items": ["Short-screen fix for iPhone 7 is back, exactly as in 2.93.02 (last card clears the floating tab bar on short screens). The new house icon stays."]},
-  {"v": "2.93.05", "items": ["Short-screen compatibility blocks for iPhone 7 removed entirely: the layout is back to how it was before 2.93.02 on every phone. (On iPhone 7 the last card can sit behind the floating tab bar again.)"]},
-  {"v": "2.93.04", "items": ["Short-screen fix (iPhone 7) now only applies to narrow phones (up to 375px wide): it was also tightening the layout on iPhone 17 Pro, which looked off. iPhone 7 keeps the fix; iPhone 17 Pro is back to the previous layout."]},
-  {"v": "2.93.03", "items": ["App icon and favicon are now the house in the field at sunrise (blue sky, yellow sun, green fields)."]},
-  {"v": "2.93.02", "items": ["Short phone screens (iPhone 7, especially with Display Zoom): the greeting, room pills and summary chips plus the device grid can run taller than the screen, so the last card ends up behind the floating tab bar. On short screens the top spacing is tighter and the cards a little shorter, so a short list fits and the last card clears the bar."]},
+  {"v": "2.93.11", "items": ["Rolled back to the 2.93.01 code — the tab-bar and bottom-band changes are reverted. The new house app icon stays."]},
   {"v": "2.93.01", "items": ["Notes under the lists (like the explanation on the eWeLink page) now span the full width of the card instead of stopping in a narrow column on the left."]},
   {"v": "2.93.00", "items": ["eWeLink devices can now live in your homes alongside your Tuya devices: link your eWeLink account in Me > eWeLink, and each eWeLink switch or plug can be assigned to HG22A or Cove, where it shows as a plug tile you can toggle like any other. The first version covers single on/off switches and plugs only, and eWeLink devices can't join Tuya scenes or automations, which run on Tuya's cloud."]},
   {"v": "2.92.02", "items": ["On a slow connection, switching a tile on no longer bounces back to off for a second: after a command, the app now keeps showing what you sent until the server actually reports it (at most 10 seconds). Before, the in-flight guard cleared as soon as the command returned and the 1.5-second guard expired before Tuya's status caught up, so the next status poll merged the still-old state over the tile. The same hold applies to a full refresh landing in that window."]},
