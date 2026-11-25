@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.06
+
+- Short-screen fix for iPhone 7 is back, exactly as in 2.93.02 (last card clears the floating tab bar on short screens). The new house icon stays.
+
 ## 2.93.05
 
 - Short-screen compatibility blocks for iPhone 7 removed entirely: the layout is back to how it was before 2.93.02 on every phone. (On iPhone 7 the last card can sit behind the floating tab bar again.)

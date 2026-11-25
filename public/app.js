@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.93.06", "items": ["Short-screen fix for iPhone 7 is back, exactly as in 2.93.02 (last card clears the floating tab bar on short screens). The new house icon stays."]},
   {"v": "2.93.05", "items": ["Short-screen compatibility blocks for iPhone 7 removed entirely: the layout is back to how it was before 2.93.02 on every phone. (On iPhone 7 the last card can sit behind the floating tab bar again.)"]},
   {"v": "2.93.04", "items": ["Short-screen fix (iPhone 7) now only applies to narrow phones (up to 375px wide): it was also tightening the layout on iPhone 17 Pro, which looked off. iPhone 7 keeps the fix; iPhone 17 Pro is back to the previous layout."]},
   {"v": "2.93.03", "items": ["App icon and favicon are now the house in the field at sunrise (blue sky, yellow sun, green fields)."]},
