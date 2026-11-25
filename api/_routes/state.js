@@ -320,10 +320,14 @@ module.exports = handler(['GET'], async (req) => {
       const things = await ew.getAllThings();
       const roomByName = {};
       for (const r of rooms) roomByName[r.name.toLowerCase()] = r;
+      const roomOverrides = settings.ewelinkRooms || {};
       for (const t of things) {
         const m = ew.mapThing(t);
         if (!assigned.has(m.id)) continue;
-        const match = m.room ? roomByName[m.room.toLowerCase()] : null;
+        // A room chosen in the app (room-move, 2.93.24) wins over the room-name
+        // match; a stale override (room deleted) falls back to the name match.
+        const ov = roomOverrides[m.id] ? rooms.find((r) => String(r.id) === String(roomOverrides[m.id])) : null;
+        const match = ov || (m.room ? roomByName[m.room.toLowerCase()] : null);
         ewDevices.push(Object.assign(m, { room: match ? match.name : '', roomId: match ? match.id : '' }));
       }
     } catch (e) { warnings.push('eWeLink: ' + (e.message || 'could not load devices')); }

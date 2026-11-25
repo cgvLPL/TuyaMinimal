@@ -2,6 +2,11 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.24
+
+- Fixed eWeLink devices failing to turn on or off: the command route crashed before sending the switch command, so every toggle returned "Unexpected server error".
+- eWeLink devices can now be moved into rooms: the chosen room is kept by the app (Tuya's room API doesn't know these devices and answered "permission deny").
+
 ## 2.93.23
 
 - eWeLink can now sign in with the account email and password set on the server (EWELINK_EMAIL + EWELINK_PASSWORD), so devices work before the developer certification lands. The official sign-in page still works once the app ID is added; remove the email/password to switch back.

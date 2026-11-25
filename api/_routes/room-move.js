@@ -12,16 +12,35 @@ const { call, TuyaError } = require('../_lib/tuya');
 const { handler, requireId } = require('../_lib/http');
 const access = require('../_lib/access');
 const activity = require('../_lib/activity');
+const store = require('../_lib/store');
 const { forget } = require('../_lib/cache');
 
 module.exports = handler(['POST'], async (req, body) => {
   const deviceId = requireId(body.deviceId, 'device');
-  await access.requireDevice(req.user, deviceId);
+  if (!deviceId.startsWith('ew-')) await access.requireDevice(req.user, deviceId);
   const homeId = typeof body.homeId === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(body.homeId) ? body.homeId : null;
   const roomId = typeof body.roomId === 'string' && /^\d{1,20}$/.test(body.roomId) ? body.roomId : null;
   const fromRoomId = typeof body.fromRoomId === 'string' && /^\d{1,20}$/.test(body.fromRoomId) ? body.fromRoomId : null;
   if (!homeId) throw new TuyaError('Invalid home.', 'bad_request', 400);
   if (!roomId) throw new TuyaError('Invalid room.', 'bad_request', 400);
+  // eWeLink devices (2.93.24) don't exist in Tuya, so a room move can't go through
+  // Tuya's room API (it answered "permission deny"). Instead the chosen room is
+  // saved as an app-layer override that state.js prefers over the eWeLink
+  // room-name match. The device must be assigned to this home first.
+  if (deviceId.startsWith('ew-')) {
+    access.requireHome(req.user, homeId);
+    if (!store.enabled()) throw new TuyaError('Sync needs storage. See the README section "Sync and users".', 'no_storage', 503);
+    const settings = await store.getJSON('settings', { icons: {} });
+    const assigned = (settings.ewelinkHomes && settings.ewelinkHomes[homeId]) || [];
+    if (!assigned.includes(deviceId)) throw new TuyaError('That eWeLink device is not assigned to this home.', 'forbidden', 403);
+    settings.ewelinkRooms = settings.ewelinkRooms || {};
+    settings.ewelinkRooms[deviceId] = roomId;
+    await store.setJSON('settings', settings);
+    const roomName = typeof body.roomName === 'string' ? activity.clean(body.roomName, 40) : 'a room';
+    await activity.log(req, { kind: 'edit', homeId,
+      text: 'moved ' + activity.deviceName(deviceId, body.deviceName) + ' to ' + roomName });
+    return { ok: true, roomId, moved: true };
+  }
   if (fromRoomId && fromRoomId === roomId) return { ok: true, roomId, moved: false };
   // Read who's already in the room, so the add keeps them there. Refuse the move
   // if the room can't be read — sending only the moved device would empty it.
