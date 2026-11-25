@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.93.14", "items": ["Temporary on-screen viewport diagnostic to track down the bottom band."]},
   {"v": "2.93.13", "items": ["The wallpaper and tab bar now stretch past the screen edges, so no band can show under the bottom bar on iPhone."]},
   {"v": "2.93.12", "items": ["The Devices page and the wallpaper now use the full screen height — no more flat band at the bottom."]},
   {"v": "2.93.11", "items": ["Rolled back to the 2.93.01 code — the tab-bar and bottom-band changes are reverted. The new house app icon stays."]},

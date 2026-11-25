@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.14
+
+- Temporary on-screen viewport diagnostic (debug.js) to find why iOS leaves a band under the tab bar. To be removed.
+
 ## 2.93.13
 
 - The wallpaper layers now overscan past the top and bottom screen edges and the page uses the large viewport height on iOS, so no band shows under the floating tab bar. If the band is still there after updating, remove the app from the Home Screen and add it again: iOS stores the window size when the app is first added.
