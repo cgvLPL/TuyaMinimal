@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.93.27", "items": ["Groundwork for hiding phantom outlets on eWeLink multi-outlet devices."]},
   {"v": "2.93.26", "items": ["eWeLink multi-outlet devices now show every outlet as its own switch, each switchable on its own."]},
   {"v": "2.93.25", "items": ["eWeLink multi-outlet adapters now show the right on/off state and can be switched."]},
   {"v": "2.93.24", "items": ["Fixed eWeLink devices failing to turn on or off with an \u201cunexpected server error\u201d.", "eWeLink devices can now be moved into rooms."]},

@@ -356,6 +356,11 @@ async function getAllThings() {
         if (t.itemType === 3) continue;   // groups aren't devices
         const d = t.itemData || {};
         const room = (fam.roomList || []).find((r) => String(r.id) === String(d.family && d.family.roomid));
+        // Learn real channel counts: generic firmware can report more channels
+        // than the hardware has; the UIID is what the eWeLink app renders from.
+        console.log('eWeLink thing:', String(d.deviceid || ''), 'uiid', d.extra && d.extra.uiid,
+          'channels', d.params && Array.isArray(d.params.switches) ? d.params.switches.length : 1,
+          'model', d.productModel || '');
         all.push({
           deviceid: String(d.deviceid || ''),
           name: d.name || '',
@@ -375,11 +380,25 @@ async function getAllThings() {
   });
 }
 
+// Real channel counts by UIID. The eWeLink app renders each device from its
+// UIID's template; generic firmware often reports MORE channels in
+// params.switches than the hardware has (a dual-port adapter reporting 4).
+// Entries are learned from live devices (see the thing log in getAllThings);
+// unknown UIIDs use the reported count.
+const CHANNELS_BY_UIID = {
+  // 'uiid': channels
+};
+function channelCap(uiid) {
+  const n = CHANNELS_BY_UIID[String(uiid)];
+  return Number.isInteger(n) && n > 0 ? n : 0; // 0 = no cap
+}
+
 // On/off state from either params shape: single-channel devices report
 // params.switch; multi-channel ones report params.switches[{switch, outlet}].
 // switchStatus builds the Tuya-style status map the client enumerates switches
-// from (switch_1, switch_2, ... — one per outlet, in outlet order).
-function switchStatus(params) {
+// from (switch_1, switch_2, ... — one per outlet, in outlet order), capped at
+// the device's real channel count when known.
+function switchStatus(params, maxChannels) {
   const st = {};
   if (params && typeof params.switch === 'string') { st.switch_1 = params.switch === 'on'; return st; }
   if (params && Array.isArray(params.switches)) {
@@ -387,6 +406,7 @@ function switchStatus(params) {
       if (!s) return;
       const o = Number(s.outlet);
       const outlet = Number.isInteger(o) && o >= 0 ? o : i;
+      if (maxChannels && outlet >= maxChannels) return;
       st['switch_' + (outlet + 1)] = s.switch === 'on';
     });
   }
@@ -409,7 +429,7 @@ function mapThing(t) {
     category: 'cz',
     product: [t.brandName, t.productModel].filter(Boolean).join(' ') || 'eWeLink plug',
     online: !!t.online,
-    status: switchStatus(t.params),
+    status: switchStatus(t.params, channelCap(t.uiid)),
     room: t.roomName || '',
     ew: true
   };
@@ -428,6 +448,6 @@ function commandParams(commands) {
 module.exports = {
   isConfigured, isLinked, config, mode, loginWithPassword, authUrl, exchangeCode, revoke,
   getFamilies, getThings, getStatus, setStatus, getAllThings,
-  mapThing, commandParams, switchState, switchStatus, signAuth, signGet, signPost, nonce,
+  mapThing, commandParams, switchState, switchStatus, channelCap, signAuth, signGet, signPost, nonce,
   REDIRECT_URL, TOKEN_KEY
 };

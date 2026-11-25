@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.27
+
+- Groundwork for correct switch counts on eWeLink multi-outlet devices: the server now records each device's model ID so phantom outlets (reported by the firmware but not present on the hardware) can be hidden.
+
 ## 2.93.26
 
 - eWeLink multi-outlet devices now show every outlet as its own switch (Switch 1, Switch 2, ...), each switchable on its own. Arrange can also split them into separate tiles, like Tuya power strips.
