@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.32
+
+- Each eWeLink switch can have its own icon (tap the icon next to its name in the switch list) and its own name, even while the device is offline.
+
 ## 2.93.31
 
 - eWeLink switches can be renamed even while the device is offline — the names live in the app, so the device doesn't need to be reachable.

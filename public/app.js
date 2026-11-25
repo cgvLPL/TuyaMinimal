@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.93.32", "items": ["Each eWeLink switch can have its own icon and name, even while the device is offline."]},
   {"v": "2.93.31", "items": ["eWeLink switches can be renamed even while the device is offline."]},
   {"v": "2.93.30", "items": ["Renaming an eWeLink device's switches works now, and the names stick."]},
   {"v": "2.93.29", "items": ["eWeLink switches now switch over the same live connection the eWeLink app uses."]},
@@ -4664,7 +4665,7 @@
     const hideHero = coveredByControl || (settingsOnly && k === 'sensor' && d.online);   // the sensor's rows below say the same
     if (hideHero) hero = '';
     const rows = [];
-    const nameRows = k === 'multi' && d.online ? channelCodes(d).map((c) => channelRow(d, c, sfx)) : [];
+    const nameRows = k === 'multi' && (d.online || d.ew) ? channelCodes(d).map((c) => channelRow(d, c, sfx)) : [];
     if (k === 'multi') {
       rows.push('<div class="list-row"><span class="label" id="split-label">Separate tiles</span>' +
         '<button class="switch" role="switch" aria-checked="' + isSplit(d) + '" aria-labelledby="split-label" data-act="split" data-id="' + esc(d.id) + '" data-key="split-' + esc(d.id) + '"><span class="knob"></span></button></div>');
