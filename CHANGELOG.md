@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.13
+
+- The wallpaper layers now overscan past the top and bottom screen edges and the page uses the large viewport height on iOS, so no band shows under the floating tab bar. If the band is still there after updating, remove the app from the Home Screen and add it again: iOS stores the window size when the app is first added.
+
 ## 2.93.12
 
 - The Devices page and the wallpaper now use the full screen height instead of the dynamic viewport, so they no longer leave a flat band at the bottom as if a browser bar were there. (Re-applied on top of the 2.93.11 rollback — the 2.93.10 attempt was rolled back before it could be tested.)
