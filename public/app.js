@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.93.10", "items": ["The Devices page and the wallpaper now use the full screen height — no more flat band at the bottom.", "Removed the iPhone 7 compatibility layer (short-screen tab-bar fix and iOS 15 dial fallback)."]},
   {"v": "2.93.09", "items": ["The dotted wallpaper now runs to the bottom edge on the Devices page too — no more flat band below the tab bar."]},
   {"v": "2.93.08", "items": ["The tab bar is a floating pill again, like before — the docked bar from 2.93.07 is gone."]},
   {"v": "2.93.07", "items": ["The tab bar now docks at the very bottom of the screen — no dead band below it."]},

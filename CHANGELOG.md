@@ -2,6 +2,11 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.10
+
+- The Devices page and the wallpaper now use the full screen height instead of the dynamic viewport, so they no longer leave a flat band at the bottom as if a browser bar were there.
+- Removed the iPhone 7 compatibility layer: the short-screen tab-bar fix and the iOS 15 dial fallback. On an iPhone 7 the last card sits behind the tab bar again and the dials lose their sizing.
+
 ## 2.93.09
 
 - The wallpaper image now also lives on the page itself, so the dotted background runs to the bottom edge on the Devices page too — it was leaving a flat band below the tab bar there while other screens were fine.

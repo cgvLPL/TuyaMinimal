@@ -772,7 +772,10 @@ dialog.confirm::backdrop { background: rgba(10, 10, 20, 0.25); -webkit-backdrop-
 /* ---------- Frozen top on the Devices page: only the cards scroll ---------- */
 html.lock-scroll, html.lock-scroll body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 .main.devices-view {
-  height: 100dvh; display: flex; flex-direction: column; overflow: hidden;
+  /* 2.93.10: 100vh (large viewport), not 100dvh — dvh accounts for the
+     bottom browser bar and left a flat band below the tab bar on the
+     Devices page, while the full screen is available in the PWA. */
+  height: 100vh; display: flex; flex-direction: column; overflow: hidden;
   padding-bottom: 0;
 }
 .dv-top { flex: 0 0 auto; }
@@ -1354,11 +1357,15 @@ html[data-bg] {
 }
 html[data-bg]::before {
   content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  /* 2.93.10: explicit 100vh so the wallpaper covers the full screen even
+     when the dynamic viewport is shorter (bottom browser bar). */
+  height: 100vh;
   background-color: #000000; background-repeat: no-repeat; background-position: center; background-size: cover;
 }
 /* A dimming layer over photo backgrounds keeps white text readable (Apple suggests ~35% over bright content) */
 html[data-bg]::after {
   content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  height: 100vh;
   background: rgba(0, 0, 0, var(--dim, 0.35));
 }
 html[data-bg="aura"]::before     { background-image: url("/backgrounds/aura.jpg"); background-size: contain; }
@@ -2882,30 +2889,6 @@ html input, html textarea, html select, html [contenteditable], html [contentedi
   .k26 .k-grid .k-ac.ka .k-ac-fan .fan-row { margin-top: 0; }
 }
 
-/* 2.91.30: iPhone 7 (iOS 15) has no container query units: every clamp() with cqw above is dropped there, so the dial number fell back to ~16px, the mode buttons lost their size and the gaps collapsed. These viewport-based equivalents only apply where cqw is unsupported; modern browsers skip this whole block, so their sizing is unchanged. Values match the cqw sizing at a 375px-wide phone. */
-@supports not (width: 1cqw) {
-  .td-big { font-size: clamp(56px, 23vw, 92px); }
-  .k26 .ka .ka-head .k-name { font-size: clamp(16px, 5vw, 22px); }
-  .k26 .ka .ka-sub { font-size: clamp(12px, 2.9vw, 18px); }
-  .k26 .ka-body { gap: clamp(10px, 3.6vw, 20px); }
-  .k26 .ka-label { font-size: clamp(11px, 3.3vw, 18px); }
-  .ka-page .ka-label { font-size: clamp(11px, 5.7vw, 18px); }
-  .k26 .ka-num { font-size: clamp(44px, 18vw, 160px); }
-  .ka-page .ka-num { font-size: clamp(32px, 23vw, 120px); }
-  .k26 .ka-side { gap: clamp(8px, 2.7vw, 16px); }
-  :is(.k26, .ka-page) .ka-mi { width: clamp(44px, 9vw, 64px); height: clamp(44px, 9vw, 64px); }
-  .ka-page .ka-mi { flex: 0 0 clamp(44px, 9vw, 64px); width: clamp(44px, 9vw, 64px); height: clamp(44px, 9vw, 64px); }
-  .k26 .k-ac .ka-side .ka-mi { flex: 0 0 clamp(44px, 9vw, 64px); width: clamp(44px, 9vw, 64px); height: clamp(44px, 9vw, 64px); }
-  :is(.k26, .ka-page) .ka-mode-name { font-size: clamp(12px, 2.6vw, 18px); }
-  .ka-page .ka-sub { font-size: clamp(12px, 3.2vw, 18px); }
-  .ka-page .ka-body { gap: clamp(10px, 4vw, 20px); }
-  .ka-page .ka-side { gap: clamp(8px, 3vw, 16px); }
-  .k26 .k-ac-fan .chip.fan-auto-ico, .ka-page .k-ac-fan .chip.fan-auto-ico { width: clamp(40px, 9.1vw, 56px); min-width: clamp(40px, 9.1vw, 56px); height: clamp(40px, 9.1vw, 56px); }
-  .k26 .k-grid .k-ac.ka .ka-head .k-name { font-size: clamp(15px, 3.6vw, 22px); }
-  .k26 .k-grid .k-ac.ka .ka-body { gap: clamp(8px, 2.7vw, 18px); }
-  .k26 .k-grid .k-ac.ka .ka-side { gap: clamp(4px, 1.4vw, 10px); }
-}
-
 /* 2.57.1: the first row of tiles was fading/clipping at its top edge (selection ring, press scale).
    No top fade at rest; fade only while the list is scrolled. Extra room for the ring and the lit-up scale. */
 .dv-scroll { padding-top: 16px;
@@ -3545,22 +3528,3 @@ html[data-bg] .floor-btn[aria-pressed="true"], .k26 .floor-btn[aria-pressed="tru
 .k26 .k-hfloor { color: rgba(255, 255, 255, 0.72); }
 .k26 .k-hfloor-in { color: #fff; }
 .k26 .k-hsep { flex: none; align-self: center; width: 1px; height: 1em; margin: 0 .3em; background: rgba(255, 255, 255, 0.25); }
-
-/* 2.93.02: short phone screens (iPhone 7, esp. with Display Zoom at 320x568):
-   the frozen top plus the device grid can run taller than the viewport, so the
-   last card ends up behind the floating tab bar at rest. Tighten the top
-   spacing so a short list fits and the last card clears the bar. */
-@media (max-width: 899px) and (max-height: 700px) {
-  .hello { margin-bottom: 6px; }
-  .room-pills { padding-bottom: 8px; }
-  .summaries { padding-top: 4px; padding-bottom: 8px; }
-  .section-head { margin-top: 0; }
-  .dv-top .section-head { margin-bottom: 4px; }
-  .dv-scroll { padding-top: 8px; }
-}
-/* On the shortest screens the cards themselves shrink a little too. */
-@media (max-width: 899px) and (max-height: 600px) {
-  .grid { gap: 10px; }
-  .grid > .card.compact { height: 64px; }
-}
-
