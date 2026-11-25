@@ -13,6 +13,14 @@ const HOSTS = {
   cn: 'https://cn-apia.coolkit.cn'    // Mainland China
 };
 const AUTH_PAGE = 'https://c2ccdn.coolkit.cc/oauth/index.html';
+// Dispatch service: asks where the WebSocket server for this account is.
+const DISPA = {
+  as: 'https://as-dispa.coolkit.cc/dispatch/app',
+  us: 'https://us-dispa.coolkit.cc/dispatch/app',
+  eu: 'https://eu-dispa.coolkit.cc/dispatch/app',
+  cn: 'https://cn-dispa.coolkit.cn/dispatch/app'
+};
+const WS_TIMEOUT_MS = 10000;
 // Where eWeLink sends the user back after authorizing. The client detects ?code= + region=
 // on load and exchanges the code. No new serverless function file needed.
 const REDIRECT_URL = 'https://tuya-minimal.vercel.app/';
@@ -327,18 +335,90 @@ async function getStatus(id) {
 // want { switches: [{ switch, outlet }] }. The device's own reported params
 // (from the cached thing list) say which shape it speaks, so translate when the
 // device reports switches but no switch. Unknown shape: send as-is.
+// One-shot WebSocket control — the path the eWeLink app itself uses:
+// dispatch -> wss -> userOnline handshake -> update, waiting for the reply
+// that carries our sequence. Used in unofficial mode, where the HTTP control
+// endpoint refuses account-login tokens (error 4002).
+async function wsControl(tok, device, params) {
+  const region = DISPA[tok.region] ? tok.region : 'as';
+  let disp;
+  try {
+    const r = await fetch(DISPA[region], { headers: { Authorization: 'Bearer ' + tok.at }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    disp = await r.json();
+  } catch (e) { throw new TuyaError('Could not reach eWeLink.', 'network'); }
+  if (!disp || !disp.domain || !disp.port) throw new TuyaError('eWeLink sent an unreadable response.', 'bad_response', 502);
+  const url = 'wss://' + disp.domain + ':' + disp.port + '/api/ws';
+  const seq = String(Date.now());
+  return await new Promise((resolve, reject) => {
+    let ws = null;
+    let done = false;
+    let handshook = false;
+    const finish = (err) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      try { if (ws) ws.close(); } catch (e) {}
+      if (err) reject(err); else resolve(true);
+    };
+    const timer = setTimeout(() => finish(new TuyaError('eWeLink took too long to answer. Try again in a moment.', 'timeout', 504)), WS_TIMEOUT_MS);
+    try { ws = new WebSocket(url); } catch (e) { finish(new TuyaError('Could not reach eWeLink.', 'network')); return; }
+    ws.onopen = () => {
+      const ts = Math.floor(Date.now() / 1000);
+      ws.send(JSON.stringify({
+        action: 'userOnline', at: tok.at, apikey: tok.apikey, appid: tok.appid,
+        nonce: String(Math.floor(ts / 100)), ts: ts, userAgent: 'app',
+        sequence: String(Date.now()), version: 8
+      }));
+    };
+    ws.onmessage = (ev) => {
+      let msg;
+      try { msg = JSON.parse(ev.data); } catch (e) { return; }
+      if (!handshook) {
+        if (msg.error !== 0) { finish(new TuyaError(msg.msg || 'eWeLink sign-in failed.', msg.error || 'bad_response', 502)); return; }
+        handshook = true;
+        ws.send(JSON.stringify({
+          action: 'update', apikey: device.apikey, selfApikey: tok.apikey,
+          deviceid: device.deviceid, params: params, userAgent: 'app', sequence: seq
+        }));
+        return;
+      }
+      if (msg.sequence === seq) {
+        if (msg.error === 0) { finish(null); return; }
+        console.error('eWeLink WS error: update', device.deviceid, 'error', msg.error, '-', msg.msg || '');
+        finish(new TuyaError(msg.msg || 'eWeLink returned an error.', msg.error || 'bad_response', 502));
+      }
+    };
+    ws.onerror = () => finish(new TuyaError('Could not reach eWeLink.', 'network'));
+    ws.onclose = () => finish(new TuyaError('Could not reach eWeLink.', 'network'));
+  });
+}
+
 async function setStatus(id, params) {
   let out = params;
+  let thing = null;
   if (params && typeof params.switch === 'string') {
     const outlet = Number.isInteger(params.outlet) && params.outlet >= 0 ? params.outlet : 0;
     out = { switch: params.switch };
     try {
       const things = await getAllThings();
-      const t = things.find((x) => x.deviceid === String(id));
-      if (t && t.params && Array.isArray(t.params.switches) && typeof t.params.switch !== 'string') {
+      thing = things.find((x) => x.deviceid === String(id)) || null;
+      if (thing && thing.params && Array.isArray(thing.params.switches) && typeof thing.params.switch !== 'string') {
         out = { switches: [{ switch: params.switch, outlet }] };
       }
     } catch (e) { /* shape unknown: send the single-switch form */ }
+  }
+  const cfg = config();
+  if (cfg.mode === 'unofficial') {
+    // The HTTP control endpoint rejects account-login tokens (error 4002), so
+    // send the command over the app's WebSocket path instead.
+    if (!thing) {
+      const things = await getAllThings();
+      thing = things.find((x) => x.deviceid === String(id)) || null;
+    }
+    if (!thing || !thing.apikey) throw new TuyaError('That eWeLink device could not be found.', 'not_found', 404);
+    const tok = await getAccessToken(cfg);
+    await wsControl(tok, thing, out);
+    return true;
   }
   await callAuthed('POST', '/v2/device/thing/status', { type: 1, id, params: out });
   return true;
@@ -363,6 +443,7 @@ async function getAllThings() {
           'model', d.productModel || '');
         all.push({
           deviceid: String(d.deviceid || ''),
+          apikey: d.apikey || '',
           name: d.name || '',
           brandName: d.brandName || '',
           productModel: d.productModel || '',

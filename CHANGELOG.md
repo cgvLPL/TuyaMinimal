@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.29
+
+- eWeLink switches now actually switch: commands go over the same live connection the eWeLink app uses, instead of the web endpoint that was refusing them.
+
 ## 2.93.28
 
 - Luma (the dual-port USB adapter) now shows its two real switches instead of four: its firmware reports four channels, but only two outlets exist — the app now knows this model and hides the phantom pair.
