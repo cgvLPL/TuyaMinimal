@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.93.31", "items": ["eWeLink switches can be renamed even while the device is offline."]},
   {"v": "2.93.30", "items": ["Renaming an eWeLink device's switches works now, and the names stick."]},
   {"v": "2.93.29", "items": ["eWeLink switches now switch over the same live connection the eWeLink app uses."]},
   {"v": "2.93.28", "items": ["The dual-port USB adapter now shows its two real switches instead of four."]},
@@ -1427,7 +1428,7 @@
   function prefetchLightSpecs() {
     if (!S.data) return;
     for (const d of S.data.devices) {
-      if ((kindOf(d) === 'light' || kindOf(d) === 'multi' || isReadingDevice(d) || hasEnergy(d)) && !S.specs[d.id] && d.online) loadSpec(d.id, true);
+      if ((kindOf(d) === 'light' || kindOf(d) === 'multi' || isReadingDevice(d) || hasEnergy(d)) && !S.specs[d.id] && (d.online || d.ew)) loadSpec(d.id, true);
     }
   }
   async function loadSpec(id, quiet) {
@@ -4429,7 +4430,7 @@
     // Tap the icon to change that switch's own icon; tap the name to rename it.
     const key = d.id + ':' + code;
     return '<div class="list-row ch-row"><button class="ch-icon icon-dot sm" data-act="icon-open-ch" data-id="' + esc(d.id) + '" data-code="' + esc(code) + '" data-key="ic-' + rk + '" aria-label="Change icon for ' + esc(name) + '">' + channelIconHtml(d, code, 18, true) + '</button>' +
-      '<button class="ch-name" data-act="rename" data-id="' + esc(d.id) + '" data-code="' + esc(code) + '" data-key="rn-edit-' + rk + '" aria-label="Rename ' + esc(name) + '"' + (d.online ? '' : ' disabled') + '>' +
+      '<button class="ch-name" data-act="rename" data-id="' + esc(d.id) + '" data-code="' + esc(code) + '" data-key="rn-edit-' + rk + '" aria-label="Rename ' + esc(name) + '"' + ((d.online || d.ew) ? '' : ' disabled') + '>' +
       '<span class="label">' + esc(name) + '</span><span class="value icon-value">' + icon('pencil', 16) + '</span></button></div>' +
       (S.iconPickingCh === key ? iconSection(d, '-' + d.id + '-' + code, code) : '');
   }

@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.31
+
+- eWeLink switches can be renamed even while the device is offline — the names live in the app, so the device doesn't need to be reachable.
+
 ## 2.93.30
 
 - Renaming an eWeLink device's switches works now: names are saved in the app (eWeLink has no such setting to write to), so "Switch 1" can become "Lamp" and stays that way.
