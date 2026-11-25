@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.93.08", "items": ["The tab bar is a floating pill again, like before — the docked bar from 2.93.07 is gone."]},
   {"v": "2.93.07", "items": ["The tab bar now docks at the very bottom of the screen — no dead band below it."]},
   {"v": "2.93.06", "items": ["Short-screen fix for iPhone 7 is back, exactly as in 2.93.02 (last card clears the floating tab bar on short screens). The new house icon stays."]},
   {"v": "2.93.05", "items": ["Short-screen compatibility blocks for iPhone 7 removed entirely: the layout is back to how it was before 2.93.02 on every phone. (On iPhone 7 the last card can sit behind the floating tab bar again.)"]},

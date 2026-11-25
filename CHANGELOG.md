@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.08
+
+- The tab bar is a floating pill again, like before — the docked bar from 2.93.07 is gone. The wallpaper runs to the bottom edge below it.
+
 ## 2.93.07
 
 - The tab bar now docks at the very bottom of the screen — no dead band below it. The safe-area inset sits inside the bar, so the icons still clear the home indicator.
