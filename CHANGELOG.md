@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.33
+
+- Opening one switch of a split (ungrouped) device now shows just that switch on its own page — one big rocker, its own name and icon — instead of every switch of the device. The whole-device page is unchanged when the device is grouped.
+
 ## 2.93.32
 
 - Each eWeLink switch can have its own icon (tap the icon next to its name in the switch list) and its own name, even while the device is offline.

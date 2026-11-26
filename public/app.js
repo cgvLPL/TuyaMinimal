@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.93.33", "items": ["Opening one switch of a split device now shows just that switch on its own page — one big rocker, its own name and icon — instead of every switch of the device."]},
   {"v": "2.93.32", "items": ["Each eWeLink switch can have its own icon and name, even while the device is offline."]},
   {"v": "2.93.31", "items": ["eWeLink switches can be renamed even while the device is offline."]},
   {"v": "2.93.30", "items": ["Renaming an eWeLink device's switches works now, and the names stick."]},
@@ -1246,7 +1247,12 @@
   // ---------- Routing (#devices, #scenes, #me, #device/<id>) ----------
   function route() {
     const h = location.hash.replace(/^#/, '');
-    if (h.startsWith('device/')) return { view: 'device', id: decodeURIComponent(h.slice(7)) };
+    if (h.startsWith('device/')) {
+      const rest = h.slice(7), slash = rest.indexOf('/');
+      // device/<id>/<code> opens one switch of a split device on its own page.
+      if (slash > 0) return { view: 'device', id: decodeURIComponent(rest.slice(0, slash)), code: decodeURIComponent(rest.slice(slash + 1)) };
+      return { view: 'device', id: decodeURIComponent(rest) };
+    }
     if (h.startsWith('scene/')) return { view: 'scene-edit', id: decodeURIComponent(h.slice(6)) };
     if (h.startsWith('auto/')) return { view: 'auto-edit', id: decodeURIComponent(h.slice(5)) };
     if (h === 'icons') return { view: 'icons' };
@@ -1481,6 +1487,9 @@
   // Split into one tile per switch (Home and the Devices list, phone and wall tablet),
   // or merged into a single tile. The choice is per device and syncs like hidden/order.
   function isSplit(d) { const s = S.split && S.data && S.split[S.data.homeId]; return !!d && isMulti(d) && !!s && s.includes(d.id); }
+  // The switch a device page was opened for (device/<id>/<code>), when the device is split
+  // and the code is one of its switches; null for the whole-device page.
+  function openCodeOf(d, code) { return code && d && isSplit(d) && channelCodes(d).includes(code) ? code : null; }
   function setSplit(id, split) {
     const homeId = S.data && S.data.homeId;
     if (!homeId) return;
@@ -2833,11 +2842,12 @@
   const qcCanOpen = (d) => d && d.online && (hasToggle(d) || channelCodes(d).length > 1 || (kindOf(d) === 'cover' && 'percent_control' in d.status)) && !isKioskAc(d) && (kindOf(d) !== 'cover' || 'percent_control' in d.status);
   const qcDimmable = (d) => kindOf(d) === 'light' && !!brightCode(d) && !!powerCode(d);
   const qcMotion = () => !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
-  function qcTileOf(id) {
+  function qcTileOf(id, code) {
     if (id === OUT_AIR_ID) return document.querySelector('[data-key="sum-outair"]');
     if (id === HOMES_ID) return document.querySelector('[data-key="home-head"]');
     if (/^clim-(temp|hum)/.test(id)) return document.querySelector('[data-key="sum-' + (id.indexOf('clim-hum') === 0 ? 'hum' : 'temp') + '"]');
     if (qc && qc.fromChip && qc.id === id) { const chip = document.querySelector('[data-key="sum-air"]'); if (chip) return chip; }
+    if (code) { const ct = document.querySelector('.grid > .card[data-card-id="' + CSS.escape(id + ':' + code) + '"]'); if (ct) return ct; }
     return document.querySelector('.grid > .card[data-card-id="' + CSS.escape(id) + '"]') || document.querySelector('.k26 .k-ctl[data-id="' + CSS.escape(id) + '"]') ||
       document.querySelector('.k26 .k-ac[data-id="' + CSS.escape(id) + '"]');
   }
@@ -2949,15 +2959,17 @@
     if (qc) qcClose(true);
     const page = !!(opts && opts.page);
     const kind = qcKind(d);
-    const codes = channelCodes(d), multi = kind === 'multi';
+    const code = openCodeOf(d, opts && opts.code);
+    const title = code ? channelName(d, code) : d.name;
+    const codes = channelCodes(d), multi = kind === 'multi' && !code;
     const dim = kind === 'dim' || kind === 'cover';
     const swatches = kind === 'dim' && (warmCode(d) || colourCode(d));
     const el = document.createElement('div');
     el.className = 'qc hue-' + hueOf(d) + (dim ? ' qc-dim' : '') + (kind === 'cover' ? ' qc-cover' : '') + (multi ? ' qc-multi-on' : '') + (page ? ' qc-page' : '') + (kind === 'ac' ? ' qc-ac-on' : '') + (!kind ? ' qc-none' : '') + (d.outdoor || d.clim || d.homesPick ? ' qc-nogear' : '');
-    el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', d.name);
+    el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', title);
     el.innerHTML = '<div class="qc-bg"></div>' +
       (page ? '<button class="qc-x" aria-label="Close">' + X_ICON + '</button>' : '') +
-      '<div class="qc-head"><div class="qc-name">' + esc(d.name) + '</div><div class="qc-status" aria-live="polite"></div></div>' +
+      '<div class="qc-head"><div class="qc-name">' + esc(title) + '</div><div class="qc-status" aria-live="polite"></div></div>' +
       (!kind ? '<div class="qc-body qc-empty"></div>'
         : kind === 'ac' ? '<div class="qc-body qc-ac"></div>'
         : kind === 'remote' ? '<div class="qc-body qc-remote"></div>'
@@ -2972,10 +2984,10 @@
         ? '<div class="qc-pill qc-slider" role="slider" tabindex="0" aria-label="' + esc(d.name) + ' ' + qcSliderFor(d).label + '" aria-valuemin="0" aria-valuemax="100"><span class="qc-fill"></span><span class="qc-ico">' + glyph(iconKeyOf(d), 34) + '</span></div>' +
           (swatches ? '<div class="qc-swatches" role="group" aria-label="Colors"></div>' : '') +
           (kind === 'cover' ? '<div class="qc-cover-btns" role="group" aria-label="Move">' + coverButtons(d, '-qc') + '</div>' : '')
-        : '<button class="qc-pill qc-switch" role="switch" aria-label="' + esc(d.name) + '" data-act="toggle" data-id="' + esc(d.id) + '"><span class="qc-knob">' + glyph(iconKeyOf(d), 34) + '</span></button>') +
-      '<button class="qc-gear" aria-label="All controls for ' + esc(d.name) + '">' + GEAR + '</button>';
+        : '<button class="qc-pill qc-switch" role="switch" aria-label="' + esc(title) + '" data-act="toggle" data-id="' + esc(d.id) + '"' + (code ? ' data-code="' + esc(code) + '"' : '') + '><span class="qc-knob">' + (code ? channelIconHtml(d, code, 34, true) : glyph(iconKeyOf(d), 34)) + '</span></button>') +
+      '<button class="qc-gear" aria-label="All controls for ' + esc(title) + '">' + GEAR + '</button>';
     shell.app.appendChild(el);
-    qc = { id: d.id, el, last: null, lastCh: {}, drag: null, focusBack: document.activeElement, page, back: !!(opts && opts.back), kind, sl: dim ? qcSliderFor(d) : null };
+    qc = { id: d.id, code, el, last: null, lastCh: {}, drag: null, focusBack: document.activeElement, page, back: !!(opts && opts.back), kind, sl: dim ? qcSliderFor(d) : null };
     qcSync(true);
     if (!page) { try { history.pushState({ qc: 1 }, '', location.href); qc.pushed = true; } catch (e) { /* fine without */ } }
     const pill = el.querySelector(multi ? '.qc-multi' : kind === 'ac' ? '.qc-ac' : kind === 'remote' ? '.qc-remote' : kind === 'air' || kind === 'clim' || kind === 'homes' ? '.qc-air' : !kind ? '.qc-empty' : '.qc-pill');
@@ -3016,8 +3028,9 @@
     const d = findDevice(qc.id); if (!d) return;
     const sh = document.createElement('div');
     sh.className = 'qc-sheet';
-    sh.setAttribute('role', 'dialog'); sh.setAttribute('aria-label', d.name + ' settings');
-    sh.innerHTML = '<div class="qc-sheet-head"><span class="qc-sheet-ico">' + deviceIcon(d, 24) + '</span><div class="qc-sheet-title"><div class="qc-sheet-name">' + esc(d.name) + '</div><div class="qc-sheet-status"></div></div>' +
+    const title = qc.code ? channelName(d, qc.code) : d.name;
+    sh.setAttribute('role', 'dialog'); sh.setAttribute('aria-label', title + ' settings');
+    sh.innerHTML = '<div class="qc-sheet-head"><span class="qc-sheet-ico">' + (qc.code ? channelIconHtml(d, qc.code, 24, true) : deviceIcon(d, 24)) + '</span><div class="qc-sheet-title"><div class="qc-sheet-name">' + esc(title) + '</div><div class="qc-sheet-status"></div></div>' +
       '<button class="qc-sheet-x" aria-label="Close">' + X_ICON + '</button></div><div class="qc-sheet-body"></div>';
     qc.el.appendChild(sh);
     qc.sheet = sh;
@@ -3074,7 +3087,7 @@
     if (!qc) return;
     const d = findDevice(qc.id);
     if (!d) { qcClose(true); return; }
-    const on = isOn(d) && d.online, el = qc.el;
+    const on = (qc.code ? !!d.status[qc.code] : isOn(d)) && d.online, el = qc.el;
     const chs = el.querySelectorAll('.qc-ch');
     let statusTxt = d.online ? (qc.drag ? qc.drag.pct + '%' : statusText(d)) : 'No Response';
     if (chs.length) {
@@ -3091,6 +3104,7 @@
       });
       if (d.online) statusTxt = n === 0 ? 'All Off' : n === chs.length ? 'All On' : n + ' On';
     }
+    if (qc.code && d.online) statusTxt = on ? 'On' : 'Off';
     const slPct = () => {
       let real = qc.sl.pct(d);
       if (qc.kind === 'cover' && coverMotion(d) && typeof d.status.percent_state === 'number') { qc.hold = null; return d.status.percent_state; }   // watch it move
@@ -3123,7 +3137,7 @@
     } else el.style.removeProperty('--hue');
     if (qc.sheet && !S.dragging) {
       qc.sheet.querySelector('.qc-sheet-status').textContent = statusTxt;
-      patchHtml(qc.sheet.querySelector('.qc-sheet-body'), detailView(d, true, '-q', true));
+      patchHtml(qc.sheet.querySelector('.qc-sheet-body'), detailView(d, true, '-q', true, qc.code));
     }
     const sw = chs.length ? null : el.querySelector('.qc-switch');
     if (sw) {
@@ -3190,13 +3204,16 @@
     if (e.button > 0 || S.reorder || qc) return;
     const tile = e.target.closest && e.target.closest('.grid > .card.compact, .k26 .k-ctl');
     if (!tile) return;
-    const d = findDevice(tile.dataset.cardId || tile.dataset.id);
+    // A split switch's card id is '<deviceId>:<code>': open just that switch.
+    const raw = tile.dataset.cardId || tile.dataset.id || '', ci = raw.indexOf(':');
+    const d = findDevice(ci > 0 ? raw.slice(0, ci) : raw);
+    const code = ci > 0 ? raw.slice(ci + 1) : null;
     if (!qcCanOpen(d)) return;
     tile.classList.add('lp-hold');
     lp = { tile, x: e.clientX, y: e.clientY, t: setTimeout(() => {
       const t = lp && lp.tile; lpCancel(); lpFired = Date.now();
       if (navigator.vibrate) { try { navigator.vibrate(8); } catch (err) { /* ignore */ } }
-      qcOpen(d, t);
+      qcOpen(d, t, { code });
     }, 460) };
   }, { passive: true });
   document.addEventListener('pointermove', (e) => { if (lp && Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > 10) lpCancel(); }, { passive: true });
@@ -3398,7 +3415,7 @@
     const status = d.online ? (ch ? (on ? 'On' : 'Off') : statusText(d)) : 'Offline';
     return '<div class="' + cls + '" data-card-id="' + esc(d.id + (ch ? ':' + ch : '')) + '">' + iconEl +
       (d.online ? '' : '<span class="off-badge" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 2.5 23 21.5H1z" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9v5.5M12 18v.01" stroke="#000" stroke-width="2.6" stroke-linecap="round"/></svg></span>') +
-      '<button class="card-open"' + (r ? ' inert' : '') + ' data-act="open" data-id="' + esc(d.id) + '" data-key="open-' + esc(d.id) + (ch ? '-' + esc(ch) : '') + '" aria-label="' + esc(name) + ', ' + esc(status) + ', show controls">' +
+      '<button class="card-open"' + (r ? ' inert' : '') + ' data-act="open" data-id="' + esc(d.id) + '"' + (ch ? ' data-code="' + esc(ch) + '"' : '') + ' data-key="open-' + esc(d.id) + (ch ? '-' + esc(ch) : '') + '" aria-label="' + esc(name) + ', ' + esc(status) + ', show controls">' +
       '<span class="card-text"><span class="card-name">' + esc(name) + '</span><span class="card-status">' + esc(status) + '</span></span></button>' +
       (r ? (ch ? hideChBtn(d, ch) : hideBtn(d)) + gripBtn(d, ch) : '') +
       '</div>';
@@ -3960,6 +3977,15 @@
       '<span class="rocker-state' + (on ? ' on' : '') + '" aria-hidden="true">' + (busy ? (on ? 'Turning on…' : 'Turning off…') : on ? 'On' : 'Off') + '</span>' +
       '<button class="rocker' + anim + (busy ? ' pending' : '') + '" role="switch" aria-checked="' + on + '" aria-label="' + esc(d.name) + '" data-act="toggle" data-id="' + esc(d.id) + '" data-key="rocker-' + esc(d.id) + '"' + (busy ? ' aria-busy="true"' : '') + (d.online ? '' : ' disabled') + '>' +
       '<span class="rocker-knob">' + icon(iconKeyOf(d), 30) + '</span></button></div>';
+  }
+  // One switch of a split device on its own page: the same big rocker as a plain device,
+  // but for just that switch (its own icon, name and on/off).
+  function channelRocker(d, code) {
+    const on = !!d.status[code], busy = isPending(d.id);
+    return '<div class="rocker-wrap">' +
+      '<span class="rocker-state' + (on ? ' on' : '') + '" aria-hidden="true">' + (busy ? (on ? 'Turning on…' : 'Turning off…') : on ? 'On' : 'Off') + '</span>' +
+      '<button class="rocker' + (busy ? ' pending' : '') + '" role="switch" aria-checked="' + on + '" aria-label="' + esc(channelName(d, code)) + '" data-act="toggle" data-id="' + esc(d.id) + '" data-code="' + esc(code) + '" data-key="rocker-' + esc(d.id) + '-' + esc(code) + '"' + (busy ? ' aria-busy="true"' : '') + (d.online ? '' : ' disabled') + '>' +
+      '<span class="rocker-knob">' + channelIconHtml(d, code, 30, true) + '</span></button></div>';
   }
   // Several switches in one device (2- and 3-gang wall switches, power strips): a rocker for each,
   // like the Home app's switch groups, with "1 On • 2 Off" above and the switch names below.
@@ -4594,12 +4620,13 @@
       '<div class="ends three"><span>Low</span><span>Medium</span><span>High</span></div></div></div>';
   }
 
-  function detailView(d, inPanel, sfxOver, settingsOnly) {
+  function detailView(d, inPanel, sfxOver, settingsOnly, code) {
     if (!d) return '<div class="empty"><strong>Pick a device</strong><p>Its controls appear here.</p></div>';
     const on = isOn(d);
     const k = kindOf(d), st = d.status;
     const sfx = sfxOver || (inPanel ? '-p' : '-d');
     const dis = d.online ? '' : ' disabled';
+    const ch = openCodeOf(d, code);   // one switch of a split device, on its own page
     let hero = '';
     let heroHasPower = false;
 
@@ -4651,7 +4678,7 @@
     } else if (k === 'irremote') {
       hero += irRemotePad(d, sfx);
     } else if (k === 'multi') {
-      hero += multiRockers(d); heroHasPower = true;
+      hero += ch ? channelRocker(d, ch) : multiRockers(d); heroHasPower = true;
     } else if (powerCode(d)) {
       hero += rockerSwitch(d); heroHasPower = true;
     } else {
@@ -4665,7 +4692,7 @@
     const hideHero = coveredByControl || (settingsOnly && k === 'sensor' && d.online);   // the sensor's rows below say the same
     if (hideHero) hero = '';
     const rows = [];
-    const nameRows = k === 'multi' && (d.online || d.ew) ? channelCodes(d).map((c) => channelRow(d, c, sfx)) : [];
+    const nameRows = k === 'multi' && (d.online || d.ew) ? (ch ? [ch] : channelCodes(d)).map((c) => channelRow(d, c, sfx)) : [];
     if (k === 'multi') {
       rows.push('<div class="list-row"><span class="label" id="split-label">Separate tiles</span>' +
         '<button class="switch" role="switch" aria-checked="' + isSplit(d) + '" aria-labelledby="split-label" data-act="split" data-id="' + esc(d.id) + '" data-key="split-' + esc(d.id) + '"><span class="knob"></span></button></div>');
@@ -4707,10 +4734,10 @@
     return '<div class="detail">' +
       '<div class="detail-head">' +
       (inPanel ? '' : '<button class="round-btn" data-act="back" data-key="back" aria-label="Back to devices">' + icon('back', 20) + '</button>') +
-      '<span class="icon-dot head-icon">' + deviceIcon(d) + '</span>' +
-      '<div><p class="sub">' + esc((d.room || 'No room') + (d.ir && d.ir.brand ? ', ' + d.ir.brand : '')) + '</p><h2 class="detail-title">' + esc(d.name) + '</h2></div></div>' +
+      '<span class="icon-dot head-icon">' + (ch ? channelIconHtml(d, ch, undefined, true) : deviceIcon(d)) + '</span>' +
+      '<div><p class="sub">' + esc((d.room || 'No room') + (d.ir && d.ir.brand ? ', ' + d.ir.brand : '')) + '</p><h2 class="detail-title">' + esc(ch ? channelName(d, ch) : d.name) + '</h2></div></div>' +
       // AC and thermostat screens skip the photo: the temperature dial is the picture there.
-      (hideHero ? '' : '<div class="hero">' + (photoOf(d) && hero.indexOf('<div class="td') === -1 ? '<div class="hero-photo ' + (on && d.online ? 'lit' : 'dim') + '" style="--glow-color:' + photoGlow(d) + '">' + photoImg(photoOf(d)) + '</div>' : '') + hero + '</div>') +
+      (hideHero ? '' : '<div class="hero">' + (photoOf(d) && !ch && hero.indexOf('<div class="td') === -1 ? '<div class="hero-photo ' + (on && d.online ? 'lit' : 'dim') + '" style="--glow-color:' + photoGlow(d) + '">' + photoImg(photoOf(d)) + '</div>' : '') + hero + '</div>') +
       (nameRows.length ? '<h3 class="section-title">Switch names</h3><div class="list names-list">' + nameRows.join('') + '</div>' : '') +
       '<div class="list">' + rows.join('') + '</div>' +
       (d.online && !d.ew ? timerSection(d) : '') +
@@ -7214,7 +7241,7 @@ function kClockPicker() {
       } else if (isWide && selId) S.panelId = selId;
       mainHtml = devicesView(isWide ? selId : null);
       if (isWide) {
-        panelHtml = S.data ? detailView(findDevice(selId), true) : '';
+        panelHtml = S.data ? detailView(findDevice(selId), true, null, false, (r.view === 'device' && selId === r.id) ? r.code : null) : '';
         if (selId && S.data && !S.specs[selId]) loadSpec(selId, true);
       }
     } else if (r.view === 'scene-edit') {
@@ -7293,7 +7320,7 @@ function kClockPicker() {
     if (newList && newList !== oldList) newList.classList.toggle('scrolled', newList.scrollTop > 2);
     else if (newList && newList._sc) newList.classList.add('scrolled');
 
-    const routeKey = r.view + ':' + (r.id || '');
+    const routeKey = r.view + ':' + (r.id || '') + ':' + (r.code || '');
     if (routeKey !== lastRouteKey && lastRouteKey) animateRoute(lastRouteKey.split(':')[0], r.view, isWide);
     if (routeKey !== lastRouteKey) {
       if (!isWide || activeTab !== lastTab) {
@@ -7318,7 +7345,8 @@ function kClockPicker() {
     const bigQc = (d) => d && ['ac', 'remote', 'air'].includes(qcKind(d));
     if (r.view === 'device' && S.data && (!isWide || bigQc(findDevice(r.id)))) {
       const d = findDevice(r.id);
-      if (d && !(qc && qc.page && qc.id === d.id)) qcOpen(d, qcTileOf(d.id), { page: true, back: hadRoute });
+      const code = openCodeOf(d, r.code);
+      if (d && !(qc && qc.page && qc.id === d.id && qc.code === code)) qcOpen(d, qcTileOf(d.id, code), { page: true, back: hadRoute, code });
       else if (!d) location.replace('#devices');
     } else if (qc && qc.page) qcClose();
     qcSync();
@@ -7388,7 +7416,7 @@ function kClockPicker() {
       case 'tab': if (inEditor() && editorDirty()) leaveEditor(el.dataset.tab); else go(el.dataset.tab); break;
       case 'room': if (S.room !== el.dataset.room) { roomFade = '.dv-scroll'; roomDir = el.dataset.room === 'All' ? -1 : 1; } S.room = el.dataset.room; S.allOffArmed = 0; render(); { const pl = document.querySelector('.room-pill[aria-pressed="true"]'); if (pl) pl.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' }); } break;
       case 'kroom': if (S.kRoom !== el.dataset.room) roomFade = '.k-grid'; S.kRoom = el.dataset.room; store.set('kRoom', S.kRoom); render(); break;
-      case 'open': go('device/' + encodeURIComponent(id)); break;
+      case 'open': go('device/' + encodeURIComponent(id) + (el.dataset.code ? '/' + encodeURIComponent(el.dataset.code) : '')); break;
       case 'back': go('devices'); break;
       case 'reorder': S.reorder = !S.reorder; render(); break;
       case 'hide-toggle': {
