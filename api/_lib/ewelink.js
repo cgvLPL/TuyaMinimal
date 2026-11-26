@@ -53,10 +53,10 @@ function isConfigured() {
 function config() {
   const m = mode();
   if (m === 'unofficial') {
-    // Env can override the app credentials; otherwise the app's own pairs.
-    const pairs = (process.env.EWELINK_APPID && process.env.EWELINK_APPSECRET)
-      ? [{ appid: process.env.EWELINK_APPID, secret: process.env.EWELINK_APPSECRET }, ...APP_PAIRS]
-      : APP_PAIRS;
+    // Always the mobile-app credential pairs here: they see third-party brands
+    // (e.g. Smatrul) that a developer APPID may not. EWELINK_APPID/SECRET belong
+    // to official mode below and must not leak into the account login.
+    const pairs = APP_PAIRS;
     return { mode: m, appid: pairs[0].appid, secret: pairs[0].secret, pairs, email: process.env.EWELINK_EMAIL, password: process.env.EWELINK_PASSWORD };
   }
   if (m === 'official') return { mode: m, appid: process.env.EWELINK_APPID, secret: process.env.EWELINK_APPSECRET };

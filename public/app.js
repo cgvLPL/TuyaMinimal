@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.93.34", "items": ["Adding the official eWeLink app ID and secret on the server no longer changes the current account sign-in — it keeps using the sign-in that can see all your devices."]},
   {"v": "2.93.33", "items": ["Opening one switch of a split device now shows just that switch on its own page — one big rocker, its own name and icon — instead of every switch of the device."]},
   {"v": "2.93.32", "items": ["Each eWeLink switch can have its own icon and name, even while the device is offline."]},
   {"v": "2.93.31", "items": ["eWeLink switches can be renamed even while the device is offline."]},

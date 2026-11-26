@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.34
+
+- Adding the official eWeLink app ID and secret on the server no longer changes the current account sign-in: the unofficial login keeps using the mobile-app credentials that can see third-party brands (like the Smatrul adapter), and the app ID/secret are used only by the official sign-in mode.
+
 ## 2.93.33
 
 - Opening one switch of a split (ungrouped) device now shows just that switch on its own page — one big rocker, its own name and icon — instead of every switch of the device. The whole-device page is unchanged when the device is grouped.
