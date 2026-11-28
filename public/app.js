@@ -4,6 +4,7 @@
 
   // Shown in Me > About > Version, newest first. Add an entry with every release.
   const CHANGELOG = [
+  {"v": "2.93.35", "items": ["Renaming a switch right after opening the app no longer switches back to \"Switch 1\" / \"Switch 2\" — a rename saved while the device details were still loading is kept."]},
   {"v": "2.93.34", "items": ["Adding the official eWeLink app ID and secret on the server no longer changes the current account sign-in — it keeps using the sign-in that can see all your devices."]},
   {"v": "2.93.33", "items": ["Opening one switch of a split device now shows just that switch on its own page — one big rocker, its own name and icon — instead of every switch of the device."]},
   {"v": "2.93.32", "items": ["Each eWeLink switch can have its own icon and name, even while the device is offline."]},
@@ -1443,9 +1444,15 @@
     if (S.specs[id]) return S.specs[id];
     S.specs[id] = 'loading';
     try {
-      S.specs[id] = await api('spec?deviceId=' + encodeURIComponent(id));
+      const data = await api('spec?deviceId=' + encodeURIComponent(id));
+      const cur = S.specs[id];
+      // A rename saved while this spec was loading sits on a stub in S.specs;
+      // this response was read before it, so keep the local names on top.
+      if (cur && cur !== 'loading' && cur.names) data.names = Object.assign({}, data.names || {}, cur.names);
+      S.specs[id] = data;
     } catch (e) {
-      S.specs[id] = { codes: {}, writable: null, failed: true };
+      const cur = S.specs[id];
+      S.specs[id] = (cur && cur !== 'loading' && cur.names) ? cur : { codes: {}, writable: null, failed: true };
       if (!quiet) toast('Could not load controls: ' + e.message);
     }
     if (!S.dragging && !S.renaming) render();
@@ -8317,7 +8324,13 @@ function kClockPicker() {
     try {
       await api('rename', { method: 'POST', body: { deviceId: d.id, code, name, homeId: S.data && S.data.homeId, deviceName: d.name } });
     } catch (e) {
-      if (before === undefined) delete spec.names[code]; else spec.names[code] = before;
+      // Revert on the live spec too: a spec load may have replaced the stub
+      // this rename started on while the save was in flight.
+      const live = S.specs[d.id];
+      for (const t of (live && live !== 'loading' && live !== spec) ? [spec, live] : [spec]) {
+        if (!t.names) continue;
+        if (before === undefined) delete t.names[code]; else t.names[code] = before;
+      }
       render();
       toast('Rename failed: ' + e.message);
     }

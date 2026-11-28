@@ -2,6 +2,10 @@
 
 Newest first. The same list is in the app under **Me → About → Version**.
 
+## 2.93.35
+
+- Renaming a switch right after opening the app no longer switches back to "Switch 1" / "Switch 2": a rename saved while the device's details were still loading was being overwritten when they arrived. The saved name is now kept.
+
 ## 2.93.34
 
 - Adding the official eWeLink app ID and secret on the server no longer changes the current account sign-in: the unofficial login keeps using the mobile-app credentials that can see third-party brands (like the Smatrul adapter), and the app ID/secret are used only by the official sign-in mode.
